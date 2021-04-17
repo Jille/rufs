@@ -54,11 +54,6 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	d.cond.Broadcast()
 
 	for {
-		d.cond.Wait()
-		if stream != d.streams[req.GetUsername()] {
-			return errors.New("connection from another process for your username")
-		}
-
 		msg := &pb.ConnectResponse{}
 		for _, p := range d.clients {
 			msg.Peers = append(msg.Peers, p)
@@ -71,5 +66,10 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 			return err
 		}
 		d.mtx.Lock()
+
+		d.cond.Wait()
+		if stream != d.streams[req.GetUsername()] {
+			return errors.New("connection from another process for your username")
+		}
 	}
 }
