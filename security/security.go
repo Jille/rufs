@@ -155,6 +155,15 @@ func serializePubKey(priv *rsa.PrivateKey) ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(&priv.PublicKey)
 }
 
+// StoreNewKeyPair writes the private key to $privFile and returns the pubkey.
+func StoreNewKeyPair(privFile string) ([]byte, error) {
+	priv, err := createKeyPair(privFile)
+	if err != nil {
+		return nil, err
+	}
+	return serializePubKey(priv)
+}
+
 func pemToFile(fn, pemType string, data []byte, mode os.FileMode) error {
 	fh, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_EXCL|os.O_TRUNC, mode)
 	if err != nil {
@@ -215,4 +224,12 @@ func getTlsConfig(mode tlsConfigType, ca *x509.Certificate, cert *tls.Certificat
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 	return cfg
+}
+
+func TLSConfigForRegistration(caFile string) (*tls.Config, error) {
+	ca, err := loadCertificate(caFile)
+	if err != nil {
+		return nil, err
+	}
+	return getTlsConfig(tlsConfigMasterClient, ca, nil, "rufs-ca"), nil
 }
