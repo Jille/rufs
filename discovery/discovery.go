@@ -65,14 +65,14 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	p, ok := peer.FromContext(stream.Context())
 	if !ok {
 		// This should never happen.
-		return status.Error(codes.Internal, "no Peer attached to context; TLS issue?")
+		return status.Error(codes.Unauthenticated, "no Peer attached to context; TLS issue?")
 	}
 	ti, ok := p.AuthInfo.(credentials.TLSInfo)
 	if !ok {
-		return status.Error(codes.PermissionDenied, "couldn't get TLSInfo; TLS issue?")
+		return status.Error(codes.Unauthenticated, "couldn't get TLSInfo; TLS issue?")
 	}
 	if len(ti.State.PeerCertificates) == 0 {
-		return status.Error(codes.PermissionDenied, "no client certificate given")
+		return status.Error(codes.Unauthenticated, "no client certificate given")
 	}
 	username := ti.State.PeerCertificates[0].Subject.CommonName
 	d.mtx.Lock()
