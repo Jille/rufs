@@ -21,6 +21,7 @@ func main() {
 
 	d := &discovery{
 		clients: map[string]*pb.Peer{},
+		streams: map[string]pb.DiscoveryService_ConnectServer{},
 	}
 	d.cond = sync.NewCond(&d.mtx)
 	s := grpc.NewServer()
