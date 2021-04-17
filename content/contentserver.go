@@ -41,6 +41,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
+	log.Printf("listening on port %d.", *port)
 	if err := s.Serve(sock); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
