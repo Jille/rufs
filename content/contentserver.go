@@ -73,7 +73,7 @@ func (c *content) ReadDir(ctx context.Context, rq *pb.ReadDirRequest) (*pb.ReadD
 		return nil, status.Errorf(codes.PermissionDenied, "path falls outside root")
 	}
 
-	dirfiles, err := os.ReadDir(dirpath)
+	dirfiles, err := readdir(dirpath)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +88,16 @@ func (c *content) ReadDir(ctx context.Context, rq *pb.ReadDirRequest) (*pb.ReadD
 	return &pb.ReadDirResponse{
 		Files: files,
 	}, nil
+}
+
+// Compatibility function to support Go 1.13.
+func readdir(name string) ([]os.FileInfo, error) {
+	dh, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer dh.Close()
+	return dh.Readdir(0)
 }
 
 func (c *content) ReadFile(rq *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) error {
