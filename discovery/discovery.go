@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -61,12 +62,12 @@ type discovery struct {
 }
 
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
-	ri, ok := credentials.RequestInfoFromContext(stream.Context())
+	p, ok := peer.FromContext(stream.Context())
 	if !ok {
 		// This should never happen.
-		return status.Error(codes.Internal, "no RequestInfo attached to context; TLS issue?")
+		return status.Error(codes.Internal, "no Peer attached to context; TLS issue?")
 	}
-	ti, ok := ri.AuthInfo.(credentials.TLSInfo)
+	ti, ok := p.AuthInfo.(credentials.TLSInfo)
 	if !ok {
 		return status.Error(codes.PermissionDenied, "couldn't get TLSInfo; TLS issue?")
 	}
