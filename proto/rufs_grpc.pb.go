@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // DiscoveryServiceClient is the client API for DiscoveryService service.
@@ -28,13 +29,8 @@ func NewDiscoveryServiceClient(cc grpc.ClientConnInterface) DiscoveryServiceClie
 	return &discoveryServiceClient{cc}
 }
 
-var discoveryServiceConnectStreamDesc = &grpc.StreamDesc{
-	StreamName:    "Connect",
-	ServerStreams: true,
-}
-
 func (c *discoveryServiceClient) Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error) {
-	stream, err := c.cc.NewStream(ctx, discoveryServiceConnectStreamDesc, "/DiscoveryService/Connect", opts...)
+	stream, err := c.cc.NewStream(ctx, &DiscoveryService_ServiceDesc.Streams[0], "/DiscoveryService/Connect", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,20 +61,40 @@ func (x *discoveryServiceConnectClient) Recv() (*ConnectResponse, error) {
 	return m, nil
 }
 
-// DiscoveryServiceService is the service API for DiscoveryService service.
-// Fields should be assigned to their respective handler implementations only before
-// RegisterDiscoveryServiceService is called.  Any unassigned fields will result in the
-// handler for that method returning an Unimplemented error.
-type DiscoveryServiceService struct {
-	Connect func(*ConnectRequest, DiscoveryService_ConnectServer) error
+// DiscoveryServiceServer is the server API for DiscoveryService service.
+// All implementations must embed UnimplementedDiscoveryServiceServer
+// for forward compatibility
+type DiscoveryServiceServer interface {
+	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
+	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
-func (s *DiscoveryServiceService) connect(_ interface{}, stream grpc.ServerStream) error {
+// UnimplementedDiscoveryServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedDiscoveryServiceServer struct {
+}
+
+func (UnimplementedDiscoveryServiceServer) Connect(*ConnectRequest, DiscoveryService_ConnectServer) error {
+	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
+
+// UnsafeDiscoveryServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DiscoveryServiceServer will
+// result in compilation errors.
+type UnsafeDiscoveryServiceServer interface {
+	mustEmbedUnimplementedDiscoveryServiceServer()
+}
+
+func RegisterDiscoveryServiceServer(s grpc.ServiceRegistrar, srv DiscoveryServiceServer) {
+	s.RegisterService(&DiscoveryService_ServiceDesc, srv)
+}
+
+func _DiscoveryService_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ConnectRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return s.Connect(m, &discoveryServiceConnectServer{stream})
+	return srv.(DiscoveryServiceServer).Connect(m, &discoveryServiceConnectServer{stream})
 }
 
 type DiscoveryService_ConnectServer interface {
@@ -94,50 +110,169 @@ func (x *discoveryServiceConnectServer) Send(m *ConnectResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-// RegisterDiscoveryServiceService registers a service implementation with a gRPC server.
-func RegisterDiscoveryServiceService(s grpc.ServiceRegistrar, srv *DiscoveryServiceService) {
-	srvCopy := *srv
-	if srvCopy.Connect == nil {
-		srvCopy.Connect = func(*ConnectRequest, DiscoveryService_ConnectServer) error {
-			return status.Errorf(codes.Unimplemented, "method Connect not implemented")
-		}
-	}
-	sd := grpc.ServiceDesc{
-		ServiceName: "DiscoveryService",
-		Methods:     []grpc.MethodDesc{},
-		Streams: []grpc.StreamDesc{
-			{
-				StreamName:    "Connect",
-				Handler:       srvCopy.connect,
-				ServerStreams: true,
-			},
+// DiscoveryService_ServiceDesc is the grpc.ServiceDesc for DiscoveryService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "DiscoveryService",
+	HandlerType: (*DiscoveryServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Connect",
+			Handler:       _DiscoveryService_Connect_Handler,
+			ServerStreams: true,
 		},
-		Metadata: "rufs.proto",
-	}
-
-	s.RegisterService(&sd, nil)
+	},
+	Metadata: "rufs.proto",
 }
 
-// NewDiscoveryServiceService creates a new DiscoveryServiceService containing the
-// implemented methods of the DiscoveryService service in s.  Any unimplemented
-// methods will result in the gRPC server returning an UNIMPLEMENTED status to the client.
-// This includes situations where the method handler is misspelled or has the wrong
-// signature.  For this reason, this function should be used with great care and
-// is not recommended to be used by most users.
-func NewDiscoveryServiceService(s interface{}) *DiscoveryServiceService {
-	ns := &DiscoveryServiceService{}
-	if h, ok := s.(interface {
-		Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
-	}); ok {
-		ns.Connect = h.Connect
-	}
-	return ns
+// ContentServiceClient is the client API for ContentService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ContentServiceClient interface {
+	ReadDir(ctx context.Context, in *ReadDirRequest, opts ...grpc.CallOption) (*ReadDirResponse, error)
+	ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (ContentService_ReadFileClient, error)
 }
 
-// UnstableDiscoveryServiceService is the service API for DiscoveryService service.
-// New methods may be added to this interface if they are added to the service
-// definition, which is not a backward-compatible change.  For this reason,
-// use of this type is not recommended.
-type UnstableDiscoveryServiceService interface {
-	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
+type contentServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewContentServiceClient(cc grpc.ClientConnInterface) ContentServiceClient {
+	return &contentServiceClient{cc}
+}
+
+func (c *contentServiceClient) ReadDir(ctx context.Context, in *ReadDirRequest, opts ...grpc.CallOption) (*ReadDirResponse, error) {
+	out := new(ReadDirResponse)
+	err := c.cc.Invoke(ctx, "/ContentService/ReadDir", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *contentServiceClient) ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (ContentService_ReadFileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ContentService_ServiceDesc.Streams[0], "/ContentService/ReadFile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &contentServiceReadFileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ContentService_ReadFileClient interface {
+	Recv() (*ReadFileResponse, error)
+	grpc.ClientStream
+}
+
+type contentServiceReadFileClient struct {
+	grpc.ClientStream
+}
+
+func (x *contentServiceReadFileClient) Recv() (*ReadFileResponse, error) {
+	m := new(ReadFileResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ContentServiceServer is the server API for ContentService service.
+// All implementations must embed UnimplementedContentServiceServer
+// for forward compatibility
+type ContentServiceServer interface {
+	ReadDir(context.Context, *ReadDirRequest) (*ReadDirResponse, error)
+	ReadFile(*ReadFileRequest, ContentService_ReadFileServer) error
+	mustEmbedUnimplementedContentServiceServer()
+}
+
+// UnimplementedContentServiceServer must be embedded to have forward compatible implementations.
+type UnimplementedContentServiceServer struct {
+}
+
+func (UnimplementedContentServiceServer) ReadDir(context.Context, *ReadDirRequest) (*ReadDirResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadDir not implemented")
+}
+func (UnimplementedContentServiceServer) ReadFile(*ReadFileRequest, ContentService_ReadFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method ReadFile not implemented")
+}
+func (UnimplementedContentServiceServer) mustEmbedUnimplementedContentServiceServer() {}
+
+// UnsafeContentServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ContentServiceServer will
+// result in compilation errors.
+type UnsafeContentServiceServer interface {
+	mustEmbedUnimplementedContentServiceServer()
+}
+
+func RegisterContentServiceServer(s grpc.ServiceRegistrar, srv ContentServiceServer) {
+	s.RegisterService(&ContentService_ServiceDesc, srv)
+}
+
+func _ContentService_ReadDir_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadDirRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ContentServiceServer).ReadDir(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ContentService/ReadDir",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ContentServiceServer).ReadDir(ctx, req.(*ReadDirRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ContentService_ReadFile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReadFileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ContentServiceServer).ReadFile(m, &contentServiceReadFileServer{stream})
+}
+
+type ContentService_ReadFileServer interface {
+	Send(*ReadFileResponse) error
+	grpc.ServerStream
+}
+
+type contentServiceReadFileServer struct {
+	grpc.ServerStream
+}
+
+func (x *contentServiceReadFileServer) Send(m *ReadFileResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// ContentService_ServiceDesc is the grpc.ServiceDesc for ContentService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ContentService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ContentService",
+	HandlerType: (*ContentServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ReadDir",
+			Handler:    _ContentService_ReadDir_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "ReadFile",
+			Handler:       _ContentService_ReadFile_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "rufs.proto",
 }

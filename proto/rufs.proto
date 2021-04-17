@@ -20,3 +20,38 @@ message Peer {
 	string username = 1;
 	repeated string endpoints = 2;
 }
+
+service ContentService {
+	rpc ReadDir(ReadDirRequest) returns (ReadDirResponse) {
+	}
+
+	rpc ReadFile(ReadFileRequest) returns (stream ReadFileResponse) {
+	}
+}
+
+message ReadDirRequest {
+	string path = 1;
+}
+
+message ReadDirResponse {
+	repeated File files = 1;
+}
+
+message File {
+	string filename = 1;
+
+	// Optional
+	string hash = 2;
+}
+
+message ReadFileRequest {
+	string filename = 1;
+	uint64 offset = 2;
+	uint64 rdnow = 3;
+	uint64 rdahead = 4;
+}
+
+message ReadFileResponse {
+	uint64 offset = 1;
+	bytes data = 2;
+}
