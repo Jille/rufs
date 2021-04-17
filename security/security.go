@@ -186,10 +186,10 @@ func pemFromFile(fn, pemType string) ([]byte, error) {
 type tlsConfigType int
 
 const (
-	TlsConfigMaster tlsConfigType = iota
-	TlsConfigMasterClient
-	TlsConfigServer
-	TlsConfigServerClient
+	tlsConfigMaster tlsConfigType = iota
+	tlsConfigMasterClient
+	tlsConfigServer
+	tlsConfigServerClient
 )
 
 func getTlsConfig(mode tlsConfigType, ca *x509.Certificate, cert *tls.Certificate, serverName string) *tls.Config {
@@ -204,10 +204,10 @@ func getTlsConfig(mode tlsConfigType, ca *x509.Certificate, cert *tls.Certificat
 		cfg.Certificates = []tls.Certificate{*cert}
 	}
 	switch mode {
-	case TlsConfigMaster, TlsConfigMasterClient:
+	case tlsConfigMaster, tlsConfigMasterClient:
 		cfg.ClientAuth = tls.VerifyClientCertIfGiven
 		cfg.PreferServerCipherSuites = true
-	case TlsConfigServer, TlsConfigServerClient:
+	case tlsConfigServer, tlsConfigServerClient:
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 	return cfg
