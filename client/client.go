@@ -10,7 +10,9 @@ import (
 
 	_ "github.com/Jille/grpc-multi-resolver"
 	pb "github.com/sgielen/rufs/proto"
+	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -27,7 +29,12 @@ func main() {
 		log.Fatalf("username must not be empty (see -help)")
 	}
 
-	conn, err := grpc.Dial(*discovery, grpc.WithInsecure(), grpc.WithBlock())
+	tc, err := security.TLSConfigForMasterClient("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s.crt", *username), fmt.Sprintf("/tmp/rufs/%s.key", *username))
+	if err != nil {
+		log.Fatalf("Failed to load certificates: %v", err)
+	}
+
+	conn, err := grpc.Dial(*discovery, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("failed to connect to discovery server: %v", err)
 	}

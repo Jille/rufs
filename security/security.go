@@ -233,3 +233,15 @@ func TLSConfigForRegistration(caFile string) (*tls.Config, error) {
 	}
 	return getTlsConfig(tlsConfigMasterClient, ca, nil, "rufs-ca"), nil
 }
+
+func TLSConfigForMasterClient(caFile, crtFile, keyFile string) (*tls.Config, error) {
+	ca, err := loadCertificate(caFile)
+	if err != nil {
+		return nil, err
+	}
+	crt, err := tls.LoadX509KeyPair(crtFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+	return getTlsConfig(tlsConfigMasterClient, ca, &crt, "rufs-ca"), nil
+}
