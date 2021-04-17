@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"strings"
@@ -54,6 +55,13 @@ func main() {
 }
 
 func readdir(ctx context.Context, peers []*pb.Peer, path string) {
+	type peerFile struct {
+		peers []*pb.Peer
+	}
+
+	warnings := []string{}
+	files := make(map[string]*peerFile)
+
 	for _, peer := range peers {
 		conn, err := grpc.Dial("multi:///"+strings.Join(peer.GetEndpoints(), ","), grpc.WithInsecure(), grpc.WithBlock())
 		if err != nil {
@@ -70,6 +78,38 @@ func readdir(ctx context.Context, peers []*pb.Peer, path string) {
 			log.Printf("failed to readdir on peer %s, ignoring: %v", peer.GetUsername(), err)
 			continue
 		}
-		log.Printf("readdir on peer %s: %s", peer.GetUsername(), r)
+		for _, file := range r.Files {
+			if files[file.Filename] == nil {
+				files[file.Filename] = &peerFile{}
+			}
+			files[file.Filename].peers = append(files[file.Filename].peers, peer)
+		}
+	}
+
+	// remove files available on multiple peers
+	for filename, file := range files {
+		if len(file.peers) != 1 {
+			peers := ""
+			for _, peer := range file.peers {
+				if peers == "" {
+					peers = peer.GetUsername()
+				} else {
+					peers = peers + ", " + peer.GetUsername()
+				}
+			}
+			warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, peers))
+			delete(files, filename)
+		}
+	}
+
+	log.Printf("files in %s:", path)
+	for filename, file := range files {
+		log.Printf("- %s (%s)", filename, *file)
+	}
+	if len(warnings) >= 1 {
+		log.Printf("warnings:")
+		for _, warning := range warnings {
+			log.Printf("- %s", warning)
+		}
 	}
 }
