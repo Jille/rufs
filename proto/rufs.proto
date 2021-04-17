@@ -1,0 +1,18 @@
+service DiscoveryService {
+	rpc Connect(ConnectRequest) returns (stream ConnectResponse) {
+	}
+}
+
+message ConnectRequest {
+	string username = 1;
+	repeated string endpoints = 2;
+}
+
+message ConnectResponse {
+	repeated Peer peers = 1;
+}
+
+message Peer {
+	string username = 1;
+	repeated string endpoints = 2;
+}
