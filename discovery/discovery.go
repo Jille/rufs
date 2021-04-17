@@ -1,14 +1,15 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"sync"
 
 	pb "github.com/sgielen/rufs/proto"
+	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
 )
 
@@ -19,6 +20,11 @@ var (
 func main() {
 	flag.Parse()
 
+	ca, err := security.LoadCAKeyPair("/tmp/rufs/")
+	if err != nil {
+		log.Fatalf("Failed to load CA key pair: %v", err)
+	}
+
 	d := &discovery{
 		clients: map[string]*pb.Peer{},
 		streams: map[string]pb.DiscoveryService_ConnectServer{},
@@ -26,7 +32,7 @@ func main() {
 	d.cond = sync.NewCond(&d.mtx)
 	s := grpc.NewServer()
 	pb.RegisterDiscoveryServiceServer(s, d)
-	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	sock, err := tls.Listen("tcp", fmt.Sprintf(":%d", *port), ca.TLSConfigForDiscovery())
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}

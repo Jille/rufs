@@ -25,9 +25,9 @@ type CAKeyPair struct {
 
 // LoadCAKeyPair loads ca.rt and ca.key from $dir.
 func LoadCAKeyPair(dir string) (*CAKeyPair, error) {
-	mv := &CAKeyPair{}
+	p := &CAKeyPair{}
 	var err error
-	mv.ca, err = loadCertificate(filepath.Join(dir, "ca.crt"))
+	p.ca, err = loadCertificate(filepath.Join(dir, "ca.crt"))
 	if err != nil {
 		return nil, err
 	}
@@ -35,31 +35,22 @@ func LoadCAKeyPair(dir string) (*CAKeyPair, error) {
 	if err != nil {
 		return nil, err
 	}
-	mv.priv, err = x509.ParsePKCS1PrivateKey(priv)
+	p.priv, err = x509.ParsePKCS1PrivateKey(priv)
 	if err != nil {
 		return nil, err
 	}
-	return mv, nil
-}
-
-// Certificate converts this pair to a *tls.Certificate.
-func (mv *CAKeyPair) Certificate() *tls.Certificate {
-	return &tls.Certificate{
-		Certificate: [][]byte{mv.ca.Raw},
-		PrivateKey:  mv.priv,
-		Leaf:        mv.ca,
-	}
+	return p, nil
 }
 
 // Sign a given public key with this CA and create a certificate for $name.
-func (mv *CAKeyPair) Sign(pubKey []byte, name string) ([]byte, error) {
+func (p *CAKeyPair) Sign(pubKey []byte, name string) ([]byte, error) {
 	pk, err := x509.ParsePKIXPublicKey(pubKey)
 	if err != nil {
 		return nil, err
 	}
 
 	t := createCertTemplate(false, name)
-	cert, err := x509.CreateCertificate(rand.Reader, t, mv.ca, pk, mv.priv)
+	cert, err := x509.CreateCertificate(rand.Reader, t, p.ca, pk, p.priv)
 	if err != nil {
 		return nil, err
 	}
@@ -67,12 +58,25 @@ func (mv *CAKeyPair) Sign(pubKey []byte, name string) ([]byte, error) {
 }
 
 // CreateToken creates a registration token for $user.
-func (mv *CAKeyPair) CreateToken(user string) string {
+func (p *CAKeyPair) CreateToken(user string) string {
 	h := sha1.New()
 	h.Write([]byte(user))
 	h.Write([]byte{0})
-	h.Write(x509.MarshalPKCS1PrivateKey(mv.priv))
+	h.Write(x509.MarshalPKCS1PrivateKey(p.priv))
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+func (p *CAKeyPair) TLSConfigForDiscovery() *tls.Config {
+	return getTlsConfig(tlsConfigMaster, p.ca, p.certificate(), "rufs-master")
+}
+
+// certificate converts this pair to a *tls.Certificate.
+func (p *CAKeyPair) certificate() *tls.Certificate {
+	return &tls.Certificate{
+		Certificate: [][]byte{p.ca.Raw},
+		PrivateKey:  p.priv,
+		Leaf:        p.ca,
+	}
 }
 
 func createCertTemplate(isCA bool, name string) *x509.Certificate {
