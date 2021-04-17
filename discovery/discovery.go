@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 
 	pb "github.com/sgielen/rufs/proto"
 	"google.golang.org/grpc"
@@ -18,8 +19,12 @@ var (
 func main() {
 	flag.Parse()
 
+	d := &discovery{
+		clients: map[string]*pb.Peer{},
+	}
+	d.cond = sync.NewCond(&d.mtx)
 	s := grpc.NewServer()
-	pb.RegisterDiscoveryServiceService(s, pb.NewDiscoveryServiceService(&discovery{}))
+	pb.RegisterDiscoveryServiceServer(s, d)
 	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
@@ -29,8 +34,42 @@ func main() {
 	}
 }
 
-type discovery struct{}
+type discovery struct {
+	pb.UnimplementedDiscoveryServiceServer
+
+	mtx     sync.Mutex
+	clients map[string]*pb.Peer
+	streams map[string]pb.DiscoveryService_ConnectServer
+	cond    *sync.Cond
+}
 
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
-	return errors.New("not yet implemented")
+	d.mtx.Lock()
+	defer d.mtx.Unlock()
+	d.clients[req.GetUsername()] = &pb.Peer{
+		Username:  req.GetUsername(),
+		Endpoints: req.GetEndpoints(),
+	}
+	d.streams[req.GetUsername()] = stream
+	d.cond.Broadcast()
+
+	for {
+		d.cond.Wait()
+		if stream != d.streams[req.GetUsername()] {
+			return errors.New("connection from another process for your username")
+		}
+
+		msg := &pb.ConnectResponse{}
+		for _, p := range d.clients {
+			msg.Peers = append(msg.Peers, p)
+		}
+		d.mtx.Unlock()
+		if err := stream.Send(msg); err != nil {
+			d.mtx.Lock()
+			delete(d.clients, req.GetUsername())
+			delete(d.streams, req.GetUsername())
+			return err
+		}
+		d.mtx.Lock()
+	}
 }
