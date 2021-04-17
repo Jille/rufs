@@ -74,17 +74,14 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	if len(ti.State.PeerCertificates) == 0 {
 		return status.Error(codes.PermissionDenied, "no client certificate given")
 	}
-	if ti.State.PeerCertificates[0].Subject.CommonName != req.GetUsername() {
-		// TODO(quis): Don't let people pass in their username but just grab it from the certificate.
-		return status.Error(codes.PermissionDenied, "given username mismatches certificate")
-	}
+	username := ti.State.PeerCertificates[0].Subject.CommonName
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
-	d.clients[req.GetUsername()] = &pb.Peer{
-		Username:  req.GetUsername(),
+	d.clients[username] = &pb.Peer{
+		Username:  username,
 		Endpoints: req.GetEndpoints(),
 	}
-	d.streams[req.GetUsername()] = stream
+	d.streams[username] = stream
 	d.cond.Broadcast()
 
 	for {
@@ -95,14 +92,14 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 		d.mtx.Unlock()
 		if err := stream.Send(msg); err != nil {
 			d.mtx.Lock()
-			delete(d.clients, req.GetUsername())
-			delete(d.streams, req.GetUsername())
+			delete(d.clients, username)
+			delete(d.streams, username)
 			return err
 		}
 		d.mtx.Lock()
 
 		d.cond.Wait()
-		if stream != d.streams[req.GetUsername()] {
+		if stream != d.streams[username] {
 			return errors.New("connection from another process for your username")
 		}
 	}

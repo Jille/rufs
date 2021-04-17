@@ -18,6 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiscoveryServiceClient interface {
+	// Register signs your TLS client certificate.
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error)
 }
@@ -75,6 +76,7 @@ func (x *discoveryServiceConnectClient) Recv() (*ConnectResponse, error) {
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
 type DiscoveryServiceServer interface {
+	// Register signs your TLS client certificate.
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
 	mustEmbedUnimplementedDiscoveryServiceServer()

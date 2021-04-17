@@ -22,8 +22,7 @@ message RegisterResponse {
 }
 
 message ConnectRequest {
-	string username = 1;
-	repeated string endpoints = 2;
+	repeated string endpoints = 1;
 }
 
 message ConnectResponse {

@@ -42,7 +42,6 @@ func main() {
 	c := pb.NewDiscoveryServiceClient(conn)
 
 	stream, err := c.Connect(ctx, &pb.ConnectRequest{
-		Username:  *username,
 		Endpoints: strings.Split(*endpoint, ","),
 	})
 	if err != nil {
