@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	port = flag.Int("port", 0, "gRPC port")
+	port = flag.Int("port", 12000, "gRPC port")
 )
 
 func main() {
