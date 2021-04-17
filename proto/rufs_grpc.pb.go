@@ -18,6 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DiscoveryServiceClient interface {
+	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error)
 }
 
@@ -27,6 +28,15 @@ type discoveryServiceClient struct {
 
 func NewDiscoveryServiceClient(cc grpc.ClientConnInterface) DiscoveryServiceClient {
 	return &discoveryServiceClient{cc}
+}
+
+func (c *discoveryServiceClient) Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error) {
+	out := new(RegisterResponse)
+	err := c.cc.Invoke(ctx, "/DiscoveryService/Register", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *discoveryServiceClient) Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error) {
@@ -65,6 +75,7 @@ func (x *discoveryServiceConnectClient) Recv() (*ConnectResponse, error) {
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
 type DiscoveryServiceServer interface {
+	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
@@ -73,6 +84,9 @@ type DiscoveryServiceServer interface {
 type UnimplementedDiscoveryServiceServer struct {
 }
 
+func (UnimplementedDiscoveryServiceServer) Register(context.Context, *RegisterRequest) (*RegisterResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Register not implemented")
+}
 func (UnimplementedDiscoveryServiceServer) Connect(*ConnectRequest, DiscoveryService_ConnectServer) error {
 	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
@@ -87,6 +101,24 @@ type UnsafeDiscoveryServiceServer interface {
 
 func RegisterDiscoveryServiceServer(s grpc.ServiceRegistrar, srv DiscoveryServiceServer) {
 	s.RegisterService(&DiscoveryService_ServiceDesc, srv)
+}
+
+func _DiscoveryService_Register_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DiscoveryServiceServer).Register(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/DiscoveryService/Register",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DiscoveryServiceServer).Register(ctx, req.(*RegisterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DiscoveryService_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -116,7 +148,12 @@ func (x *discoveryServiceConnectServer) Send(m *ConnectResponse) error {
 var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "DiscoveryService",
 	HandlerType: (*DiscoveryServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Register",
+			Handler:    _DiscoveryService_Register_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Connect",

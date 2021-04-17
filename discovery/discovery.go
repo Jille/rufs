@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -30,6 +31,7 @@ func main() {
 	}
 
 	d := &discovery{
+		ca:      ca,
 		clients: map[string]*pb.Peer{},
 		streams: map[string]pb.DiscoveryService_ConnectServer{},
 	}
@@ -49,6 +51,8 @@ func main() {
 
 type discovery struct {
 	pb.UnimplementedDiscoveryServiceServer
+
+	ca *security.CAKeyPair
 
 	mtx     sync.Mutex
 	clients map[string]*pb.Peer
@@ -101,4 +105,18 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 			return errors.New("connection from another process for your username")
 		}
 	}
+}
+
+func (d *discovery) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	token := d.ca.CreateToken(req.GetUsername())
+	if token != req.GetToken() {
+		return nil, status.Error(codes.PermissionDenied, "token is incorrect")
+	}
+	cert, err := d.ca.Sign(req.GetPublicKey(), req.GetUsername())
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RegisterResponse{
+		Certificate: cert,
+	}, nil
 }

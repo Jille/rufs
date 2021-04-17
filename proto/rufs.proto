@@ -3,8 +3,22 @@ syntax = "proto3";
 option go_package = "github.com/sgielen/rufs/proto";
 
 service DiscoveryService {
+	// Register signs your TLS client certificate.
+	rpc Register(RegisterRequest) returns (RegisterResponse) {
+	}
+
 	rpc Connect(ConnectRequest) returns (stream ConnectResponse) {
 	}
+}
+
+message RegisterRequest {
+	string username = 1;
+	string token = 2;
+	bytes public_key = 3;
+}
+
+message RegisterResponse {
+	bytes certificate = 1;
 }
 
 message ConnectRequest {
