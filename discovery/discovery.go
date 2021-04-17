@@ -1,16 +1,20 @@
 package main
 
 import (
-	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"sync"
 
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -30,9 +34,10 @@ func main() {
 		streams: map[string]pb.DiscoveryService_ConnectServer{},
 	}
 	d.cond = sync.NewCond(&d.mtx)
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(ca.TLSConfigForDiscovery())))
 	pb.RegisterDiscoveryServiceServer(s, d)
-	sock, err := tls.Listen("tcp", fmt.Sprintf(":%d", *port), ca.TLSConfigForDiscovery())
+	reflection.Register(s)
+	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
@@ -52,6 +57,22 @@ type discovery struct {
 }
 
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
+	ri, ok := credentials.RequestInfoFromContext(stream.Context())
+	if !ok {
+		// This should never happen.
+		return status.Error(codes.Internal, "no RequestInfo attached to context; TLS issue?")
+	}
+	ti, ok := ri.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return status.Error(codes.PermissionDenied, "couldn't get TLSInfo; TLS issue?")
+	}
+	if len(ti.State.PeerCertificates) == 0 {
+		return status.Error(codes.PermissionDenied, "no client certificate given")
+	}
+	if ti.State.PeerCertificates[0].Subject.CommonName != req.GetUsername() {
+		// TODO(quis): Don't let people pass in their username but just grab it from the certificate.
+		return status.Error(codes.PermissionDenied, "given username mismatches certificate")
+	}
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
 	d.clients[req.GetUsername()] = &pb.Peer{
