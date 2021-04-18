@@ -3,6 +3,7 @@ module github.com/sgielen/rufs
 go 1.13
 
 require (
+	bazil.org/fuse v0.0.0-20200407214033-5883e5a4b512
 	github.com/Jille/grpc-multi-resolver v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/yookoala/realpath v1.0.0

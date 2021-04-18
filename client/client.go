@@ -7,12 +7,10 @@ import (
 	"log"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/content"
-	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 )
 
@@ -23,6 +21,8 @@ var (
 	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
 	port          = flag.Int("port", 12010, "content server listen port")
 	flag_config   = flag.String("config", "config.yaml", "configuration file")
+	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
+	mountpoint    = flag.String("mountpoint", "", "Where to mount everyone's stuff")
 )
 
 func splitMaybeEmpty(str, sep string) []string {
@@ -36,8 +36,8 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	if *circle == "" || *username == "" {
-		log.Fatalf("--circle and --username must not be empty (see -help)")
+	if *circle == "" || *username == "" || *mountpoint == "" {
+		log.Fatalf("--circle, --username and --mountpoint must not be empty (see -help)")
 	}
 
 	config, err := config.ReadConfigFile(*flag_config)
@@ -60,76 +60,12 @@ func main() {
 	}
 	go content.Run()
 
-	for {
-		readdir(ctx, "/")
-		time.Sleep(10 * time.Second)
+	fuse, err := NewFuseMount(*mountpoint, *allowUsers)
+	if err != nil {
+		log.Fatalf("failed to mount fuse: %v", err)
 	}
-}
-
-func readdir(ctx context.Context, path string) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	type peerFileInstance struct {
-		peer        *connectivity.Peer
-		isDirectory bool
-	}
-	type peerFile struct {
-		instances []*peerFileInstance
-	}
-
-	warnings := []string{}
-	files := make(map[string]*peerFile)
-
-	for _, peer := range connectivity.AllPeers() {
-		r, err := peer.ContentServiceClient().ReadDir(ctx, &pb.ReadDirRequest{
-			Path: path,
-		})
-		if err != nil {
-			log.Printf("failed to readdir on peer %s, ignoring: %v", peer.Name, err)
-			continue
-		}
-		for _, file := range r.Files {
-			if files[file.Filename] == nil {
-				files[file.Filename] = &peerFile{}
-			}
-			instance := &peerFileInstance{
-				peer:        peer,
-				isDirectory: file.GetIsDirectory(),
-			}
-			files[file.Filename].instances = append(files[file.Filename].instances, instance)
-		}
-	}
-
-	// remove files available on multiple peers, unless they are a directory everywhere
-	for filename, file := range files {
-		if len(file.instances) != 1 {
-			peers := ""
-			isDirectoryEverywhere := true
-			for _, instance := range file.instances {
-				if !instance.isDirectory {
-					isDirectoryEverywhere = false
-				}
-				if peers == "" {
-					peers = instance.peer.Name
-				} else {
-					peers = peers + ", " + instance.peer.Name
-				}
-			}
-			if !isDirectoryEverywhere {
-				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, peers))
-				delete(files, filename)
-			}
-		}
-	}
-
-	log.Printf("files in %s:", path)
-	for filename, file := range files {
-		log.Printf("- %s (%s)", filename, *file)
-	}
-	if len(warnings) >= 1 {
-		log.Printf("warnings:")
-		for _, warning := range warnings {
-			log.Printf("- %s", warning)
-		}
+	err = fuse.Run(ctx)
+	if err != nil {
+		log.Fatalf("failed to run fuse: %v", err)
 	}
 }

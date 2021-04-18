@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/sgielen/rufs/config"
-	"github.com/sgielen/rufs/security"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"github.com/yookoala/realpath"
