@@ -76,14 +76,14 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	if len(ti.State.PeerCertificates) == 0 {
 		return status.Error(codes.Unauthenticated, "no client certificate given")
 	}
-	username := ti.State.PeerCertificates[0].Subject.CommonName
+	name := ti.State.PeerCertificates[0].Subject.CommonName
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
-	d.clients[username] = &pb.Peer{
-		Username:  username,
+	d.clients[name] = &pb.Peer{
+		Name:      name,
 		Endpoints: req.GetEndpoints(),
 	}
-	d.streams[username] = stream
+	d.streams[name] = stream
 	d.cond.Broadcast()
 
 	for {
@@ -94,14 +94,14 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 		d.mtx.Unlock()
 		if err := stream.Send(msg); err != nil {
 			d.mtx.Lock()
-			delete(d.clients, username)
-			delete(d.streams, username)
+			delete(d.clients, name)
+			delete(d.streams, name)
 			return err
 		}
 		d.mtx.Lock()
 
 		d.cond.Wait()
-		if stream != d.streams[username] {
+		if stream != d.streams[name] {
 			return errors.New("connection from another process for your username")
 		}
 	}
