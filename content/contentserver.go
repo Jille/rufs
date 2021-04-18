@@ -91,10 +91,7 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 		return "", status.Errorf(codes.NotFound, "share %s not found", remote)
 	}
 
-	path = path[len(remote):]
-	for len(path) > 0 && path[0] == '/' {
-		path = path[1:]
-	}
+	path = strings.TrimLeft(path[len(remote):], "/")
 
 	root := matchingShare.Local
 	log.Printf("matching root={%s}, path={%s}", root, path)
