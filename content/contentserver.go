@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/yookoala/realpath"
 	"google.golang.org/grpc"
@@ -19,19 +20,36 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-func New(addr string, root string) (*content, error) {
-	if addr == "" || root == "" {
-		return nil, errors.New("missing parameter addr or root")
+func New(addr string, configuration *config.Config) (*content, error) {
+	if addr == "" {
+		return nil, errors.New("missing parameter addr")
 	}
 
-	rpath, err := realpath.Realpath(root)
-	if err != nil {
-		return nil, fmt.Errorf("content server root invalid: %v", err)
+	for _, circle := range configuration.Circles {
+		for _, share := range circle.Shares {
+			if strings.Contains(share.Remote, "/") || share.Remote == "." || share.Remote == ".." {
+				return nil, fmt.Errorf("remote path invalid: %s", share.Remote)
+			}
+
+			local, err := realpath.Realpath(share.Local)
+			if err != nil {
+				return nil, fmt.Errorf("local path {%s} resolve failed: %v", share.Local, err)
+			}
+			lstat, err := os.Lstat(local)
+			if err != nil {
+				return nil, fmt.Errorf("local path {%s} stat failed: %v", share.Local, err)
+			}
+			if !lstat.IsDir() {
+				return nil, fmt.Errorf("local path {%s} is not a directory", share.Local)
+			}
+
+			share.Local = local
+		}
 	}
 
 	c := &content{
-		addr: addr,
-		root: rpath,
+		addr:          addr,
+		configuration: configuration,
 	}
 	return c, nil
 }
@@ -39,8 +57,8 @@ func New(addr string, root string) (*content, error) {
 type content struct {
 	pb.UnimplementedContentServiceServer
 
-	addr string
-	root string
+	addr          string
+	configuration *config.Config
 }
 
 func (c *content) Run() {
@@ -57,14 +75,36 @@ func (c *content) Run() {
 	}
 }
 
-func (c *content) checkPath(path string) (string, error) {
-	dirpath := filepath.Clean(c.root + path)
-	if dirpath != c.root && !strings.HasPrefix(dirpath, c.root+"/") {
+func (c *content) getLocalPath(shares []*config.Share, path string) (string, error) {
+	// find matching share
+	remote := strings.Split(path, "/")[0]
+	log.Printf("remote={%s}", remote)
+	var matchingShare *config.Share
+	for _, share := range shares {
+		if share.Remote == remote {
+			matchingShare = share
+			break
+		}
+	}
+
+	if matchingShare == nil {
+		return "", status.Errorf(codes.NotFound, "share %s not found", remote)
+	}
+
+	path = path[len(remote):]
+	for len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
+
+	root := matchingShare.Local
+	log.Printf("matching root={%s}, path={%s}", root, path)
+	dirpath := filepath.Clean(root + path)
+	if dirpath != root && !strings.HasPrefix(dirpath, root+"/") {
 		return "", status.Errorf(codes.PermissionDenied, "path falls outside root")
 	}
 
 	// check if realpath also falls inside root
-	dirpath, err := realpath.Realpath(c.root + path)
+	dirpath, err := realpath.Realpath(root + path)
 	if err != nil {
 		// try not to return the original path
 		if pe, ok := err.(*os.PathError); ok {
@@ -73,14 +113,40 @@ func (c *content) checkPath(path string) (string, error) {
 			return "", err
 		}
 	}
-	if dirpath != c.root && !strings.HasPrefix(dirpath, c.root+"/") {
+	if dirpath != root && !strings.HasPrefix(dirpath, root+"/") {
 		return "", status.Errorf(codes.PermissionDenied, "path falls outside root")
 	}
 	return dirpath, nil
 }
 
 func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
-	dirpath, err := c.checkPath(req.GetPath())
+	// Remove leading slashes
+	reqpath := req.GetPath()
+	for len(reqpath) > 0 && reqpath[0] == '/' {
+		reqpath = reqpath[1:]
+	}
+
+	res := &pb.ReadDirResponse{
+		Files: []*pb.File{},
+	}
+
+	// TODO(sjors): take circle name from connection context
+	shares := c.configuration.Circles[0].Shares
+
+	if reqpath == "" {
+		for _, share := range shares {
+			file := &pb.File{
+				Filename:    share.Remote,
+				Hash:        "",
+				IsDirectory: true,
+			}
+			res.Files = append(res.Files, file)
+		}
+		return res, nil
+	}
+
+	log.Printf("get local path for reqpath {%s}", reqpath)
+	dirpath, err := c.getLocalPath(shares, reqpath)
 	if err != nil {
 		return nil, err
 	}
@@ -88,18 +154,15 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 	if err != nil {
 		return nil, err
 	}
-	files := []*pb.File{}
 	for _, dirfile := range dirfiles {
 		file := &pb.File{
 			Filename:    dirfile.Name(),
 			Hash:        "",
 			IsDirectory: dirfile.IsDir(),
 		}
-		files = append(files, file)
+		res.Files = append(res.Files, file)
 	}
-	return &pb.ReadDirResponse{
-		Files: files,
-	}, nil
+	return res, nil
 }
 
 // Compatibility function to support Go 1.13.
@@ -113,7 +176,20 @@ func readdir(name string) ([]os.FileInfo, error) {
 }
 
 func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) error {
-	path, err := c.checkPath(req.GetFilename())
+	// Remove leading slashes
+	reqpath := req.GetFilename()
+	for len(reqpath) > 0 && reqpath[0] == '/' {
+		reqpath = reqpath[1:]
+	}
+
+	// TODO(sjors): take circle name from connection context
+	shares := c.configuration.Circles[0].Shares
+
+	if reqpath == "" {
+		return status.Errorf(codes.FailedPrecondition, "is a directory")
+	}
+
+	path, err := c.getLocalPath(shares, reqpath)
 	if err != nil {
 		return err
 	}

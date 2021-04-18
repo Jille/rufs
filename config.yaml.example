@@ -1,0 +1,7 @@
+circles:
+- name: "rufs.example.org"
+  shares:
+  - local: "/data/music"
+    remote: "Music"
+  - local: "/data/movies"
+    remote: "Movies"

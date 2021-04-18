@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/content"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -21,7 +22,7 @@ var (
 	username      = flag.String("user", "", "RuFS username")
 	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
 	port          = flag.Int("port", 12010, "content server listen port")
-	path          = flag.String("path", "", "root to served content")
+	flag_config   = flag.String("config", "config.yaml", "configuration file")
 )
 
 func splitMaybeEmpty(str, sep string) []string {
@@ -39,16 +40,21 @@ func main() {
 		log.Fatalf("--circle and --username must not be empty (see -help)")
 	}
 
+	config, err := config.ReadConfigFile(*flag_config)
+	if err != nil {
+		log.Fatalf("failed to read configuration: %v", err)
+	}
+
 	tc, err := security.TLSConfigForMasterClient("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle))
 	if err != nil {
-		log.Fatalf("Failed to load certificates: %v", err)
+		log.Fatalf("failed to load certificates: %v", err)
 	}
 
 	if err := connectivity.ConnectToCircle(ctx, net.JoinHostPort(*circle, fmt.Sprint(*discoveryPort)), splitMaybeEmpty(*flag_endp, ","), *port, tc); err != nil {
 		log.Fatalf("Failed to connect to circle %q: %v", *circle, err)
 	}
 
-	content, err := content.New(fmt.Sprintf(":%d", *port), *path)
+	content, err := content.New(fmt.Sprintf(":%d", *port), config)
 	if err != nil {
 		log.Fatalf("failed to create content server: %v", err)
 	}
