@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/reflection"
 )
 
 func New(addr string, root string) (*content, error) {
@@ -45,6 +46,7 @@ type content struct {
 func (c *content) Run() {
 	s := grpc.NewServer()
 	pb.RegisterContentServiceServer(s, c)
+	reflection.Register(s)
 	sock, err := net.Listen("tcp", c.addr)
 	if err != nil {
 		log.Fatalf("content server failed to listen on %s: %v", c.addr, err)
