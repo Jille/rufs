@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/Jille/grpc-multi-resolver"
+	"github.com/sgielen/rufs/content"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -19,7 +20,9 @@ import (
 var (
 	discovery = flag.String("discovery", "127.0.0.1:12000", "RuFS Discovery server")
 	username  = flag.String("user", "", "RuFS username")
-	endpoint  = flag.String("endpoint", "127.0.0.1:12010", "Our RuFS endpoint")
+	flag_endp = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
+	port      = flag.Int("port", 12010, "content server listen port")
+	path      = flag.String("path", "", "root to served content")
 )
 
 func main() {
@@ -42,12 +45,36 @@ func main() {
 	defer conn.Close()
 	c := pb.NewDiscoveryServiceClient(conn)
 
+	endpoints := strings.Split(*flag_endp, ",")
+	if *flag_endp == "" {
+		// Auto-detect endpoints
+		res, err := c.GetMyIP(ctx, &pb.GetMyIPRequest{})
+		if err != nil {
+			log.Fatalf("no ips given and failed to retrieve IP from discovery server, exiting")
+		}
+		endpoints = []string{res.GetIp()}
+	}
+
+	// Add ports to endpoints that don't have any
+	for i := 0; i < len(endpoints); i++ {
+		if !strings.Contains(endpoints[i], ":") {
+			endpoints[i] = fmt.Sprintf("%s:%d", endpoints[i], *port)
+		}
+	}
+
+	content, err := content.New(fmt.Sprintf(":%d", *port), *path)
+	if err != nil {
+		log.Fatalf("failed to create content server: %v", err)
+	}
+	go content.Run()
+
 	stream, err := c.Connect(ctx, &pb.ConnectRequest{
-		Endpoints: strings.Split(*endpoint, ","),
+		Endpoints: endpoints,
 	})
 	if err != nil {
 		log.Fatalf("failed to subscribe to discovery server: %v", err)
 	}
+	log.Printf("Connected to RuFS as %s, my endpoints: %s", *username, endpoints)
 
 	for {
 		in, err := stream.Recv()

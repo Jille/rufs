@@ -1,10 +1,9 @@
-package main
+package content
 
 import (
 	"context"
-	"flag"
-	"fmt"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -19,40 +18,41 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	port = flag.Int("port", 12010, "listen port")
-	path = flag.String("path", "", "root to served content")
-)
-
-func main() {
-	flag.Parse()
-
-	if *path == "" {
-		log.Fatalf("path must not be empty (see -help)")
+func New(addr string, root string) (*content, error) {
+	if addr == "" || root == "" {
+		return nil, errors.New("missing parameter addr or root")
 	}
 
-	rpath, err := realpath.Realpath(*path)
+	rpath, err := realpath.Realpath(root)
 	if err != nil {
-		log.Fatalf("failed to resolve content path %s: %v", *path, err)
+		return nil, fmt.Errorf("content server root invalid: %v", err)
 	}
 
-	c := &content{root: rpath}
-	s := grpc.NewServer()
-	pb.RegisterContentServiceServer(s, c)
-	sock, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+	c := &content{
+		addr: addr,
+		root: rpath,
 	}
-	log.Printf("listening on port %d.", *port)
-	if err := s.Serve(sock); err != nil {
-		log.Fatalf("failed to serve: %v", err)
-	}
+	return c, nil
 }
 
 type content struct {
 	pb.UnimplementedContentServiceServer
 
+	addr string
 	root string
+}
+
+func (c *content) Run() {
+	s := grpc.NewServer()
+	pb.RegisterContentServiceServer(s, c)
+	sock, err := net.Listen("tcp", c.addr)
+	if err != nil {
+		log.Fatalf("content server failed to listen on %s: %v", c.addr, err)
+	}
+	log.Printf("content server listening on addr %s.", c.addr)
+	if err := s.Serve(sock); err != nil {
+		log.Fatalf("content server failed to serve on %s: %v", c.addr, err)
+	}
 }
 
 func (c *content) checkPath(path string) (string, error) {
