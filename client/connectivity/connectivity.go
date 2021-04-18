@@ -71,7 +71,7 @@ func (c *circle) run(ctx context.Context) {
 	for {
 		err := c.connect(ctx)
 		if err != nil {
-			log.Printf("Error talking to discovery server: %v")
+			log.Printf("Error talking to discovery server: %v", err)
 			time.Sleep(time.Second)
 		}
 	}
@@ -108,7 +108,7 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 }
 
 func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
-	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s-%s", p.GetName()))
+	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s", p.GetName()))
 	r.InitialState(peerToResolverState(p))
 	conn, err := grpc.DialContext(ctx, r.Scheme()+":///magic", grpc.WithResolvers(r), grpc.WithTransportCredentials(credentials.NewTLS(c.keyPair.TLSConfigForServerClient(p.GetName()))))
 	if err != nil {

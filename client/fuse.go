@@ -70,7 +70,7 @@ func (f *FuseMnt) Run(ctx context.Context) (retErr error) {
 				return
 			}
 			if err := fuse.Unmount(f.mountpoint); err != nil {
-				log.Printf("Failed to unmount %q: %v", mountpoint, err)
+				log.Printf("Failed to unmount %q: %v", f.mountpoint, err)
 			}
 		case <-time.After(5 * time.Second):
 			conn.Close()
