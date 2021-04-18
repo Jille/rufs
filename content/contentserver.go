@@ -138,15 +138,12 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 
 	reqpath := strings.TrimLeft(req.GetPath(), "/")
 
-	res := &pb.ReadDirResponse{
-		Files: []*pb.File{},
-	}
+	res := &pb.ReadDirResponse{}
 
 	if reqpath == "" {
 		for _, share := range shares {
 			file := &pb.File{
 				Filename:    share.Remote,
-				Hash:        "",
 				IsDirectory: true,
 			}
 			res.Files = append(res.Files, file)
@@ -165,7 +162,6 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 	for _, dirfile := range dirfiles {
 		file := &pb.File{
 			Filename:    dirfile.Name(),
-			Hash:        "",
 			IsDirectory: dirfile.IsDir(),
 		}
 		res.Files = append(res.Files, file)

@@ -48,7 +48,7 @@ func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]b
 	if handle.Peer == nil {
 		length := uint64(len(handle.FixedContent))
 		if offset >= length {
-			return []byte{}, io.EOF
+			return nil, io.EOF
 		}
 		if offset+size >= length {
 			size = length - offset
@@ -65,7 +65,10 @@ func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]b
 		return nil, err
 	}
 	res, err := client.Recv()
-	return res.Data, err
+	if err != nil {
+		return nil, err
+	}
+	return res.Data, nil
 }
 
 func (fs VFS) Open(ctx context.Context, path string) (*Handle, error) {
@@ -105,7 +108,7 @@ func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 		instances []*peerFileInstance
 	}
 
-	warnings := []string{}
+	var warnings []string
 	files := make(map[string]*peerFile)
 
 	for _, peer := range connectivity.AllPeers() {
@@ -131,20 +134,16 @@ func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 	// remove files available on multiple peers, unless they are a directory everywhere
 	for filename, file := range files {
 		if len(file.instances) != 1 {
-			peers := ""
+			var peers []string
 			isDirectoryEverywhere := true
 			for _, instance := range file.instances {
 				if !instance.isDirectory {
 					isDirectoryEverywhere = false
 				}
-				if peers == "" {
-					peers = instance.peer.Name
-				} else {
-					peers = peers + ", " + instance.peer.Name
-				}
+				peers = append(peers, instance.peer.Name)
 			}
 			if !isDirectoryEverywhere {
-				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, peers))
+				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, strings.Join(peers, ", ")))
 				delete(files, filename)
 			}
 		}
@@ -159,24 +158,22 @@ func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 			peers = append(peers, instance.peer)
 		}
 		res.Files[filename] = &File{
-			FullPath:     path + "/" + filename,
+			FullPath:     filepath.Join(path, filename),
 			IsDirectory:  file.instances[0].isDirectory,
 			Mtime:        time.Time{},
 			Size:         0,
 			Peers:        peers,
-			FixedContent: []byte{},
 		}
 	}
 	if len(warnings) >= 1 {
 		warning := "*** RUFS encountered some issues showing this directory: ***\n"
-		warning = warning + strings.Join(warnings, "\n") + "\n"
+		warning += strings.Join(warnings, "\n") + "\n"
 		res.Files["rufs-warnings.txt"] = &File{
 			FullPath:     path + "/rufs-warnings.txt",
 			IsDirectory:  false,
 			Mtime:        time.Now(),
 			Size:         uint64(len(warning)),
-			Peers:        []*connectivity.Peer{},
-			FixedContent: ([]byte)(warning),
+			FixedContent: []byte(warning),
 		}
 	}
 
