@@ -9,6 +9,9 @@ service DiscoveryService {
 
 	rpc Connect(ConnectRequest) returns (stream ConnectResponse) {
 	}
+
+	rpc GetMyIP(GetMyIPRequest) returns (GetMyIPResponse) {
+	}
 }
 
 message RegisterRequest {
@@ -27,6 +30,13 @@ message ConnectRequest {
 
 message ConnectResponse {
 	repeated Peer peers = 1;
+}
+
+message GetMyIPRequest {
+}
+
+message GetMyIPResponse {
+	string ip = 1;
 }
 
 message Peer {

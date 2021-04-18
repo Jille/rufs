@@ -21,6 +21,7 @@ type DiscoveryServiceClient interface {
 	// Register signs your TLS client certificate.
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error)
+	GetMyIP(ctx context.Context, in *GetMyIPRequest, opts ...grpc.CallOption) (*GetMyIPResponse, error)
 }
 
 type discoveryServiceClient struct {
@@ -72,6 +73,15 @@ func (x *discoveryServiceConnectClient) Recv() (*ConnectResponse, error) {
 	return m, nil
 }
 
+func (c *discoveryServiceClient) GetMyIP(ctx context.Context, in *GetMyIPRequest, opts ...grpc.CallOption) (*GetMyIPResponse, error) {
+	out := new(GetMyIPResponse)
+	err := c.cc.Invoke(ctx, "/DiscoveryService/GetMyIP", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DiscoveryServiceServer is the server API for DiscoveryService service.
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
@@ -79,6 +89,7 @@ type DiscoveryServiceServer interface {
 	// Register signs your TLS client certificate.
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
+	GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error)
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
@@ -91,6 +102,9 @@ func (UnimplementedDiscoveryServiceServer) Register(context.Context, *RegisterRe
 }
 func (UnimplementedDiscoveryServiceServer) Connect(*ConnectRequest, DiscoveryService_ConnectServer) error {
 	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (UnimplementedDiscoveryServiceServer) GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMyIP not implemented")
 }
 func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
 
@@ -144,6 +158,24 @@ func (x *discoveryServiceConnectServer) Send(m *ConnectResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _DiscoveryService_GetMyIP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMyIPRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DiscoveryServiceServer).GetMyIP(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/DiscoveryService/GetMyIP",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DiscoveryServiceServer).GetMyIP(ctx, req.(*GetMyIPRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DiscoveryService_ServiceDesc is the grpc.ServiceDesc for DiscoveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +186,10 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Register",
 			Handler:    _DiscoveryService_Register_Handler,
+		},
+		{
+			MethodName: "GetMyIP",
+			Handler:    _DiscoveryService_GetMyIP_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

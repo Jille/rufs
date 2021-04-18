@@ -118,3 +118,18 @@ func (d *discovery) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.
 		Certificate: cert,
 	}, nil
 }
+
+func (d *discovery) GetMyIP(ctx context.Context, req *pb.GetMyIPRequest) (*pb.GetMyIPResponse, error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		// This should never happen.
+		return nil, status.Error(codes.Internal, "no Peer attached to context")
+	}
+	host, _, err := net.SplitHostPort(p.Addr.String())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to extract IP from %q", p.Addr.String())
+	}
+	return &pb.GetMyIPResponse{
+		Ip: host,
+	}, nil
+}
