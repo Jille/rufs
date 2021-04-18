@@ -2,6 +2,7 @@
 package security
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -15,6 +16,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 // CAKeyPair holds a CA certificate and private key.
@@ -275,4 +281,22 @@ func (p *KeyPair) TLSConfigForServer() *tls.Config {
 
 func (p *KeyPair) TLSConfigForServerClient(name string) *tls.Config {
 	return getTlsConfig(tlsConfigServer, p.ca, &p.crt, name)
+}
+
+// PeerFromContext can be called from inside an RPC handler to get the remote peer and circle name.
+func PeerFromContext(ctx context.Context) (name string, circle string, err error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		// This should never happen.
+		return "", "", status.Error(codes.Unauthenticated, "no Peer attached to context; TLS issue?")
+	}
+	ti, ok := p.AuthInfo.(credentials.TLSInfo)
+	if !ok {
+		return "", "", status.Error(codes.Unauthenticated, "couldn't get TLSInfo; TLS issue?")
+	}
+	if len(ti.State.PeerCertificates) == 0 {
+		return "", "", status.Error(codes.Unauthenticated, "no client certificate given")
+	}
+	c := ti.State.PeerCertificates[0]
+	return c.Subject.CommonName, c.Issuer.CommonName, nil
 }

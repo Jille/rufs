@@ -38,3 +38,12 @@ func ReadConfig(data []byte) (*Config, error) {
 	}
 	return config, nil
 }
+
+func (c *Config) GetCircle(name string) (*Circle, bool) {
+	for _, ci := range c.Circles {
+		if ci.Name == name {
+			return ci, true
+		}
+	}
+	return nil, false
+}

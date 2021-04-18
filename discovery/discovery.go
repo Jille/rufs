@@ -64,19 +64,10 @@ type discovery struct {
 }
 
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
-	p, ok := peer.FromContext(stream.Context())
-	if !ok {
-		// This should never happen.
-		return status.Error(codes.Unauthenticated, "no Peer attached to context; TLS issue?")
+	name, _, err := security.PeerFromContext(stream.Context())
+	if err != nil {
+		return err
 	}
-	ti, ok := p.AuthInfo.(credentials.TLSInfo)
-	if !ok {
-		return status.Error(codes.Unauthenticated, "couldn't get TLSInfo; TLS issue?")
-	}
-	if len(ti.State.PeerCertificates) == 0 {
-		return status.Error(codes.Unauthenticated, "no client certificate given")
-	}
-	name := ti.State.PeerCertificates[0].Subject.CommonName
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
 	d.clients[name] = &pb.Peer{

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/sgielen/rufs/config"
+	"github.com/sgielen/rufs/security"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"github.com/yookoala/realpath"
@@ -79,6 +80,18 @@ func (c *content) Run() {
 	}
 }
 
+func (c *content) getSharesForPeer(ctx context.Context) ([]*config.Share, error) {
+	_, circle, err := security.PeerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	circ, ok := c.configuration.GetCircle(circle)
+	if !ok {
+		return nil, status.Error(codes.NotFound, "no shares configured for this circle")
+	}
+	return circ.Shares, nil
+}
+
 func (c *content) getLocalPath(shares []*config.Share, path string) (string, error) {
 	// find matching share
 	remote := strings.Split(path, "/")[0]
@@ -121,14 +134,16 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 }
 
 func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
+	shares, err := c.getSharesForPeer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	reqpath := strings.TrimLeft(req.GetPath(), "/")
 
 	res := &pb.ReadDirResponse{
 		Files: []*pb.File{},
 	}
-
-	// TODO(sjors): take circle name from connection context
-	shares := c.configuration.Circles[0].Shares
 
 	if reqpath == "" {
 		for _, share := range shares {
@@ -173,10 +188,12 @@ func readdir(name string) ([]os.FileInfo, error) {
 }
 
 func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) error {
-	reqpath := strings.TrimLeft(req.GetFilename(), "/")
+	shares, err := c.getSharesForPeer(stream.Context())
+	if err != nil {
+		return err
+	}
 
-	// TODO(sjors): take circle name from connection context
-	shares := c.configuration.Circles[0].Shares
+	reqpath := strings.TrimLeft(req.GetFilename(), "/")
 
 	if reqpath == "" {
 		return status.Errorf(codes.FailedPrecondition, "is a directory")
