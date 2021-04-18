@@ -127,7 +127,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	remaining := req.GetRdnow()
 	readNowDone := false
 	for {
-		if remaining <= 0 {
+		for remaining <= 0 {
 			if readNowDone {
 				return nil
 			}
