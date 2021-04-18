@@ -120,11 +120,7 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 }
 
 func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
-	// Remove leading slashes
-	reqpath := req.GetPath()
-	for len(reqpath) > 0 && reqpath[0] == '/' {
-		reqpath = reqpath[1:]
-	}
+	reqpath := strings.TrimLeft(req.GetPath(), "/")
 
 	res := &pb.ReadDirResponse{
 		Files: []*pb.File{},
@@ -176,11 +172,7 @@ func readdir(name string) ([]os.FileInfo, error) {
 }
 
 func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) error {
-	// Remove leading slashes
-	reqpath := req.GetFilename()
-	for len(reqpath) > 0 && reqpath[0] == '/' {
-		reqpath = reqpath[1:]
-	}
+	reqpath := strings.TrimLeft(req.GetFilename(), "/")
 
 	// TODO(sjors): take circle name from connection context
 	shares := c.configuration.Circles[0].Shares
