@@ -65,6 +65,8 @@ message File {
 
 	// Optional
 	string hash = 2;
+
+	bool is_directory = 3;
 }
 
 message ReadFileRequest {

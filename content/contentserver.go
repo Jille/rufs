@@ -89,8 +89,9 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 	files := []*pb.File{}
 	for _, dirfile := range dirfiles {
 		file := &pb.File{
-			Filename: dirfile.Name(),
-			Hash:     "",
+			Filename:    dirfile.Name(),
+			Hash:        "",
+			IsDirectory: dirfile.IsDir(),
 		}
 		files = append(files, file)
 	}

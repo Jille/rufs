@@ -54,15 +54,19 @@ func main() {
 
 	for {
 		readdir(ctx, "/")
-		time.Sleep(10*time.Second)
+		time.Sleep(10 * time.Second)
 	}
 }
 
 func readdir(ctx context.Context, path string) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
+	type peerFileInstance struct {
+		peer        *connectivity.Peer
+		isDirectory bool
+	}
 	type peerFile struct {
-		peers []*connectivity.Peer
+		instances []*peerFileInstance
 	}
 
 	warnings := []string{}
@@ -80,23 +84,33 @@ func readdir(ctx context.Context, path string) {
 			if files[file.Filename] == nil {
 				files[file.Filename] = &peerFile{}
 			}
-			files[file.Filename].peers = append(files[file.Filename].peers, peer)
+			instance := &peerFileInstance{
+				peer:        peer,
+				isDirectory: file.GetIsDirectory(),
+			}
+			files[file.Filename].instances = append(files[file.Filename].instances, instance)
 		}
 	}
 
-	// remove files available on multiple peers
+	// remove files available on multiple peers, unless they are a directory everywhere
 	for filename, file := range files {
-		if len(file.peers) != 1 {
+		if len(file.instances) != 1 {
 			peers := ""
-			for _, peer := range file.peers {
+			isDirectoryEverywhere := true
+			for _, instance := range file.instances {
+				if !instance.isDirectory {
+					isDirectoryEverywhere = false
+				}
 				if peers == "" {
-					peers = peer.Name
+					peers = instance.peer.Name
 				} else {
-					peers = peers + ", " + peer.Name
+					peers = peers + ", " + instance.peer.Name
 				}
 			}
-			warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, peers))
-			delete(files, filename)
+			if !isDirectoryEverywhere {
+				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, peers))
+				delete(files, filename)
+			}
 		}
 	}
 
