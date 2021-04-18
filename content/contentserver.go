@@ -13,14 +13,16 @@ import (
 
 	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
+	"github.com/sgielen/rufs/security"
 	"github.com/yookoala/realpath"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
-func New(addr string, configuration *config.Config) (*content, error) {
+func New(addr string, configuration *config.Config, kp *security.KeyPair) (*content, error) {
 	if addr == "" {
 		return nil, errors.New("missing parameter addr")
 	}
@@ -50,6 +52,7 @@ func New(addr string, configuration *config.Config) (*content, error) {
 	c := &content{
 		addr:          addr,
 		configuration: configuration,
+		keyPair:       kp,
 	}
 	return c, nil
 }
@@ -59,10 +62,11 @@ type content struct {
 
 	addr          string
 	configuration *config.Config
+	keyPair       *security.KeyPair
 }
 
 func (c *content) Run() {
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(c.keyPair.TLSConfigForServer())))
 	pb.RegisterContentServiceServer(s, c)
 	reflection.Register(s)
 	sock, err := net.Listen("tcp", c.addr)

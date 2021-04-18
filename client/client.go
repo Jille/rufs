@@ -45,16 +45,16 @@ func main() {
 		log.Fatalf("failed to read configuration: %v", err)
 	}
 
-	tc, err := security.TLSConfigForMasterClient("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle))
+	kp, err := security.LoadKeyPair("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle))
 	if err != nil {
 		log.Fatalf("failed to load certificates: %v", err)
 	}
 
-	if err := connectivity.ConnectToCircle(ctx, net.JoinHostPort(*circle, fmt.Sprint(*discoveryPort)), splitMaybeEmpty(*flag_endp, ","), *port, tc); err != nil {
+	if err := connectivity.ConnectToCircle(ctx, net.JoinHostPort(*circle, fmt.Sprint(*discoveryPort)), splitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
 		log.Fatalf("Failed to connect to circle %q: %v", *circle, err)
 	}
 
-	content, err := content.New(fmt.Sprintf(":%d", *port), config)
+	content, err := content.New(fmt.Sprintf(":%d", *port), config, kp)
 	if err != nil {
 		log.Fatalf("failed to create content server: %v", err)
 	}

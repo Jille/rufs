@@ -240,7 +240,7 @@ func TLSConfigForRegistration(caFile string) (*tls.Config, error) {
 	return getTlsConfig(tlsConfigMasterClient, ca, nil, ca.Subject.CommonName), nil
 }
 
-func TLSConfigForMasterClient(caFile, crtFile, keyFile string) (*tls.Config, error) {
+func LoadKeyPair(caFile, crtFile, keyFile string) (*KeyPair, error) {
 	ca, err := loadCertificate(caFile)
 	if err != nil {
 		return nil, err
@@ -249,5 +249,30 @@ func TLSConfigForMasterClient(caFile, crtFile, keyFile string) (*tls.Config, err
 	if err != nil {
 		return nil, err
 	}
-	return getTlsConfig(tlsConfigMasterClient, ca, &crt, ca.Subject.CommonName), nil
+	x509Cert, err := x509.ParseCertificate(crt.Certificate[0])
+	if err != nil {
+		return nil, err
+	}
+	crt.Leaf = x509Cert
+	return &KeyPair{
+		ca: ca,
+		crt: crt,
+	}, nil
+}
+
+type KeyPair struct {
+	ca *x509.Certificate
+	crt tls.Certificate
+}
+
+func (p *KeyPair) TLSConfigForMasterClient() *tls.Config {
+	return getTlsConfig(tlsConfigMasterClient, p.ca, &p.crt, p.ca.Subject.CommonName)
+}
+
+func (p *KeyPair) TLSConfigForServer() *tls.Config {
+	return getTlsConfig(tlsConfigServer, p.ca, &p.crt, p.crt.Leaf.Subject.CommonName)
+}
+
+func (p *KeyPair) TLSConfigForServerClient(name string) *tls.Config {
+	return getTlsConfig(tlsConfigServer, p.ca, &p.crt, name)
 }

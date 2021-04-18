@@ -3,7 +3,6 @@ package connectivity
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	pb "github.com/sgielen/rufs/proto"
+	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/resolver"
@@ -25,13 +25,14 @@ var (
 type circle struct {
 	client      pb.DiscoveryServiceClient
 	myEndpoints []string
+	keyPair     *security.KeyPair
 
 	mtx   sync.Mutex
 	peers map[string]*Peer
 }
 
-func ConnectToCircle(ctx context.Context, discoveryServer string, myEndpoints []string, myPort int, tc *tls.Config) error {
-	conn, err := grpc.DialContext(ctx, discoveryServer, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
+func ConnectToCircle(ctx context.Context, discoveryServer string, myEndpoints []string, myPort int, kp *security.KeyPair) error {
+	conn, err := grpc.DialContext(ctx, discoveryServer, grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}
@@ -57,6 +58,7 @@ func ConnectToCircle(ctx context.Context, discoveryServer string, myEndpoints []
 	c := &circle{
 		client:      client,
 		myEndpoints: myEndpoints,
+		keyPair:     kp,
 		peers:       map[string]*Peer{},
 	}
 	go c.run(ctx)
@@ -99,15 +101,15 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 		if po, existing := c.peers[pe.GetName()]; existing {
 			po.update(pe)
 		} else {
-			c.peers[pe.GetName()] = newPeer(ctx, pe)
+			c.peers[pe.GetName()] = c.newPeer(ctx, pe)
 		}
 	}
 }
 
-func newPeer(ctx context.Context, p *pb.Peer) *Peer {
+func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s-%s", p.GetName()))
 	r.InitialState(peerToResolverState(p))
-	conn, err := grpc.DialContext(ctx, r.Scheme()+":///magic", grpc.WithResolvers(r), grpc.WithInsecure())
+	conn, err := grpc.DialContext(ctx, r.Scheme()+":///magic", grpc.WithResolvers(r), grpc.WithTransportCredentials(credentials.NewTLS(c.keyPair.TLSConfigForServerClient(p.GetName()))))
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
 	}
