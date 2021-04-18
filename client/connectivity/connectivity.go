@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -180,4 +181,17 @@ func AllPeers() []*Peer {
 		all = append(all, c.AllPeers()...)
 	}
 	return all
+}
+
+func AllPeersInCircle(name string) []*Peer {
+	// TODO(quis): Add circle.name so we can just get the peers from that one circle.
+	all := AllPeers()
+	var ret []*Peer
+	suffix := "@" + name
+	for _, p := range all {
+		if strings.HasSuffix(p.Name, suffix) {
+			ret = append(ret, p)
+		}
+	}
+	return ret
 }
