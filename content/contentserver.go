@@ -94,7 +94,6 @@ func (c *content) getSharesForPeer(ctx context.Context) ([]*config.Share, error)
 func (c *content) getLocalPath(shares []*config.Share, path string) (string, error) {
 	// find matching share
 	remote := strings.Split(path, "/")[0]
-	log.Printf("remote={%s}", remote)
 	var matchingShare *config.Share
 	for _, share := range shares {
 		if share.Remote == remote {
@@ -110,7 +109,6 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 	path = strings.TrimLeft(path[len(remote):], "/")
 
 	root := matchingShare.Local
-	log.Printf("matching root={%s}, path={%s}", root, path)
 	dirpath := filepath.Clean(root + path)
 	if dirpath != root && !strings.HasPrefix(dirpath, root+"/") {
 		return "", status.Errorf(codes.PermissionDenied, "path falls outside root")
@@ -156,7 +154,6 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 		return res, nil
 	}
 
-	log.Printf("get local path for reqpath {%s}", reqpath)
 	dirpath, err := c.getLocalPath(shares, reqpath)
 	if err != nil {
 		return nil, err
