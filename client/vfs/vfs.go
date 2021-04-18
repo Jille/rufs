@@ -2,8 +2,10 @@ package vfs
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
+	"io"
+	"math/rand"
 	"path/filepath"
 	"strings"
 	"time"
@@ -28,17 +30,71 @@ type Directory struct {
 }
 
 type File struct {
-	FullPath    string
-	IsDirectory bool
-	Mtime       time.Time
-	Size        uint64
+	FullPath     string
+	IsDirectory  bool
+	Mtime        time.Time
+	Size         uint64
+	Peers        []*connectivity.Peer
+	FixedContent []byte
 }
 
-func (f File) Basename() string {
-	return filepath.Base(f.FullPath)
+type Handle struct {
+	Peer         *connectivity.Peer
+	FullPath     string
+	FixedContent []byte
 }
 
-func (fs *VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
+func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]byte, error) {
+	if handle.Peer == nil {
+		length := uint64(len(handle.FixedContent))
+		if offset >= length {
+			return []byte{}, io.EOF
+		}
+		if offset+size >= length {
+			size = length - offset
+		}
+		return handle.FixedContent[offset : offset+size], nil
+	}
+	client, err := handle.Peer.ContentServiceClient().ReadFile(ctx, &pb.ReadFileRequest{
+		Filename: handle.FullPath,
+		Offset:   offset,
+		Rdnow:    size,
+		Rdahead:  0,
+	})
+	if err != nil {
+		return nil, err
+	}
+	res, err := client.Recv()
+	return res.Data, err
+}
+
+func (fs VFS) Open(ctx context.Context, path string) (*Handle, error) {
+	basename := filepath.Base(path)
+	dirname := filepath.Dir(path)
+	dir, err := fs.Readdir(ctx, dirname)
+	if err != nil {
+		return nil, err
+	}
+	file := dir.Files[basename]
+	if file == nil {
+		return nil, errors.New("ENOENT")
+	}
+	if file.IsDirectory {
+		return nil, errors.New("EISDIR")
+	}
+	var peer *connectivity.Peer
+	if len(file.Peers) >= 1 {
+		// TODO(sjors): do something smarter than selecting a random peer.
+		peer = file.Peers[rand.Intn(len(file.Peers))]
+	}
+	return &Handle{
+		Peer:         peer,
+		FullPath:     path,
+		FixedContent: file.FixedContent,
+	}, nil
+}
+
+func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 	path = strings.Trim(path, "/")
 
 	type peerFileInstance struct {
@@ -57,7 +113,7 @@ func (fs *VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 			Path: path,
 		})
 		if err != nil {
-			log.Printf("failed to readdir on peer %s, ignoring: %v", peer.Name, err)
+			warnings = append(warnings, fmt.Sprintf("failed to readdir on peer %s, ignoring: %v", peer.Name, err))
 			continue
 		}
 		for _, file := range r.Files {
@@ -98,23 +154,29 @@ func (fs *VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 		Files: map[string]*File{},
 	}
 	for filename, file := range files {
+		peers := []*connectivity.Peer{}
+		for _, instance := range file.instances {
+			peers = append(peers, instance.peer)
+		}
 		res.Files[filename] = &File{
-			FullPath:    path + "/" + filename,
-			IsDirectory: file.instances[0].isDirectory,
-			Mtime:       time.Time{},
-			Size:        0,
+			FullPath:     path + "/" + filename,
+			IsDirectory:  file.instances[0].isDirectory,
+			Mtime:        time.Time{},
+			Size:         0,
+			Peers:        peers,
+			FixedContent: []byte{},
 		}
 	}
 	if len(warnings) >= 1 {
-		log.Printf("warnings:")
-		for _, warning := range warnings {
-			log.Printf("- %s", warning)
-		}
+		warning := "*** RUFS encountered some issues showing this directory: ***\n"
+		warning = warning + strings.Join(warnings, "\n") + "\n"
 		res.Files["rufs-warnings.txt"] = &File{
-			FullPath:    path + "/rufs-warnings.txt",
-			IsDirectory: false,
-			Mtime:       time.Time{},
-			Size:        0,
+			FullPath:     path + "/rufs-warnings.txt",
+			IsDirectory:  false,
+			Mtime:        time.Now(),
+			Size:         uint64(len(warning)),
+			Peers:        []*connectivity.Peer{},
+			FixedContent: ([]byte)(warning),
 		}
 	}
 

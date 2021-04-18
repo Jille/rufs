@@ -47,7 +47,9 @@ type FuseMnt struct {
 }
 
 func (f *FuseMnt) Run(ctx context.Context) (retErr error) {
-	fuse.Debug = func(msg interface{}) { fmt.Println(msg) }
+	if false {
+		fuse.Debug = func(msg interface{}) { fmt.Println(msg) }
+	}
 	options := []fuse.MountOption{
 		fuse.FSName("rufs"),
 		fuse.Subtype("rufs"),
@@ -89,26 +91,6 @@ func (f *FuseMnt) Run(ctx context.Context) (retErr error) {
 	<-conn.Ready
 	return conn.MountError
 }
-
-/*
-func (fs *FuseMnt) GetFileInfo(fn string) (fi FileInfo, retErr error) {
-	dn, fn := filepath.Split(fn)
-	ret, err := fs.vfs.Readdir(ctx, dn)
-	if err != nil {
-		if err.Error() == "ENOENT" {
-			return nil, fuse.ENOENT
-		}
-		return nil, err
-	}
-	if err != nil {
-		return fi, err
-	}
-	if fi, found := ret.Files[fn]; found {
-		return fi, nil
-	}
-	return fi, fuse.ENOENT
-}
-*/
 
 func (fs *FuseMnt) Root() (fs.Node, error) {
 	return &dir{node{fs, ""}}, nil
@@ -239,42 +221,24 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 	if err := f.checkAccess(request.Header.Uid); err != nil {
 		return nil, err
 	}
-	/*
-		fi, err := f.fs.GetFileInfo(f.path)
-		var ret *GetOwnersReply
-		if err == nil {
-			ret, err = f.fs.master.GetOwners(fi.Hash)
+	ret, err := f.fs.vfs.Open(ctx, f.path)
+	if err != nil {
+		if err.Error() == "ENOENT" {
+			return nil, fuse.ENOENT
 		}
-		if err != nil {
-			f.fs.purgeCacheEntry(f.path)
-			if err.Error() == "ENOENT" {
-				return nil, fuse.ENOENT
-			}
-			return nil, err
-		}
-		pfh, err := f.fs.fetcher.NewHandle(fi.Hash, fi.Size, ret.Owners)
-		if err != nil {
-			return nil, err
-		}
-		return &handle{f.node, pfh}, nil
-	*/
-	return nil, fuse.ENOSYS
+		return nil, err
+	}
+	return &handle{f.node, ret}, nil
 }
 
 type handle struct {
 	node
-	//pfh *pfHandle
+	pfh *vfs.Handle
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	return fuse.ENOSYS
-	/*
-		response.Data, retErr = h.pfh.Read(ctx, request.Offset, request.Size)
-		if retErr == ErrInterrupted {
-			retErr = fuse.EINTR
-		}
-		return retErr
-	*/
+	response.Data, retErr = h.pfh.Read(ctx, uint64(request.Offset), uint64(request.Size))
+	return retErr
 }
 
 func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
