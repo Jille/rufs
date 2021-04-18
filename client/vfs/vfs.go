@@ -55,7 +55,9 @@ func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]b
 		}
 		return handle.FixedContent[offset : offset+size], nil
 	}
-	client, err := handle.Peer.ContentServiceClient().ReadFile(ctx, &pb.ReadFileRequest{
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	stream, err := handle.Peer.ContentServiceClient().ReadFile(ctx, &pb.ReadFileRequest{
 		Filename: handle.FullPath,
 		Offset:   offset,
 		Rdnow:    size,
@@ -64,11 +66,16 @@ func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]b
 	if err != nil {
 		return nil, err
 	}
-	res, err := client.Recv()
-	if err != nil {
-		return nil, err
+	buf := make([]byte, 0, size)
+	for len(buf) < int(size) {
+		res, err := stream.Recv()
+		if err != nil {
+			log.Printf("Recv failed: %v", err)
+			return nil, err
+		}
+		buf = append(buf, res.Data...)
 	}
-	return res.Data, nil
+	return buf, nil
 }
 
 func (fs VFS) Open(ctx context.Context, path string) (*Handle, error) {
