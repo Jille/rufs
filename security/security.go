@@ -92,6 +92,7 @@ func createCertTemplate(isCA bool, name string) *x509.Certificate {
 			CommonName:   name,
 			Organization: []string{"RUFS"},
 		},
+		DNSNames:              []string{name},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
