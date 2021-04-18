@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	_ "github.com/Jille/grpc-multi-resolver"
 	pb "github.com/sgielen/rufs/proto"
@@ -34,7 +35,7 @@ func main() {
 		log.Fatalf("Failed to load certificates: %v", err)
 	}
 
-	conn, err := grpc.Dial(*discovery, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, *discovery, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("failed to connect to discovery server: %v", err)
 	}
@@ -61,6 +62,8 @@ func main() {
 }
 
 func readdir(ctx context.Context, peers []*pb.Peer, path string) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 	type peerFile struct {
 		peers []*pb.Peer
 	}
@@ -69,7 +72,7 @@ func readdir(ctx context.Context, peers []*pb.Peer, path string) {
 	files := make(map[string]*peerFile)
 
 	for _, peer := range peers {
-		conn, err := grpc.Dial("multi:///"+strings.Join(peer.GetEndpoints(), ","), grpc.WithInsecure(), grpc.WithBlock())
+		conn, err := grpc.DialContext(ctx, "multi:///"+strings.Join(peer.GetEndpoints(), ","), grpc.WithInsecure(), grpc.WithBlock())
 		if err != nil {
 			log.Printf("failed to connect to peer %s, ignoring: %v", peer.GetUsername(), err)
 			continue

@@ -35,7 +35,7 @@ func main() {
 		log.Fatalf("Failed to load CA certificate: %v", err)
 	}
 
-	conn, err := grpc.Dial(*discovery, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, *discovery, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("Failed to connect to discovery server: %v", err)
 	}
