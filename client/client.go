@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -15,11 +16,12 @@ import (
 )
 
 var (
-	discovery = flag.String("discovery", "127.0.0.1:12000", "RuFS Discovery server")
-	username  = flag.String("user", "", "RuFS username")
-	flag_endp = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
-	port      = flag.Int("port", 12010, "content server listen port")
-	path      = flag.String("path", "", "root to served content")
+	circle        = flag.String("circle", "", "Name of the circle to join")
+	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
+	username      = flag.String("user", "", "RuFS username")
+	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
+	port          = flag.Int("port", 12010, "content server listen port")
+	path          = flag.String("path", "", "root to served content")
 )
 
 func splitMaybeEmpty(str, sep string) []string {
@@ -33,17 +35,17 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	if *username == "" {
-		log.Fatalf("username must not be empty (see -help)")
+	if *circle == "" || *username == "" {
+		log.Fatalf("--circle and --username must not be empty (see -help)")
 	}
 
-	tc, err := security.TLSConfigForMasterClient("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s.crt", *username), fmt.Sprintf("/tmp/rufs/%s.key", *username))
+	tc, err := security.TLSConfigForMasterClient("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle))
 	if err != nil {
 		log.Fatalf("Failed to load certificates: %v", err)
 	}
 
-	if err := connectivity.ConnectToCircle(ctx, *discovery, splitMaybeEmpty(*flag_endp, ","), *port, tc); err != nil {
-		log.Fatalf("Failed to connect to circle %q: %v", *discovery, err)
+	if err := connectivity.ConnectToCircle(ctx, net.JoinHostPort(*circle, fmt.Sprint(*discoveryPort)), splitMaybeEmpty(*flag_endp, ","), *port, tc); err != nil {
+		log.Fatalf("Failed to connect to circle %q: %v", *circle, err)
 	}
 
 	content, err := content.New(fmt.Sprintf(":%d", *port), *path)

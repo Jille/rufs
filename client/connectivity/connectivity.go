@@ -6,7 +6,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
-	"strings"
+	"net"
 	"sync"
 	"time"
 
@@ -48,8 +48,9 @@ func ConnectToCircle(ctx context.Context, discoveryServer string, myEndpoints []
 
 	// Add ports to endpoints that don't have any
 	for i, e := range myEndpoints {
-		if !strings.Contains(e, ":") {
-			myEndpoints[i] = fmt.Sprintf("%s:%d", e, myPort)
+		_, _, err := net.SplitHostPort(e)
+		if err != nil {
+			myEndpoints[i] = net.JoinHostPort(e, fmt.Sprint(myPort))
 		}
 	}
 
@@ -95,23 +96,23 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
 	for _, pe := range peers {
-		if po, existing := c.peers[pe.GetUsername()]; existing {
+		if po, existing := c.peers[pe.GetName()]; existing {
 			po.update(pe)
 		} else {
-			c.peers[pe.GetUsername()] = newPeer(ctx, pe)
+			c.peers[pe.GetName()] = newPeer(ctx, pe)
 		}
 	}
 }
 
 func newPeer(ctx context.Context, p *pb.Peer) *Peer {
-	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s-%s", p.GetUsername(), "mycircle"))
+	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s-%s", p.GetName()))
 	r.InitialState(peerToResolverState(p))
 	conn, err := grpc.DialContext(ctx, r.Scheme()+":///magic", grpc.WithResolvers(r), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
 	}
 	return &Peer{
-		Name:     p.GetUsername() + "@mycircle",
+		Name:     p.GetName(),
 		conn:     conn,
 		resolver: r,
 	}
@@ -122,7 +123,7 @@ func peerToResolverState(p *pb.Peer) resolver.State {
 	for _, e := range p.GetEndpoints() {
 		s.Addresses = append(s.Addresses, resolver.Address{
 			Addr:       e,
-			ServerName: p.GetUsername() + "@mycircle",
+			ServerName: p.GetName(),
 		})
 	}
 	return s

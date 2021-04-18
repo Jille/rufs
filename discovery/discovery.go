@@ -33,6 +33,7 @@ func main() {
 
 	d := &discovery{
 		ca:      ca,
+		circle:  ca.Name(),
 		clients: map[string]*pb.Peer{},
 		streams: map[string]pb.DiscoveryService_ConnectServer{},
 	}
@@ -44,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
-	log.Printf("listening on port %d.", *port)
+	log.Printf("Listening on port %d for circle %q", *port, d.circle)
 	if err := s.Serve(sock); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
@@ -53,7 +54,8 @@ func main() {
 type discovery struct {
 	pb.UnimplementedDiscoveryServiceServer
 
-	ca *security.CAKeyPair
+	ca     *security.CAKeyPair
+	circle string
 
 	mtx     sync.Mutex
 	clients map[string]*pb.Peer
@@ -110,7 +112,7 @@ func (d *discovery) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.
 	if token != req.GetToken() {
 		return nil, status.Error(codes.PermissionDenied, "token is incorrect")
 	}
-	cert, err := d.ca.Sign(req.GetPublicKey(), req.GetUsername())
+	cert, err := d.ca.Sign(req.GetPublicKey(), fmt.Sprintf("%s@%s", req.GetUsername(), d.circle))
 	if err != nil {
 		return nil, err
 	}

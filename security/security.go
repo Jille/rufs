@@ -42,6 +42,11 @@ func LoadCAKeyPair(dir string) (*CAKeyPair, error) {
 	return p, nil
 }
 
+// Name returns the CommonName of the CA. (The circle name.)
+func (p *CAKeyPair) Name() string {
+	return p.ca.Subject.CommonName
+}
+
 // Sign a given public key with this CA and create a certificate for $name.
 func (p *CAKeyPair) Sign(pubKey []byte, name string) ([]byte, error) {
 	pk, err := x509.ParsePKIXPublicKey(pubKey)
@@ -232,7 +237,7 @@ func TLSConfigForRegistration(caFile string) (*tls.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return getTlsConfig(tlsConfigMasterClient, ca, nil, "rufs-ca"), nil
+	return getTlsConfig(tlsConfigMasterClient, ca, nil, ca.Subject.CommonName), nil
 }
 
 func TLSConfigForMasterClient(caFile, crtFile, keyFile string) (*tls.Config, error) {
@@ -244,5 +249,5 @@ func TLSConfigForMasterClient(caFile, crtFile, keyFile string) (*tls.Config, err
 	if err != nil {
 		return nil, err
 	}
-	return getTlsConfig(tlsConfigMasterClient, ca, &crt, "rufs-ca"), nil
+	return getTlsConfig(tlsConfigMasterClient, ca, &crt, ca.Subject.CommonName), nil
 }

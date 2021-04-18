@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"time"
 
@@ -16,9 +17,10 @@ import (
 )
 
 var (
-	discovery = flag.String("discovery", "127.0.0.1:12000", "RuFS Discovery server")
-	username  = flag.String("user", "", "RuFS username")
-	token     = flag.String("token", "", "Auth token given by an administrator")
+	circle        = flag.String("circle", "", "Name of the circle to join")
+	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
+	username      = flag.String("user", "", "RuFS username")
+	token         = flag.String("token", "", "Auth token given by an administrator")
 )
 
 func main() {
@@ -26,8 +28,8 @@ func main() {
 	defer cancel()
 	flag.Parse()
 
-	if *username == "" || *token == "" {
-		log.Fatal("--username and --token are required")
+	if *circle == "" || *username == "" || *token == "" {
+		log.Fatal("--circle, --username and --token are required")
 	}
 
 	tc, err := security.TLSConfigForRegistration("/tmp/rufs/ca.crt")
@@ -35,14 +37,14 @@ func main() {
 		log.Fatalf("Failed to load CA certificate: %v", err)
 	}
 
-	conn, err := grpc.DialContext(ctx, *discovery, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(*circle, fmt.Sprint(*discoveryPort)), grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("Failed to connect to discovery server: %v", err)
 	}
 	defer conn.Close()
 	c := pb.NewDiscoveryServiceClient(conn)
 
-	privFile := fmt.Sprintf("/tmp/rufs/%s.key", *username)
+	privFile := fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle)
 	pub, err := security.StoreNewKeyPair(privFile)
 	if err != nil {
 		log.Fatalf("Failed to generate key pair: %v", err)
@@ -58,7 +60,7 @@ func main() {
 		log.Fatalf("Failed to register: %v", err)
 	}
 
-	if err := ioutil.WriteFile(fmt.Sprintf("/tmp/rufs/%s.crt", *username), resp.GetCertificate(), 0644); err != nil {
+	if err := ioutil.WriteFile(fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), resp.GetCertificate(), 0644); err != nil {
 		os.Remove(privFile)
 		log.Fatalf("Failed to store certificate: %v", err)
 	}

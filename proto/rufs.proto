@@ -40,7 +40,7 @@ message GetMyIPResponse {
 }
 
 message Peer {
-	string username = 1;
+	string name = 1;
 	repeated string endpoints = 2;
 }
 
