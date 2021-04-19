@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
@@ -119,20 +120,19 @@ func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 	var warnings []string
 	files := make(map[string]*peerFile)
 
-	for _, peer := range connectivity.AllPeers() {
-		r, err := peer.ContentServiceClient().ReadDir(ctx, &pb.ReadDirRequest{
-			Path: path,
-		})
-		if err != nil {
-			warnings = append(warnings, fmt.Sprintf("failed to readdir on peer %s, ignoring: %v", peer.Name, err))
-			continue
-		}
+	resps, errs := parallelReadDir(ctx, connectivity.AllPeers(), &pb.ReadDirRequest{
+		Path: path,
+	})
+	for p, err := range errs {
+		warnings = append(warnings, fmt.Sprintf("failed to readdir on peer %s, ignoring: %v", p.Name, err))
+	}
+	for p, r := range resps {
 		for _, file := range r.Files {
 			if files[file.Filename] == nil {
 				files[file.Filename] = &peerFile{}
 			}
 			instance := &peerFileInstance{
-				peer:        peer,
+				peer:        p,
 				isDirectory: file.GetIsDirectory(),
 			}
 			files[file.Filename].instances = append(files[file.Filename].instances, instance)
@@ -186,4 +186,30 @@ func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 	}
 
 	return res, nil
+}
+
+func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.ReadDirRequest) (map[*connectivity.Peer]*pb.ReadDirResponse, map[*connectivity.Peer]error) {
+	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+	var mtx sync.Mutex
+	ret := map[*connectivity.Peer]*pb.ReadDirResponse{}
+	errs := map[*connectivity.Peer]error{}
+	var wg sync.WaitGroup
+	wg.Add(len(peers))
+	for _, p := range peers {
+		p := p
+		go func() {
+			defer wg.Done()
+			r, err := p.ContentServiceClient().ReadDir(ctx, req)
+			mtx.Lock()
+			defer mtx.Unlock()
+			if err != nil {
+				errs[p] = err
+			} else {
+				ret[p] = r
+			}
+		}()
+	}
+	wg.Wait()
+	return ret, errs
 }
