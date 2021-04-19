@@ -16,17 +16,6 @@ import (
 	pb "github.com/sgielen/rufs/proto"
 )
 
-var (
-	vfs VFS
-)
-
-func GetVFS() VFS {
-	return vfs
-}
-
-type VFS struct {
-}
-
 type Directory struct {
 	Files map[string]*File
 }
@@ -80,10 +69,10 @@ func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]b
 	return buf, nil
 }
 
-func (fs VFS) Open(ctx context.Context, path string) (*Handle, error) {
+func Open(ctx context.Context, path string) (*Handle, error) {
 	basename := filepath.Base(path)
 	dirname := filepath.Dir(path)
-	dir, err := fs.Readdir(ctx, dirname)
+	dir, err := Readdir(ctx, dirname)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +95,7 @@ func (fs VFS) Open(ctx context.Context, path string) (*Handle, error) {
 	}, nil
 }
 
-func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
+func Readdir(ctx context.Context, path string) (*Directory, error) {
 	path = strings.Trim(path, "/")
 
 	type peerFileInstance struct {

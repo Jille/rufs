@@ -35,7 +35,6 @@ func NewFuseMount(mountpoint string, allowUsers string) (*FuseMnt, error) {
 	res := &FuseMnt{
 		mountpoint:   mountpoint,
 		allowedUsers: allowedUsers,
-		vfs:          vfs.GetVFS(),
 	}
 	return res, nil
 }
@@ -43,7 +42,6 @@ func NewFuseMount(mountpoint string, allowUsers string) (*FuseMnt, error) {
 type FuseMnt struct {
 	mountpoint   string
 	allowedUsers map[uint32]bool
-	vfs          vfs.VFS
 }
 
 func (f *FuseMnt) Run(ctx context.Context) (retErr error) {
@@ -121,7 +119,7 @@ func (n *node) Attr(ctx context.Context, attr *fuse.Attr) (retErr error) {
 		return nil
 	}
 	dn, fn := filepath.Split(n.path)
-	ret, err := n.fs.vfs.Readdir(ctx, dn)
+	ret, err := vfs.Readdir(ctx, dn)
 	if err != nil {
 		if err.Error() == "ENOENT" {
 			return fuse.ENOENT
@@ -163,7 +161,7 @@ func (d *dir) Create(ctx context.Context, request *fuse.CreateRequest, response 
 
 func (d *dir) Lookup(ctx context.Context, name string) (_ fs.Node, retErr error) {
 	path := filepath.Join(d.path, name)
-	ret, err := d.fs.vfs.Readdir(ctx, d.path)
+	ret, err := vfs.Readdir(ctx, d.path)
 	if err != nil {
 		if err.Error() == "ENOENT" {
 			return nil, fuse.ENOENT
@@ -185,7 +183,7 @@ func (d *dir) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (_ fs.Node,
 }
 
 func (d *dir) ReadDirAll(ctx context.Context) (_ []fuse.Dirent, retErr error) {
-	ret, err := d.fs.vfs.Readdir(ctx, d.path)
+	ret, err := vfs.Readdir(ctx, d.path)
 	if err != nil {
 		if err.Error() == "ENOENT" {
 			return nil, fuse.ENOENT
@@ -221,7 +219,7 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 	if err := f.checkAccess(request.Header.Uid); err != nil {
 		return nil, err
 	}
-	ret, err := f.fs.vfs.Open(ctx, f.path)
+	ret, err := vfs.Open(ctx, f.path)
 	if err != nil {
 		if err.Error() == "ENOENT" {
 			return nil, fuse.ENOENT
@@ -233,11 +231,11 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 
 type handle struct {
 	node
-	pfh *vfs.Handle
+	vh *vfs.Handle
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	response.Data, retErr = h.pfh.Read(ctx, uint64(request.Offset), uint64(request.Size))
+	response.Data, retErr = h.vh.Read(ctx, uint64(request.Offset), uint64(request.Size))
 	return retErr
 }
 
@@ -250,6 +248,6 @@ func (h *handle) Fsync(ctx context.Context, request *fuse.FsyncRequest) error {
 }
 
 func (h *handle) Release(ctx context.Context, request *fuse.ReleaseRequest) error {
-	//h.pfh.Close()
+	//h.vh.Close()
 	return nil
 }
