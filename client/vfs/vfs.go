@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"path/filepath"
 	"strings"
@@ -165,11 +166,11 @@ func (fs VFS) Readdir(ctx context.Context, path string) (*Directory, error) {
 			peers = append(peers, instance.peer)
 		}
 		res.Files[filename] = &File{
-			FullPath:     filepath.Join(path, filename),
-			IsDirectory:  file.instances[0].isDirectory,
-			Mtime:        time.Time{},
-			Size:         0,
-			Peers:        peers,
+			FullPath:    filepath.Join(path, filename),
+			IsDirectory: file.instances[0].isDirectory,
+			Mtime:       time.Time{},
+			Size:        0,
+			Peers:       peers,
 		}
 	}
 	if len(warnings) >= 1 {
