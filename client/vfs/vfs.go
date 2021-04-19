@@ -99,8 +99,8 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 	path = strings.Trim(path, "/")
 
 	type peerFileInstance struct {
-		peer        *connectivity.Peer
-		isDirectory bool
+		peer *connectivity.Peer
+		file *pb.File
 	}
 	type peerFile struct {
 		instances []*peerFileInstance
@@ -121,8 +121,8 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 				files[file.Filename] = &peerFile{}
 			}
 			instance := &peerFileInstance{
-				peer:        p,
-				isDirectory: file.GetIsDirectory(),
+				peer: p,
+				file: file,
 			}
 			files[file.Filename].instances = append(files[file.Filename].instances, instance)
 		}
@@ -134,7 +134,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 			var peers []string
 			isDirectoryEverywhere := true
 			for _, instance := range file.instances {
-				if !instance.isDirectory {
+				if !instance.file.GetIsDirectory() {
 					isDirectoryEverywhere = false
 				}
 				peers = append(peers, instance.peer.Name)
@@ -151,14 +151,18 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 	}
 	for filename, file := range files {
 		peers := []*connectivity.Peer{}
+		var highestMtime int64
 		for _, instance := range file.instances {
 			peers = append(peers, instance.peer)
+			if instance.file.GetMtime() > highestMtime {
+				highestMtime = instance.file.GetMtime()
+			}
 		}
 		res.Files[filename] = &File{
 			FullPath:    filepath.Join(path, filename),
-			IsDirectory: file.instances[0].isDirectory,
-			Mtime:       time.Time{},
-			Size:        0,
+			IsDirectory: file.instances[0].file.GetIsDirectory(),
+			Mtime:       time.Unix(highestMtime, 0),
+			Size:        file.instances[0].file.GetSize(),
 			Peers:       peers,
 		}
 	}

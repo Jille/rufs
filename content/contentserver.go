@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
@@ -143,6 +144,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 			file := &pb.File{
 				Filename:    share.Remote,
 				IsDirectory: true,
+				Mtime:       time.Now().Unix(),
 			}
 			res.Files = append(res.Files, file)
 		}
@@ -161,6 +163,8 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 		file := &pb.File{
 			Filename:    dirfile.Name(),
 			IsDirectory: dirfile.IsDir(),
+			Size:        uint64(dirfile.Size()),
+			Mtime:       dirfile.ModTime().Unix(),
 		}
 		res.Files = append(res.Files, file)
 	}
