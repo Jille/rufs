@@ -50,6 +50,9 @@ service ContentService {
 
 	rpc ReadFile(ReadFileRequest) returns (stream ReadFileResponse) {
 	}
+
+	rpc PassiveRead(PassiveReadRequest) returns (stream PassiveReadResponse) {
+	}
 }
 
 message ReadDirRequest {
@@ -79,4 +82,59 @@ message ReadFileRequest {
 message ReadFileResponse {
 	uint64 offset = 1;
 	bytes data = 2;
+}
+
+message PassiveReadRequest {
+	int64 download_id = 1;
+}
+
+message PassiveReadResponse {
+	uint64 offset = 1;
+	bytes data = 2;
+}
+
+service DownloadOrchestrator {
+	rpc Orchestrate(stream OrchestrateRequest) returns (stream OrchestrateResponse) {
+	}
+}
+
+message OrchestrateRequest {
+	message OrchestrateRequest {
+		int64 download_id = 1;
+		repeated Range have = 2;
+		repeated Range want_now = 3;
+		repeated Range readahead = 4;
+	}
+	message UploadFailed {
+		repeated string target_peers = 1;
+	}
+
+	oneof msg {
+		OrchestrateRequest orchestrate = 1;
+		UploadFailed upload_failed = 2;
+	}
+}
+
+message OrchestrateResponse {
+	message ContentProvider {
+		Peer peer = 1;
+		repeated Range has = 2;
+	}
+	message ContentProvidersList {
+		repeated ContentProvider providers = 1;
+	}
+	message UploadCommand {
+		string peer = 1;
+		Range range = 2;
+	}
+
+	oneof msg {
+		ContentProvidersList content_providers = 1;
+		UploadCommand upload_command = 2;
+	}
+}
+
+message Range {
+	uint64 start = 1;
+	uint64 end = 2;
 }

@@ -208,6 +208,7 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 type ContentServiceClient interface {
 	ReadDir(ctx context.Context, in *ReadDirRequest, opts ...grpc.CallOption) (*ReadDirResponse, error)
 	ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (ContentService_ReadFileClient, error)
+	PassiveRead(ctx context.Context, in *PassiveReadRequest, opts ...grpc.CallOption) (ContentService_PassiveReadClient, error)
 }
 
 type contentServiceClient struct {
@@ -259,12 +260,45 @@ func (x *contentServiceReadFileClient) Recv() (*ReadFileResponse, error) {
 	return m, nil
 }
 
+func (c *contentServiceClient) PassiveRead(ctx context.Context, in *PassiveReadRequest, opts ...grpc.CallOption) (ContentService_PassiveReadClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ContentService_ServiceDesc.Streams[1], "/ContentService/PassiveRead", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &contentServicePassiveReadClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ContentService_PassiveReadClient interface {
+	Recv() (*PassiveReadResponse, error)
+	grpc.ClientStream
+}
+
+type contentServicePassiveReadClient struct {
+	grpc.ClientStream
+}
+
+func (x *contentServicePassiveReadClient) Recv() (*PassiveReadResponse, error) {
+	m := new(PassiveReadResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ContentServiceServer is the server API for ContentService service.
 // All implementations must embed UnimplementedContentServiceServer
 // for forward compatibility
 type ContentServiceServer interface {
 	ReadDir(context.Context, *ReadDirRequest) (*ReadDirResponse, error)
 	ReadFile(*ReadFileRequest, ContentService_ReadFileServer) error
+	PassiveRead(*PassiveReadRequest, ContentService_PassiveReadServer) error
 	mustEmbedUnimplementedContentServiceServer()
 }
 
@@ -277,6 +311,9 @@ func (UnimplementedContentServiceServer) ReadDir(context.Context, *ReadDirReques
 }
 func (UnimplementedContentServiceServer) ReadFile(*ReadFileRequest, ContentService_ReadFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method ReadFile not implemented")
+}
+func (UnimplementedContentServiceServer) PassiveRead(*PassiveReadRequest, ContentService_PassiveReadServer) error {
+	return status.Errorf(codes.Unimplemented, "method PassiveRead not implemented")
 }
 func (UnimplementedContentServiceServer) mustEmbedUnimplementedContentServiceServer() {}
 
@@ -330,6 +367,27 @@ func (x *contentServiceReadFileServer) Send(m *ReadFileResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _ContentService_PassiveRead_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(PassiveReadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ContentServiceServer).PassiveRead(m, &contentServicePassiveReadServer{stream})
+}
+
+type ContentService_PassiveReadServer interface {
+	Send(*PassiveReadResponse) error
+	grpc.ServerStream
+}
+
+type contentServicePassiveReadServer struct {
+	grpc.ServerStream
+}
+
+func (x *contentServicePassiveReadServer) Send(m *PassiveReadResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // ContentService_ServiceDesc is the grpc.ServiceDesc for ContentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -347,6 +405,129 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "ReadFile",
 			Handler:       _ContentService_ReadFile_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "PassiveRead",
+			Handler:       _ContentService_PassiveRead_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "rufs.proto",
+}
+
+// DownloadOrchestratorClient is the client API for DownloadOrchestrator service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DownloadOrchestratorClient interface {
+	Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DownloadOrchestrator_OrchestrateClient, error)
+}
+
+type downloadOrchestratorClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDownloadOrchestratorClient(cc grpc.ClientConnInterface) DownloadOrchestratorClient {
+	return &downloadOrchestratorClient{cc}
+}
+
+func (c *downloadOrchestratorClient) Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DownloadOrchestrator_OrchestrateClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DownloadOrchestrator_ServiceDesc.Streams[0], "/DownloadOrchestrator/Orchestrate", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &downloadOrchestratorOrchestrateClient{stream}
+	return x, nil
+}
+
+type DownloadOrchestrator_OrchestrateClient interface {
+	Send(*OrchestrateRequest) error
+	Recv() (*OrchestrateResponse, error)
+	grpc.ClientStream
+}
+
+type downloadOrchestratorOrchestrateClient struct {
+	grpc.ClientStream
+}
+
+func (x *downloadOrchestratorOrchestrateClient) Send(m *OrchestrateRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *downloadOrchestratorOrchestrateClient) Recv() (*OrchestrateResponse, error) {
+	m := new(OrchestrateResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// DownloadOrchestratorServer is the server API for DownloadOrchestrator service.
+// All implementations must embed UnimplementedDownloadOrchestratorServer
+// for forward compatibility
+type DownloadOrchestratorServer interface {
+	Orchestrate(DownloadOrchestrator_OrchestrateServer) error
+	mustEmbedUnimplementedDownloadOrchestratorServer()
+}
+
+// UnimplementedDownloadOrchestratorServer must be embedded to have forward compatible implementations.
+type UnimplementedDownloadOrchestratorServer struct {
+}
+
+func (UnimplementedDownloadOrchestratorServer) Orchestrate(DownloadOrchestrator_OrchestrateServer) error {
+	return status.Errorf(codes.Unimplemented, "method Orchestrate not implemented")
+}
+func (UnimplementedDownloadOrchestratorServer) mustEmbedUnimplementedDownloadOrchestratorServer() {}
+
+// UnsafeDownloadOrchestratorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DownloadOrchestratorServer will
+// result in compilation errors.
+type UnsafeDownloadOrchestratorServer interface {
+	mustEmbedUnimplementedDownloadOrchestratorServer()
+}
+
+func RegisterDownloadOrchestratorServer(s grpc.ServiceRegistrar, srv DownloadOrchestratorServer) {
+	s.RegisterService(&DownloadOrchestrator_ServiceDesc, srv)
+}
+
+func _DownloadOrchestrator_Orchestrate_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DownloadOrchestratorServer).Orchestrate(&downloadOrchestratorOrchestrateServer{stream})
+}
+
+type DownloadOrchestrator_OrchestrateServer interface {
+	Send(*OrchestrateResponse) error
+	Recv() (*OrchestrateRequest, error)
+	grpc.ServerStream
+}
+
+type downloadOrchestratorOrchestrateServer struct {
+	grpc.ServerStream
+}
+
+func (x *downloadOrchestratorOrchestrateServer) Send(m *OrchestrateResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *downloadOrchestratorOrchestrateServer) Recv() (*OrchestrateRequest, error) {
+	m := new(OrchestrateRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// DownloadOrchestrator_ServiceDesc is the grpc.ServiceDesc for DownloadOrchestrator service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DownloadOrchestrator_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "DownloadOrchestrator",
+	HandlerType: (*DownloadOrchestratorServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Orchestrate",
+			Handler:       _DownloadOrchestrator_Orchestrate_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 	},
 	Metadata: "rufs.proto",

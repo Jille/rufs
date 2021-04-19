@@ -648,6 +648,598 @@ func (x *ReadFileResponse) GetData() []byte {
 	return nil
 }
 
+type PassiveReadRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	DownloadId int64 `protobuf:"varint,1,opt,name=download_id,json=downloadId,proto3" json:"download_id,omitempty"`
+}
+
+func (x *PassiveReadRequest) Reset() {
+	*x = PassiveReadRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[12]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PassiveReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PassiveReadRequest) ProtoMessage() {}
+
+func (x *PassiveReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[12]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PassiveReadRequest.ProtoReflect.Descriptor instead.
+func (*PassiveReadRequest) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *PassiveReadRequest) GetDownloadId() int64 {
+	if x != nil {
+		return x.DownloadId
+	}
+	return 0
+}
+
+type PassiveReadResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Offset uint64 `protobuf:"varint,1,opt,name=offset,proto3" json:"offset,omitempty"`
+	Data   []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (x *PassiveReadResponse) Reset() {
+	*x = PassiveReadResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PassiveReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PassiveReadResponse) ProtoMessage() {}
+
+func (x *PassiveReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PassiveReadResponse.ProtoReflect.Descriptor instead.
+func (*PassiveReadResponse) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PassiveReadResponse) GetOffset() uint64 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *PassiveReadResponse) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
+type OrchestrateRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to Msg:
+	//	*OrchestrateRequest_Orchestrate
+	//	*OrchestrateRequest_UploadFailed_
+	Msg isOrchestrateRequest_Msg `protobuf_oneof:"msg"`
+}
+
+func (x *OrchestrateRequest) Reset() {
+	*x = OrchestrateRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateRequest) ProtoMessage() {}
+
+func (x *OrchestrateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateRequest.ProtoReflect.Descriptor instead.
+func (*OrchestrateRequest) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{14}
+}
+
+func (m *OrchestrateRequest) GetMsg() isOrchestrateRequest_Msg {
+	if m != nil {
+		return m.Msg
+	}
+	return nil
+}
+
+func (x *OrchestrateRequest) GetOrchestrate() *OrchestrateRequest_OrchestrateRequest {
+	if x, ok := x.GetMsg().(*OrchestrateRequest_Orchestrate); ok {
+		return x.Orchestrate
+	}
+	return nil
+}
+
+func (x *OrchestrateRequest) GetUploadFailed() *OrchestrateRequest_UploadFailed {
+	if x, ok := x.GetMsg().(*OrchestrateRequest_UploadFailed_); ok {
+		return x.UploadFailed
+	}
+	return nil
+}
+
+type isOrchestrateRequest_Msg interface {
+	isOrchestrateRequest_Msg()
+}
+
+type OrchestrateRequest_Orchestrate struct {
+	Orchestrate *OrchestrateRequest_OrchestrateRequest `protobuf:"bytes,1,opt,name=orchestrate,proto3,oneof"`
+}
+
+type OrchestrateRequest_UploadFailed_ struct {
+	UploadFailed *OrchestrateRequest_UploadFailed `protobuf:"bytes,2,opt,name=upload_failed,json=uploadFailed,proto3,oneof"`
+}
+
+func (*OrchestrateRequest_Orchestrate) isOrchestrateRequest_Msg() {}
+
+func (*OrchestrateRequest_UploadFailed_) isOrchestrateRequest_Msg() {}
+
+type OrchestrateResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to Msg:
+	//	*OrchestrateResponse_ContentProviders
+	//	*OrchestrateResponse_UploadCommand_
+	Msg isOrchestrateResponse_Msg `protobuf_oneof:"msg"`
+}
+
+func (x *OrchestrateResponse) Reset() {
+	*x = OrchestrateResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateResponse) ProtoMessage() {}
+
+func (x *OrchestrateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateResponse.ProtoReflect.Descriptor instead.
+func (*OrchestrateResponse) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{15}
+}
+
+func (m *OrchestrateResponse) GetMsg() isOrchestrateResponse_Msg {
+	if m != nil {
+		return m.Msg
+	}
+	return nil
+}
+
+func (x *OrchestrateResponse) GetContentProviders() *OrchestrateResponse_ContentProvidersList {
+	if x, ok := x.GetMsg().(*OrchestrateResponse_ContentProviders); ok {
+		return x.ContentProviders
+	}
+	return nil
+}
+
+func (x *OrchestrateResponse) GetUploadCommand() *OrchestrateResponse_UploadCommand {
+	if x, ok := x.GetMsg().(*OrchestrateResponse_UploadCommand_); ok {
+		return x.UploadCommand
+	}
+	return nil
+}
+
+type isOrchestrateResponse_Msg interface {
+	isOrchestrateResponse_Msg()
+}
+
+type OrchestrateResponse_ContentProviders struct {
+	ContentProviders *OrchestrateResponse_ContentProvidersList `protobuf:"bytes,1,opt,name=content_providers,json=contentProviders,proto3,oneof"`
+}
+
+type OrchestrateResponse_UploadCommand_ struct {
+	UploadCommand *OrchestrateResponse_UploadCommand `protobuf:"bytes,2,opt,name=upload_command,json=uploadCommand,proto3,oneof"`
+}
+
+func (*OrchestrateResponse_ContentProviders) isOrchestrateResponse_Msg() {}
+
+func (*OrchestrateResponse_UploadCommand_) isOrchestrateResponse_Msg() {}
+
+type Range struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Start uint64 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	End   uint64 `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
+}
+
+func (x *Range) Reset() {
+	*x = Range{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[16]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Range) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Range) ProtoMessage() {}
+
+func (x *Range) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[16]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Range.ProtoReflect.Descriptor instead.
+func (*Range) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *Range) GetStart() uint64 {
+	if x != nil {
+		return x.Start
+	}
+	return 0
+}
+
+func (x *Range) GetEnd() uint64 {
+	if x != nil {
+		return x.End
+	}
+	return 0
+}
+
+type OrchestrateRequest_OrchestrateRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	DownloadId int64    `protobuf:"varint,1,opt,name=download_id,json=downloadId,proto3" json:"download_id,omitempty"`
+	Have       []*Range `protobuf:"bytes,2,rep,name=have,proto3" json:"have,omitempty"`
+	WantNow    []*Range `protobuf:"bytes,3,rep,name=want_now,json=wantNow,proto3" json:"want_now,omitempty"`
+	Readahead  []*Range `protobuf:"bytes,4,rep,name=readahead,proto3" json:"readahead,omitempty"`
+}
+
+func (x *OrchestrateRequest_OrchestrateRequest) Reset() {
+	*x = OrchestrateRequest_OrchestrateRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateRequest_OrchestrateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateRequest_OrchestrateRequest) ProtoMessage() {}
+
+func (x *OrchestrateRequest_OrchestrateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateRequest_OrchestrateRequest.ProtoReflect.Descriptor instead.
+func (*OrchestrateRequest_OrchestrateRequest) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{14, 0}
+}
+
+func (x *OrchestrateRequest_OrchestrateRequest) GetDownloadId() int64 {
+	if x != nil {
+		return x.DownloadId
+	}
+	return 0
+}
+
+func (x *OrchestrateRequest_OrchestrateRequest) GetHave() []*Range {
+	if x != nil {
+		return x.Have
+	}
+	return nil
+}
+
+func (x *OrchestrateRequest_OrchestrateRequest) GetWantNow() []*Range {
+	if x != nil {
+		return x.WantNow
+	}
+	return nil
+}
+
+func (x *OrchestrateRequest_OrchestrateRequest) GetReadahead() []*Range {
+	if x != nil {
+		return x.Readahead
+	}
+	return nil
+}
+
+type OrchestrateRequest_UploadFailed struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	TargetPeers []string `protobuf:"bytes,1,rep,name=target_peers,json=targetPeers,proto3" json:"target_peers,omitempty"`
+}
+
+func (x *OrchestrateRequest_UploadFailed) Reset() {
+	*x = OrchestrateRequest_UploadFailed{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[18]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateRequest_UploadFailed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateRequest_UploadFailed) ProtoMessage() {}
+
+func (x *OrchestrateRequest_UploadFailed) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[18]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateRequest_UploadFailed.ProtoReflect.Descriptor instead.
+func (*OrchestrateRequest_UploadFailed) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{14, 1}
+}
+
+func (x *OrchestrateRequest_UploadFailed) GetTargetPeers() []string {
+	if x != nil {
+		return x.TargetPeers
+	}
+	return nil
+}
+
+type OrchestrateResponse_ContentProvider struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Peer *Peer    `protobuf:"bytes,1,opt,name=peer,proto3" json:"peer,omitempty"`
+	Has  []*Range `protobuf:"bytes,2,rep,name=has,proto3" json:"has,omitempty"`
+}
+
+func (x *OrchestrateResponse_ContentProvider) Reset() {
+	*x = OrchestrateResponse_ContentProvider{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[19]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateResponse_ContentProvider) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateResponse_ContentProvider) ProtoMessage() {}
+
+func (x *OrchestrateResponse_ContentProvider) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[19]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateResponse_ContentProvider.ProtoReflect.Descriptor instead.
+func (*OrchestrateResponse_ContentProvider) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{15, 0}
+}
+
+func (x *OrchestrateResponse_ContentProvider) GetPeer() *Peer {
+	if x != nil {
+		return x.Peer
+	}
+	return nil
+}
+
+func (x *OrchestrateResponse_ContentProvider) GetHas() []*Range {
+	if x != nil {
+		return x.Has
+	}
+	return nil
+}
+
+type OrchestrateResponse_ContentProvidersList struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Providers []*OrchestrateResponse_ContentProvider `protobuf:"bytes,1,rep,name=providers,proto3" json:"providers,omitempty"`
+}
+
+func (x *OrchestrateResponse_ContentProvidersList) Reset() {
+	*x = OrchestrateResponse_ContentProvidersList{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[20]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateResponse_ContentProvidersList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateResponse_ContentProvidersList) ProtoMessage() {}
+
+func (x *OrchestrateResponse_ContentProvidersList) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[20]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateResponse_ContentProvidersList.ProtoReflect.Descriptor instead.
+func (*OrchestrateResponse_ContentProvidersList) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{15, 1}
+}
+
+func (x *OrchestrateResponse_ContentProvidersList) GetProviders() []*OrchestrateResponse_ContentProvider {
+	if x != nil {
+		return x.Providers
+	}
+	return nil
+}
+
+type OrchestrateResponse_UploadCommand struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Peer  string `protobuf:"bytes,1,opt,name=peer,proto3" json:"peer,omitempty"`
+	Range *Range `protobuf:"bytes,2,opt,name=range,proto3" json:"range,omitempty"`
+}
+
+func (x *OrchestrateResponse_UploadCommand) Reset() {
+	*x = OrchestrateResponse_UploadCommand{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_rufs_proto_msgTypes[21]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *OrchestrateResponse_UploadCommand) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OrchestrateResponse_UploadCommand) ProtoMessage() {}
+
+func (x *OrchestrateResponse_UploadCommand) ProtoReflect() protoreflect.Message {
+	mi := &file_rufs_proto_msgTypes[21]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OrchestrateResponse_UploadCommand.ProtoReflect.Descriptor instead.
+func (*OrchestrateResponse_UploadCommand) Descriptor() ([]byte, []int) {
+	return file_rufs_proto_rawDescGZIP(), []int{15, 2}
+}
+
+func (x *OrchestrateResponse_UploadCommand) GetPeer() string {
+	if x != nil {
+		return x.Peer
+	}
+	return ""
+}
+
+func (x *OrchestrateResponse_UploadCommand) GetRange() *Range {
+	if x != nil {
+		return x.Range
+	}
+	return nil
+}
+
 var File_rufs_proto protoreflect.FileDescriptor
 
 var file_rufs_proto_rawDesc = []byte{
@@ -696,28 +1288,99 @@ var file_rufs_proto_rawDesc = []byte{
 	0x10, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
 	0x65, 0x12, 0x16, 0x0a, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x04, 0x52, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74,
-	0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x32, 0xa7, 0x01,
-	0x0a, 0x10, 0x44, 0x69, 0x73, 0x63, 0x6f, 0x76, 0x65, 0x72, 0x79, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x12, 0x31, 0x0a, 0x08, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x12, 0x10,
-	0x2e, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x1a, 0x11, 0x2e, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x30, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74,
-	0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
-	0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x2e, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x4d, 0x79,
-	0x49, 0x50, 0x12, 0x0f, 0x2e, 0x47, 0x65, 0x74, 0x4d, 0x79, 0x49, 0x50, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x47, 0x65, 0x74, 0x4d, 0x79, 0x49, 0x50, 0x52, 0x65, 0x73,
-	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x32, 0x75, 0x0a, 0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x65,
-	0x6e, 0x74, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x2e, 0x0a, 0x07, 0x52, 0x65, 0x61,
-	0x64, 0x44, 0x69, 0x72, 0x12, 0x0f, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x44, 0x69, 0x72, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x44, 0x69, 0x72, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x33, 0x0a, 0x08, 0x52, 0x65, 0x61,
-	0x64, 0x46, 0x69, 0x6c, 0x65, 0x12, 0x10, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69,
-	0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x42, 0x1f,
-	0x5a, 0x1d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73, 0x67, 0x69,
-	0x65, 0x6c, 0x65, 0x6e, 0x2f, 0x72, 0x75, 0x66, 0x73, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x35, 0x0a,
+	0x12, 0x50, 0x61, 0x73, 0x73, 0x69, 0x76, 0x65, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a, 0x0b, 0x64, 0x6f, 0x77, 0x6e, 0x6c, 0x6f, 0x61, 0x64, 0x5f,
+	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x0a, 0x64, 0x6f, 0x77, 0x6e, 0x6c, 0x6f,
+	0x61, 0x64, 0x49, 0x64, 0x22, 0x41, 0x0a, 0x13, 0x50, 0x61, 0x73, 0x73, 0x69, 0x76, 0x65, 0x52,
+	0x65, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x6f,
+	0x66, 0x66, 0x73, 0x65, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52, 0x06, 0x6f, 0x66, 0x66,
+	0x73, 0x65, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x22, 0x80, 0x03, 0x0a, 0x12, 0x4f, 0x72, 0x63, 0x68,
+	0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x4a,
+	0x0a, 0x0b, 0x6f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74,
+	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74,
+	0x72, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x48, 0x00, 0x52, 0x0b, 0x6f,
+	0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x12, 0x47, 0x0a, 0x0d, 0x75, 0x70,
+	0x6c, 0x6f, 0x61, 0x64, 0x5f, 0x66, 0x61, 0x69, 0x6c, 0x65, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x20, 0x2e, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x52,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x46, 0x61, 0x69,
+	0x6c, 0x65, 0x64, 0x48, 0x00, 0x52, 0x0c, 0x75, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x46, 0x61, 0x69,
+	0x6c, 0x65, 0x64, 0x1a, 0x9a, 0x01, 0x0a, 0x12, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72,
+	0x61, 0x74, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1f, 0x0a, 0x0b, 0x64, 0x6f,
+	0x77, 0x6e, 0x6c, 0x6f, 0x61, 0x64, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52,
+	0x0a, 0x64, 0x6f, 0x77, 0x6e, 0x6c, 0x6f, 0x61, 0x64, 0x49, 0x64, 0x12, 0x1a, 0x0a, 0x04, 0x68,
+	0x61, 0x76, 0x65, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x52, 0x61, 0x6e, 0x67,
+	0x65, 0x52, 0x04, 0x68, 0x61, 0x76, 0x65, 0x12, 0x21, 0x0a, 0x08, 0x77, 0x61, 0x6e, 0x74, 0x5f,
+	0x6e, 0x6f, 0x77, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x52, 0x61, 0x6e, 0x67,
+	0x65, 0x52, 0x07, 0x77, 0x61, 0x6e, 0x74, 0x4e, 0x6f, 0x77, 0x12, 0x24, 0x0a, 0x09, 0x72, 0x65,
+	0x61, 0x64, 0x61, 0x68, 0x65, 0x61, 0x64, 0x18, 0x04, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e,
+	0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x09, 0x72, 0x65, 0x61, 0x64, 0x61, 0x68, 0x65, 0x61, 0x64,
+	0x1a, 0x31, 0x0a, 0x0c, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x46, 0x61, 0x69, 0x6c, 0x65, 0x64,
+	0x12, 0x21, 0x0a, 0x0c, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x5f, 0x70, 0x65, 0x65, 0x72, 0x73,
+	0x18, 0x01, 0x20, 0x03, 0x28, 0x09, 0x52, 0x0b, 0x74, 0x61, 0x72, 0x67, 0x65, 0x74, 0x50, 0x65,
+	0x65, 0x72, 0x73, 0x42, 0x05, 0x0a, 0x03, 0x6d, 0x73, 0x67, 0x22, 0xaa, 0x03, 0x0a, 0x13, 0x4f,
+	0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x58, 0x0a, 0x11, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x5f, 0x70, 0x72,
+	0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x29, 0x2e,
+	0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x2e, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x76, 0x69,
+	0x64, 0x65, 0x72, 0x73, 0x4c, 0x69, 0x73, 0x74, 0x48, 0x00, 0x52, 0x10, 0x63, 0x6f, 0x6e, 0x74,
+	0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x73, 0x12, 0x4b, 0x0a, 0x0e,
+	0x75, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x5f, 0x63, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x22, 0x2e, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61,
+	0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x55, 0x70, 0x6c, 0x6f, 0x61,
+	0x64, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x48, 0x00, 0x52, 0x0d, 0x75, 0x70, 0x6c, 0x6f,
+	0x61, 0x64, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x1a, 0x46, 0x0a, 0x0f, 0x43, 0x6f, 0x6e,
+	0x74, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x12, 0x19, 0x0a, 0x04,
+	0x70, 0x65, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x05, 0x2e, 0x50, 0x65, 0x65,
+	0x72, 0x52, 0x04, 0x70, 0x65, 0x65, 0x72, 0x12, 0x18, 0x0a, 0x03, 0x68, 0x61, 0x73, 0x18, 0x02,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x06, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x03, 0x68, 0x61,
+	0x73, 0x1a, 0x5a, 0x0a, 0x14, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x76,
+	0x69, 0x64, 0x65, 0x72, 0x73, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x42, 0x0a, 0x09, 0x70, 0x72, 0x6f,
+	0x76, 0x69, 0x64, 0x65, 0x72, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x24, 0x2e, 0x4f,
+	0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x2e, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x76, 0x69, 0x64,
+	0x65, 0x72, 0x52, 0x09, 0x70, 0x72, 0x6f, 0x76, 0x69, 0x64, 0x65, 0x72, 0x73, 0x1a, 0x41, 0x0a,
+	0x0d, 0x55, 0x70, 0x6c, 0x6f, 0x61, 0x64, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x12,
+	0x0a, 0x04, 0x70, 0x65, 0x65, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x65,
+	0x65, 0x72, 0x12, 0x1c, 0x0a, 0x05, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28,
+	0x0b, 0x32, 0x06, 0x2e, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x05, 0x72, 0x61, 0x6e, 0x67, 0x65,
+	0x42, 0x05, 0x0a, 0x03, 0x6d, 0x73, 0x67, 0x22, 0x2f, 0x0a, 0x05, 0x52, 0x61, 0x6e, 0x67, 0x65,
+	0x12, 0x14, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x72, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x04, 0x52,
+	0x05, 0x73, 0x74, 0x61, 0x72, 0x74, 0x12, 0x10, 0x0a, 0x03, 0x65, 0x6e, 0x64, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x04, 0x52, 0x03, 0x65, 0x6e, 0x64, 0x32, 0xa7, 0x01, 0x0a, 0x10, 0x44, 0x69, 0x73,
+	0x63, 0x6f, 0x76, 0x65, 0x72, 0x79, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x31, 0x0a,
+	0x08, 0x52, 0x65, 0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x12, 0x10, 0x2e, 0x52, 0x65, 0x67, 0x69,
+	0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x52, 0x65,
+	0x67, 0x69, 0x73, 0x74, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00,
+	0x12, 0x30, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x12, 0x0f, 0x2e, 0x43, 0x6f,
+	0x6e, 0x6e, 0x65, 0x63, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43,
+	0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00,
+	0x30, 0x01, 0x12, 0x2e, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x4d, 0x79, 0x49, 0x50, 0x12, 0x0f, 0x2e,
+	0x47, 0x65, 0x74, 0x4d, 0x79, 0x49, 0x50, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10,
+	0x2e, 0x47, 0x65, 0x74, 0x4d, 0x79, 0x49, 0x50, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x00, 0x32, 0xb3, 0x01, 0x0a, 0x0e, 0x43, 0x6f, 0x6e, 0x74, 0x65, 0x6e, 0x74, 0x53, 0x65,
+	0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x2e, 0x0a, 0x07, 0x52, 0x65, 0x61, 0x64, 0x44, 0x69, 0x72,
+	0x12, 0x0f, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x44, 0x69, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x10, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x44, 0x69, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x33, 0x0a, 0x08, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c,
+	0x65, 0x12, 0x10, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x3c, 0x0a, 0x0b, 0x50, 0x61,
+	0x73, 0x73, 0x69, 0x76, 0x65, 0x52, 0x65, 0x61, 0x64, 0x12, 0x13, 0x2e, 0x50, 0x61, 0x73, 0x73,
+	0x69, 0x76, 0x65, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14,
+	0x2e, 0x50, 0x61, 0x73, 0x73, 0x69, 0x76, 0x65, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x32, 0x56, 0x0a, 0x14, 0x44, 0x6f, 0x77, 0x6e,
+	0x6c, 0x6f, 0x61, 0x64, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x6f, 0x72,
+	0x12, 0x3e, 0x0a, 0x0b, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x12,
+	0x13, 0x2e, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61, 0x74, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x4f, 0x72, 0x63, 0x68, 0x65, 0x73, 0x74, 0x72, 0x61,
+	0x74, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01,
+	0x42, 0x1f, 0x5a, 0x1d, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x73,
+	0x67, 0x69, 0x65, 0x6c, 0x65, 0x6e, 0x2f, 0x72, 0x75, 0x66, 0x73, 0x2f, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -732,39 +1395,64 @@ func file_rufs_proto_rawDescGZIP() []byte {
 	return file_rufs_proto_rawDescData
 }
 
-var file_rufs_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_rufs_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_rufs_proto_goTypes = []interface{}{
-	(*RegisterRequest)(nil),  // 0: RegisterRequest
-	(*RegisterResponse)(nil), // 1: RegisterResponse
-	(*ConnectRequest)(nil),   // 2: ConnectRequest
-	(*ConnectResponse)(nil),  // 3: ConnectResponse
-	(*GetMyIPRequest)(nil),   // 4: GetMyIPRequest
-	(*GetMyIPResponse)(nil),  // 5: GetMyIPResponse
-	(*Peer)(nil),             // 6: Peer
-	(*ReadDirRequest)(nil),   // 7: ReadDirRequest
-	(*ReadDirResponse)(nil),  // 8: ReadDirResponse
-	(*File)(nil),             // 9: File
-	(*ReadFileRequest)(nil),  // 10: ReadFileRequest
-	(*ReadFileResponse)(nil), // 11: ReadFileResponse
+	(*RegisterRequest)(nil),                          // 0: RegisterRequest
+	(*RegisterResponse)(nil),                         // 1: RegisterResponse
+	(*ConnectRequest)(nil),                           // 2: ConnectRequest
+	(*ConnectResponse)(nil),                          // 3: ConnectResponse
+	(*GetMyIPRequest)(nil),                           // 4: GetMyIPRequest
+	(*GetMyIPResponse)(nil),                          // 5: GetMyIPResponse
+	(*Peer)(nil),                                     // 6: Peer
+	(*ReadDirRequest)(nil),                           // 7: ReadDirRequest
+	(*ReadDirResponse)(nil),                          // 8: ReadDirResponse
+	(*File)(nil),                                     // 9: File
+	(*ReadFileRequest)(nil),                          // 10: ReadFileRequest
+	(*ReadFileResponse)(nil),                         // 11: ReadFileResponse
+	(*PassiveReadRequest)(nil),                       // 12: PassiveReadRequest
+	(*PassiveReadResponse)(nil),                      // 13: PassiveReadResponse
+	(*OrchestrateRequest)(nil),                       // 14: OrchestrateRequest
+	(*OrchestrateResponse)(nil),                      // 15: OrchestrateResponse
+	(*Range)(nil),                                    // 16: Range
+	(*OrchestrateRequest_OrchestrateRequest)(nil),    // 17: OrchestrateRequest.OrchestrateRequest
+	(*OrchestrateRequest_UploadFailed)(nil),          // 18: OrchestrateRequest.UploadFailed
+	(*OrchestrateResponse_ContentProvider)(nil),      // 19: OrchestrateResponse.ContentProvider
+	(*OrchestrateResponse_ContentProvidersList)(nil), // 20: OrchestrateResponse.ContentProvidersList
+	(*OrchestrateResponse_UploadCommand)(nil),        // 21: OrchestrateResponse.UploadCommand
 }
 var file_rufs_proto_depIdxs = []int32{
 	6,  // 0: ConnectResponse.peers:type_name -> Peer
 	9,  // 1: ReadDirResponse.files:type_name -> File
-	0,  // 2: DiscoveryService.Register:input_type -> RegisterRequest
-	2,  // 3: DiscoveryService.Connect:input_type -> ConnectRequest
-	4,  // 4: DiscoveryService.GetMyIP:input_type -> GetMyIPRequest
-	7,  // 5: ContentService.ReadDir:input_type -> ReadDirRequest
-	10, // 6: ContentService.ReadFile:input_type -> ReadFileRequest
-	1,  // 7: DiscoveryService.Register:output_type -> RegisterResponse
-	3,  // 8: DiscoveryService.Connect:output_type -> ConnectResponse
-	5,  // 9: DiscoveryService.GetMyIP:output_type -> GetMyIPResponse
-	8,  // 10: ContentService.ReadDir:output_type -> ReadDirResponse
-	11, // 11: ContentService.ReadFile:output_type -> ReadFileResponse
-	7,  // [7:12] is the sub-list for method output_type
-	2,  // [2:7] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	17, // 2: OrchestrateRequest.orchestrate:type_name -> OrchestrateRequest.OrchestrateRequest
+	18, // 3: OrchestrateRequest.upload_failed:type_name -> OrchestrateRequest.UploadFailed
+	20, // 4: OrchestrateResponse.content_providers:type_name -> OrchestrateResponse.ContentProvidersList
+	21, // 5: OrchestrateResponse.upload_command:type_name -> OrchestrateResponse.UploadCommand
+	16, // 6: OrchestrateRequest.OrchestrateRequest.have:type_name -> Range
+	16, // 7: OrchestrateRequest.OrchestrateRequest.want_now:type_name -> Range
+	16, // 8: OrchestrateRequest.OrchestrateRequest.readahead:type_name -> Range
+	6,  // 9: OrchestrateResponse.ContentProvider.peer:type_name -> Peer
+	16, // 10: OrchestrateResponse.ContentProvider.has:type_name -> Range
+	19, // 11: OrchestrateResponse.ContentProvidersList.providers:type_name -> OrchestrateResponse.ContentProvider
+	16, // 12: OrchestrateResponse.UploadCommand.range:type_name -> Range
+	0,  // 13: DiscoveryService.Register:input_type -> RegisterRequest
+	2,  // 14: DiscoveryService.Connect:input_type -> ConnectRequest
+	4,  // 15: DiscoveryService.GetMyIP:input_type -> GetMyIPRequest
+	7,  // 16: ContentService.ReadDir:input_type -> ReadDirRequest
+	10, // 17: ContentService.ReadFile:input_type -> ReadFileRequest
+	12, // 18: ContentService.PassiveRead:input_type -> PassiveReadRequest
+	14, // 19: DownloadOrchestrator.Orchestrate:input_type -> OrchestrateRequest
+	1,  // 20: DiscoveryService.Register:output_type -> RegisterResponse
+	3,  // 21: DiscoveryService.Connect:output_type -> ConnectResponse
+	5,  // 22: DiscoveryService.GetMyIP:output_type -> GetMyIPResponse
+	8,  // 23: ContentService.ReadDir:output_type -> ReadDirResponse
+	11, // 24: ContentService.ReadFile:output_type -> ReadFileResponse
+	13, // 25: ContentService.PassiveRead:output_type -> PassiveReadResponse
+	15, // 26: DownloadOrchestrator.Orchestrate:output_type -> OrchestrateResponse
+	20, // [20:27] is the sub-list for method output_type
+	13, // [13:20] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_rufs_proto_init() }
@@ -917,6 +1605,134 @@ func file_rufs_proto_init() {
 				return nil
 			}
 		}
+		file_rufs_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PassiveReadRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PassiveReadResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Range); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateRequest_OrchestrateRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateRequest_UploadFailed); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateResponse_ContentProvider); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateResponse_ContentProvidersList); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_rufs_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*OrchestrateResponse_UploadCommand); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+	}
+	file_rufs_proto_msgTypes[14].OneofWrappers = []interface{}{
+		(*OrchestrateRequest_Orchestrate)(nil),
+		(*OrchestrateRequest_UploadFailed_)(nil),
+	}
+	file_rufs_proto_msgTypes[15].OneofWrappers = []interface{}{
+		(*OrchestrateResponse_ContentProviders)(nil),
+		(*OrchestrateResponse_UploadCommand_)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -924,9 +1740,9 @@ func file_rufs_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_rufs_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   22,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   3,
 		},
 		GoTypes:           file_rufs_proto_goTypes,
 		DependencyIndexes: file_rufs_proto_depIdxs,
