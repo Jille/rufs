@@ -11,16 +11,13 @@ import (
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/content"
-	"github.com/sgielen/rufs/security"
 )
 
 var (
 	circle        = flag.String("circle", "", "Name of the circle to join")
 	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
-	username      = flag.String("user", "", "RuFS username")
 	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
 	port          = flag.Int("port", 12010, "content server listen port")
-	flag_config   = flag.String("config", "config.yaml", "configuration file")
 	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
 	mountpoint    = flag.String("mountpoint", "", "Where to mount everyone's stuff")
 )
@@ -36,25 +33,20 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	if *circle == "" || *username == "" || *mountpoint == "" {
-		log.Fatalf("--circle, --username and --mountpoint must not be empty (see -help)")
+	if *circle == "" || *mountpoint == "" {
+		log.Fatalf("--circle and --mountpoint must not be empty (see -help)")
 	}
-
-	config, err := config.ReadConfigFile(*flag_config)
+	config.MustLoadConfig()
+	kp, err := config.LoadCerts(*circle)
 	if err != nil {
-		log.Fatalf("failed to read configuration: %v", err)
-	}
-
-	kp, err := security.LoadKeyPair("/tmp/rufs/ca.crt", fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle))
-	if err != nil {
-		log.Fatalf("failed to load certificates: %v", err)
+		log.Fatalf("Failed to read certificates: %v", err)
 	}
 
 	if err := connectivity.ConnectToCircle(ctx, net.JoinHostPort(*circle, fmt.Sprint(*discoveryPort)), splitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
 		log.Fatalf("Failed to connect to circle %q: %v", *circle, err)
 	}
 
-	content, err := content.New(fmt.Sprintf(":%d", *port), config, kp)
+	content, err := content.New(fmt.Sprintf(":%d", *port), kp)
 	if err != nil {
 		log.Fatalf("failed to create content server: %v", err)
 	}

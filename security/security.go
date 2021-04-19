@@ -10,6 +10,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -119,20 +120,22 @@ func createCertTemplate(isCA bool, name string) *x509.Certificate {
 
 // NewCA creates a new CA key pair and writes it to disk.
 func NewCA(dir string, name string) error {
-	keyfn := filepath.Join(dir, "ca.key")
 	t := createCertTemplate(true, name)
 	var err error
-	priv, err := createKeyPair(keyfn)
+	ks, err := NewKey()
 	if err != nil {
 		return err
 	}
-	pub := &priv.PublicKey
-	ca, err := x509.CreateCertificate(rand.Reader, t, t, pub, priv)
+	pub := &ks.priv.PublicKey
+	ca, err := x509.CreateCertificate(rand.Reader, t, t, pub, ks.priv)
 	if err != nil {
-		os.Remove(keyfn)
 		return err
 	}
 
+	keyfn := filepath.Join(dir, "ca.key")
+	if err := ks.StorePrivateKey(keyfn); err != nil {
+		return err
+	}
 	if err := pemToFile(filepath.Join(dir, "ca.crt"), "CERTIFICATE", ca, 0644); err != nil {
 		os.Remove(keyfn)
 		return err
@@ -148,32 +151,28 @@ func loadCertificate(fn string) (*x509.Certificate, error) {
 	return x509.ParseCertificate(ca)
 }
 
-func createKeyPair(fn string) (*rsa.PrivateKey, error) {
+// KeySerializer holds a new key pair and can serialize it.
+type KeySerializer struct {
+	priv *rsa.PrivateKey
+}
+
+// NewKey generates a new key pair.
+func NewKey() (KeySerializer, error) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, err
+		return KeySerializer{}, err
 	}
-
-	mp := x509.MarshalPKCS1PrivateKey(priv)
-
-	if err := pemToFile(fn, "RSA PRIVATE KEY", mp, 0600); err != nil {
-		return nil, err
-	}
-
-	return priv, nil
+	return KeySerializer{priv}, nil
 }
 
-func serializePubKey(priv *rsa.PrivateKey) ([]byte, error) {
-	return x509.MarshalPKIXPublicKey(&priv.PublicKey)
+// StorePrivateKey writes the private key to disk.
+func (s KeySerializer) StorePrivateKey(fn string) error {
+	return pemToFile(fn, "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(s.priv), 0600)
 }
 
-// StoreNewKeyPair writes the private key to $privFile and returns the pubkey.
-func StoreNewKeyPair(privFile string) ([]byte, error) {
-	priv, err := createKeyPair(privFile)
-	if err != nil {
-		return nil, err
-	}
-	return serializePubKey(priv)
+// SerializePublicKey returns the encoded public key.
+func (s KeySerializer) SerializePublicKey() ([]byte, error) {
+	return x509.MarshalPKIXPublicKey(&s.priv.PublicKey)
 }
 
 func pemToFile(fn, pemType string, data []byte, mode os.FileMode) error {
@@ -198,12 +197,20 @@ func pemFromFile(fn, pemType string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error when reading %q: %v", fn, err)
 	}
+	p, err := decodePem(data, pemType)
+	if err != nil {
+		return nil, fmt.Errorf("error when decoding %q: %v", fn, err)
+	}
+	return p, nil
+}
+
+func decodePem(data []byte, pemType string) ([]byte, error) {
 	pem, _ := pem.Decode(data)
 	if pem == nil {
-		return nil, fmt.Errorf("error when reading %q: no PEM block found", fn)
+		return nil, errors.New("no PEM block found")
 	}
 	if pem.Type != pemType {
-		return nil, fmt.Errorf("error when reading %q: expected PEM type %q, found %q", fn, pemType, pem.Type)
+		return nil, fmt.Errorf("expected PEM type %q, found %q", pemType, pem.Type)
 	}
 	return pem.Bytes, nil
 }
@@ -238,20 +245,28 @@ func getTlsConfig(mode tlsConfigType, ca *x509.Certificate, cert *tls.Certificat
 	return cfg
 }
 
-func TLSConfigForRegistration(caFile string) (*tls.Config, error) {
-	ca, err := loadCertificate(caFile)
+func TLSConfigForRegistration(caPem []byte) (*tls.Config, error) {
+	ca, err := parseCertificate(caPem)
 	if err != nil {
 		return nil, err
 	}
 	return getTlsConfig(tlsConfigMasterClient, ca, nil, ca.Subject.CommonName), nil
 }
 
-func LoadKeyPair(caFile, crtFile, keyFile string) (*KeyPair, error) {
-	ca, err := loadCertificate(caFile)
+func parseCertificate(crtPEM []byte) (*x509.Certificate, error) {
+	crt, err := decodePem(crtPEM, "CERTIFICATE")
 	if err != nil {
 		return nil, err
 	}
-	crt, err := tls.LoadX509KeyPair(crtFile, keyFile)
+	return x509.ParseCertificate(crt)
+}
+
+func LoadKeyPair(caPEM, crtPEM, keyPEM []byte) (*KeyPair, error) {
+	ca, err := parseCertificate(caPEM)
+	if err != nil {
+		return nil, err
+	}
+	crt, err := tls.X509KeyPair(crtPEM, keyPEM)
 	if err != nil {
 		return nil, err
 	}
@@ -261,13 +276,13 @@ func LoadKeyPair(caFile, crtFile, keyFile string) (*KeyPair, error) {
 	}
 	crt.Leaf = x509Cert
 	return &KeyPair{
-		ca: ca,
+		ca:  ca,
 		crt: crt,
 	}, nil
 }
 
 type KeyPair struct {
-	ca *x509.Certificate
+	ca  *x509.Certificate
 	crt tls.Certificate
 }
 

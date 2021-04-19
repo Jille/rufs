@@ -22,12 +22,12 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func New(addr string, configuration *config.Config, kp *security.KeyPair) (*content, error) {
+func New(addr string, kp *security.KeyPair) (*content, error) {
 	if addr == "" {
 		return nil, errors.New("missing parameter addr")
 	}
 
-	for _, circle := range configuration.Circles {
+	for _, circle := range config.GetCircles() {
 		for _, share := range circle.Shares {
 			if strings.Contains(share.Remote, "/") || share.Remote == "." || share.Remote == ".." {
 				return nil, fmt.Errorf("remote path invalid: %s", share.Remote)
@@ -50,9 +50,8 @@ func New(addr string, configuration *config.Config, kp *security.KeyPair) (*cont
 	}
 
 	c := &content{
-		addr:          addr,
-		configuration: configuration,
-		keyPair:       kp,
+		addr:    addr,
+		keyPair: kp,
 	}
 	return c, nil
 }
@@ -60,9 +59,8 @@ func New(addr string, configuration *config.Config, kp *security.KeyPair) (*cont
 type content struct {
 	pb.UnimplementedContentServiceServer
 
-	addr          string
-	configuration *config.Config
-	keyPair       *security.KeyPair
+	addr    string
+	keyPair *security.KeyPair
 }
 
 func (c *content) Run() {
@@ -84,7 +82,7 @@ func (c *content) getSharesForPeer(ctx context.Context) ([]*config.Share, error)
 	if err != nil {
 		return nil, err
 	}
-	circ, ok := c.configuration.GetCircle(circle)
+	circ, ok := config.GetCircle(circle)
 	if !ok {
 		return nil, status.Error(codes.NotFound, "no shares configured for this circle")
 	}

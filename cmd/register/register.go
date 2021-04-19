@@ -7,9 +7,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -18,6 +21,7 @@ import (
 
 var (
 	circle        = flag.String("circle", "", "Name of the circle to join")
+	caFlag        = flag.String("ca", "/tmp/rufs/ca.crt", "Path or URL to the CA certificate")
 	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
 	username      = flag.String("user", "", "RuFS username")
 	token         = flag.String("token", "", "Auth token given by an administrator")
@@ -31,8 +35,14 @@ func main() {
 	if *circle == "" || *username == "" || *token == "" {
 		log.Fatal("--circle, --username and --token are required")
 	}
+	config.MustResolvePath()
 
-	tc, err := security.TLSConfigForRegistration("/tmp/rufs/ca.crt")
+	ca, err := readOrFetch(*caFlag)
+	if err != nil {
+		log.Fatalf("Failed to read CA certificate from %q: %v", *caFlag, err)
+	}
+
+	tc, err := security.TLSConfigForRegistration(ca)
 	if err != nil {
 		log.Fatalf("Failed to load CA certificate: %v", err)
 	}
@@ -44,10 +54,13 @@ func main() {
 	defer conn.Close()
 	c := pb.NewDiscoveryServiceClient(conn)
 
-	privFile := fmt.Sprintf("/tmp/rufs/%s@%s.key", *username, *circle)
-	pub, err := security.StoreNewKeyPair(privFile)
+	key, err := security.NewKey()
 	if err != nil {
 		log.Fatalf("Failed to generate key pair: %v", err)
+	}
+	pub, err := key.SerializePublicKey()
+	if err != nil {
+		log.Fatalf("Failed to serialize public key: %v", err)
 	}
 
 	resp, err := c.Register(ctx, &pb.RegisterRequest{
@@ -56,12 +69,41 @@ func main() {
 		PublicKey: pub,
 	})
 	if err != nil {
-		os.Remove(privFile)
 		log.Fatalf("Failed to register: %v", err)
 	}
 
-	if err := ioutil.WriteFile(fmt.Sprintf("/tmp/rufs/%s@%s.crt", *username, *circle), resp.GetCertificate(), 0644); err != nil {
-		os.Remove(privFile)
+	caFile, crtFile, keyFile := config.PKIFiles(*circle)
+	if err := key.StorePrivateKey(keyFile); err != nil {
+		log.Fatalf("Failed to store private key: %v", err)
+	}
+
+	if err := ioutil.WriteFile(crtFile, resp.GetCertificate(), 0644); err != nil {
+		os.Remove(keyFile)
 		log.Fatalf("Failed to store certificate: %v", err)
 	}
+
+	if err := ioutil.WriteFile(caFile, ca, 0644); err != nil {
+		os.Remove(keyFile)
+		os.Remove(crtFile)
+		log.Fatalf("Failed to store CA certificate: %v", err)
+	}
+}
+
+func readOrFetch(uri string) ([]byte, error) {
+	if strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
+		if strings.HasPrefix(uri, "http://") {
+			log.Print("Warning: Retrieving certificates over unencrypted http is unsafe")
+		}
+
+		resp, err := http.Get(uri)
+		if err != nil {
+			return nil, fmt.Errorf("HTTP request failed: %v", err)
+		}
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("HTTP requested failed with %q", resp.Status)
+		}
+		defer resp.Body.Close()
+		return ioutil.ReadAll(resp.Body)
+	}
+	return ioutil.ReadFile(uri)
 }
