@@ -1,0 +1,88 @@
+1. TCP tunneling
+
+service BouncerService {
+	rpc BounceMe(BounceRequest) returns (stream BounceResponse) {
+	}
+}
+
+message BounceResponse {
+	int32 bounce_port = 1;
+	int32 receive_port = 2;
+	int32 open_connections = 3;
+}
+
+Peer without a public IP gRPCs to the bouncer, calls BounceMe.
+
+Peer connects at least $open_connections to $receive_port. Later messages will change $open_connections, but not $bounce_port or $receive_port.
+
+Advantages:
+* Fully transparent to others
+* One TCP stream per connection
+* No double encryption or re-encryption
+* Bouncer can't MITM
+
+Downsides:
+* Bouncers need to open multiple ports
+
+2. gRPC stream multiplexing
+
+service BouncerService {
+  rpc BounceMe(stream BounceRequest) returns (stream BounceResponse) {
+	}
+
+	rpc TalkToBouncee(stream TalkToBounceeRequest) returns (stream TalkToBounceeResponse) {
+	}
+}
+
+message BounceRequest {
+	int64 connection_id = 1;
+	bytes data = 2;
+	bool close = 3;
+}
+
+message BounceResponse {
+	int64 connection_id = 1;
+	bytes data = 2;
+	bool close = 3;
+
+	// your_id needs to be given to TalkToBounceeRequest.peer_id. It's only returned in the first response.
+	int64 your_id = 4;
+}
+
+message TalkToBounceeRequest {
+	int64 peer_id = 1;
+	bytes data = 1;
+}
+
+message TalkToBounceeResponse {
+	bytes data = 1;
+}
+
+Advantages:
+* Single port
+* Bouncer can't MITM
+
+Disadvantages:
+* Clients need to understand how to talk through bouncers
+* Multiple streams over a single TCP connection (gets less priority from routers)
+* Double encryption
+* Bouncer needs to decrypt and encrypt all data
+
+
+## Without SSL?
+
+Maybe the bouncer could run without SSL because all traffic it's moving is already encrypted?
+
+3. Combined
+
+Communication with the bouncee happens like #2's BounceMe, but the bouncer opens up a new port and forwards traffic over the BounceMe stream.
+
+Advantages:
+* Fully transparent to others
+* Bouncer doesn't need to decrypt all data
+
+Disadvantages:
+* Multiple streams over a single TCP connection (gets less priority from routers)
+* Double encryption
+* Bouncer needs to encrypt all data
+* Bouncers need to open multiple ports
