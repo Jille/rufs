@@ -107,13 +107,13 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 	path = strings.TrimLeft(path[len(remote):], "/")
 
 	root := matchingShare.Local
-	dirpath := filepath.Clean(root + path)
+	dirpath := filepath.Clean(root + "/" + path)
 	if dirpath != root && !strings.HasPrefix(dirpath, root+"/") {
 		return "", status.Errorf(codes.PermissionDenied, "path falls outside root")
 	}
 
 	// check if realpath also falls inside root
-	dirpath, err := realpath.Realpath(root + path)
+	dirpath, err := realpath.Realpath(dirpath)
 	if err != nil {
 		// try not to return the original path
 		if pe, ok := err.(*os.PathError); ok {
