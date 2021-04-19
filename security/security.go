@@ -220,7 +220,6 @@ type tlsConfigType int
 const (
 	tlsConfigMaster tlsConfigType = iota
 	tlsConfigMasterClient
-	tlsConfigServer
 	tlsConfigServerClient
 )
 
@@ -239,7 +238,7 @@ func getTlsConfig(mode tlsConfigType, ca *x509.Certificate, cert *tls.Certificat
 	case tlsConfigMaster, tlsConfigMasterClient:
 		cfg.ClientAuth = tls.VerifyClientCertIfGiven
 		cfg.PreferServerCipherSuites = true
-	case tlsConfigServer, tlsConfigServerClient:
+	case tlsConfigServerClient:
 		cfg.ClientAuth = tls.RequireAndVerifyClientCert
 	}
 	return cfg
@@ -290,12 +289,23 @@ func (p *KeyPair) TLSConfigForMasterClient() *tls.Config {
 	return getTlsConfig(tlsConfigMasterClient, p.ca, &p.crt, p.ca.Subject.CommonName)
 }
 
-func (p *KeyPair) TLSConfigForServer() *tls.Config {
-	return getTlsConfig(tlsConfigServer, p.ca, &p.crt, p.crt.Leaf.Subject.CommonName)
+func TLSConfigForServer(kps []*KeyPair) *tls.Config {
+	CAs := x509.NewCertPool()
+	var certs []tls.Certificate
+	for _, kp := range kps {
+		CAs.AddCert(kp.ca)
+		certs = append(certs, kp.crt)
+	}
+	return &tls.Config{
+		RootCAs:      CAs,
+		ClientCAs:    CAs,
+		Certificates: certs,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+	}
 }
 
 func (p *KeyPair) TLSConfigForServerClient(name string) *tls.Config {
-	return getTlsConfig(tlsConfigServer, p.ca, &p.crt, name)
+	return getTlsConfig(tlsConfigServerClient, p.ca, &p.crt, name)
 }
 
 // PeerFromContext can be called from inside an RPC handler to get the remote peer and circle name.

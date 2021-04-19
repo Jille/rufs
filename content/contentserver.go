@@ -22,7 +22,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func New(addr string, kp *security.KeyPair) (*content, error) {
+func New(addr string, kps []*security.KeyPair) (*content, error) {
 	if addr == "" {
 		return nil, errors.New("missing parameter addr")
 	}
@@ -50,8 +50,8 @@ func New(addr string, kp *security.KeyPair) (*content, error) {
 	}
 
 	c := &content{
-		addr:    addr,
-		keyPair: kp,
+		addr:     addr,
+		keyPairs: kps,
 	}
 	return c, nil
 }
@@ -59,12 +59,12 @@ func New(addr string, kp *security.KeyPair) (*content, error) {
 type content struct {
 	pb.UnimplementedContentServiceServer
 
-	addr    string
-	keyPair *security.KeyPair
+	addr     string
+	keyPairs []*security.KeyPair
 }
 
 func (c *content) Run() {
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(c.keyPair.TLSConfigForServer())))
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(c.keyPairs))))
 	pb.RegisterContentServiceServer(s, c)
 	reflection.Register(s)
 	sock, err := net.Listen("tcp", c.addr)
