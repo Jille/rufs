@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/content"
 	"github.com/sgielen/rufs/security"
@@ -61,12 +62,11 @@ func main() {
 		}
 	}
 
-	fuse, err := NewFuseMount(*mountpoint, *allowUsers)
+	f, err := fuse.NewMount(*mountpoint, *allowUsers)
 	if err != nil {
 		log.Fatalf("failed to mount fuse: %v", err)
 	}
-	err = fuse.Run(ctx)
-	if err != nil {
+	if err := f.Run(ctx); err != nil {
 		log.Fatalf("failed to run fuse: %v", err)
 	}
 }

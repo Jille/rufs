@@ -1,6 +1,6 @@
 // +build !windows,!netbsd,!openbsd,!nofuse
 
-package main
+package fuse
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"github.com/sgielen/rufs/client/vfs"
 )
 
-func NewFuseMount(mountpoint string, allowUsers string) (*FuseMnt, error) {
+func NewMount(mountpoint string, allowUsers string) (*Mount, error) {
 	var allowedUsers map[uint32]bool
 	if allowUsers != "" {
 		allowedUsers = map[uint32]bool{}
@@ -32,19 +32,19 @@ func NewFuseMount(mountpoint string, allowUsers string) (*FuseMnt, error) {
 		}
 	}
 
-	res := &FuseMnt{
+	res := &Mount{
 		mountpoint:   mountpoint,
 		allowedUsers: allowedUsers,
 	}
 	return res, nil
 }
 
-type FuseMnt struct {
+type Mount struct {
 	mountpoint   string
 	allowedUsers map[uint32]bool
 }
 
-func (f *FuseMnt) Run(ctx context.Context) (retErr error) {
+func (f *Mount) Run(ctx context.Context) (retErr error) {
 	if false {
 		fuse.Debug = func(msg interface{}) { fmt.Println(msg) }
 	}
@@ -90,12 +90,12 @@ func (f *FuseMnt) Run(ctx context.Context) (retErr error) {
 	return conn.MountError
 }
 
-func (fs *FuseMnt) Root() (fs.Node, error) {
+func (fs *Mount) Root() (fs.Node, error) {
 	return &dir{node{fs, ""}}, nil
 }
 
 type node struct {
-	fs   *FuseMnt
+	fs   *Mount
 	path string
 }
 
