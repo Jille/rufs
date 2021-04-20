@@ -22,6 +22,7 @@ type DiscoveryServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error)
 	GetMyIP(ctx context.Context, in *GetMyIPRequest, opts ...grpc.CallOption) (*GetMyIPResponse, error)
+	Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DiscoveryService_OrchestrateClient, error)
 }
 
 type discoveryServiceClient struct {
@@ -82,6 +83,37 @@ func (c *discoveryServiceClient) GetMyIP(ctx context.Context, in *GetMyIPRequest
 	return out, nil
 }
 
+func (c *discoveryServiceClient) Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DiscoveryService_OrchestrateClient, error) {
+	stream, err := c.cc.NewStream(ctx, &DiscoveryService_ServiceDesc.Streams[1], "/DiscoveryService/Orchestrate", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &discoveryServiceOrchestrateClient{stream}
+	return x, nil
+}
+
+type DiscoveryService_OrchestrateClient interface {
+	Send(*OrchestrateRequest) error
+	Recv() (*OrchestrateResponse, error)
+	grpc.ClientStream
+}
+
+type discoveryServiceOrchestrateClient struct {
+	grpc.ClientStream
+}
+
+func (x *discoveryServiceOrchestrateClient) Send(m *OrchestrateRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *discoveryServiceOrchestrateClient) Recv() (*OrchestrateResponse, error) {
+	m := new(OrchestrateResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DiscoveryServiceServer is the server API for DiscoveryService service.
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
@@ -90,6 +122,7 @@ type DiscoveryServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
 	GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error)
+	Orchestrate(DiscoveryService_OrchestrateServer) error
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
@@ -105,6 +138,9 @@ func (UnimplementedDiscoveryServiceServer) Connect(*ConnectRequest, DiscoverySer
 }
 func (UnimplementedDiscoveryServiceServer) GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMyIP not implemented")
+}
+func (UnimplementedDiscoveryServiceServer) Orchestrate(DiscoveryService_OrchestrateServer) error {
+	return status.Errorf(codes.Unimplemented, "method Orchestrate not implemented")
 }
 func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
 
@@ -176,6 +212,32 @@ func _DiscoveryService_GetMyIP_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DiscoveryService_Orchestrate_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(DiscoveryServiceServer).Orchestrate(&discoveryServiceOrchestrateServer{stream})
+}
+
+type DiscoveryService_OrchestrateServer interface {
+	Send(*OrchestrateResponse) error
+	Recv() (*OrchestrateRequest, error)
+	grpc.ServerStream
+}
+
+type discoveryServiceOrchestrateServer struct {
+	grpc.ServerStream
+}
+
+func (x *discoveryServiceOrchestrateServer) Send(m *OrchestrateResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *discoveryServiceOrchestrateServer) Recv() (*OrchestrateRequest, error) {
+	m := new(OrchestrateRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DiscoveryService_ServiceDesc is the grpc.ServiceDesc for DiscoveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -198,6 +260,12 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _DiscoveryService_Connect_Handler,
 			ServerStreams: true,
 		},
+		{
+			StreamName:    "Orchestrate",
+			Handler:       _DiscoveryService_Orchestrate_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
 	},
 	Metadata: "rufs.proto",
 }
@@ -208,7 +276,7 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 type ContentServiceClient interface {
 	ReadDir(ctx context.Context, in *ReadDirRequest, opts ...grpc.CallOption) (*ReadDirResponse, error)
 	ReadFile(ctx context.Context, in *ReadFileRequest, opts ...grpc.CallOption) (ContentService_ReadFileClient, error)
-	PassiveRead(ctx context.Context, in *PassiveReadRequest, opts ...grpc.CallOption) (ContentService_PassiveReadClient, error)
+	PassiveTransfer(ctx context.Context, opts ...grpc.CallOption) (ContentService_PassiveTransferClient, error)
 }
 
 type contentServiceClient struct {
@@ -260,32 +328,31 @@ func (x *contentServiceReadFileClient) Recv() (*ReadFileResponse, error) {
 	return m, nil
 }
 
-func (c *contentServiceClient) PassiveRead(ctx context.Context, in *PassiveReadRequest, opts ...grpc.CallOption) (ContentService_PassiveReadClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ContentService_ServiceDesc.Streams[1], "/ContentService/PassiveRead", opts...)
+func (c *contentServiceClient) PassiveTransfer(ctx context.Context, opts ...grpc.CallOption) (ContentService_PassiveTransferClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ContentService_ServiceDesc.Streams[1], "/ContentService/PassiveTransfer", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &contentServicePassiveReadClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &contentServicePassiveTransferClient{stream}
 	return x, nil
 }
 
-type ContentService_PassiveReadClient interface {
-	Recv() (*PassiveReadResponse, error)
+type ContentService_PassiveTransferClient interface {
+	Send(*PassiveTransferRequest) error
+	Recv() (*PassiveTransferResponse, error)
 	grpc.ClientStream
 }
 
-type contentServicePassiveReadClient struct {
+type contentServicePassiveTransferClient struct {
 	grpc.ClientStream
 }
 
-func (x *contentServicePassiveReadClient) Recv() (*PassiveReadResponse, error) {
-	m := new(PassiveReadResponse)
+func (x *contentServicePassiveTransferClient) Send(m *PassiveTransferRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *contentServicePassiveTransferClient) Recv() (*PassiveTransferResponse, error) {
+	m := new(PassiveTransferResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -298,7 +365,7 @@ func (x *contentServicePassiveReadClient) Recv() (*PassiveReadResponse, error) {
 type ContentServiceServer interface {
 	ReadDir(context.Context, *ReadDirRequest) (*ReadDirResponse, error)
 	ReadFile(*ReadFileRequest, ContentService_ReadFileServer) error
-	PassiveRead(*PassiveReadRequest, ContentService_PassiveReadServer) error
+	PassiveTransfer(ContentService_PassiveTransferServer) error
 	mustEmbedUnimplementedContentServiceServer()
 }
 
@@ -312,8 +379,8 @@ func (UnimplementedContentServiceServer) ReadDir(context.Context, *ReadDirReques
 func (UnimplementedContentServiceServer) ReadFile(*ReadFileRequest, ContentService_ReadFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method ReadFile not implemented")
 }
-func (UnimplementedContentServiceServer) PassiveRead(*PassiveReadRequest, ContentService_PassiveReadServer) error {
-	return status.Errorf(codes.Unimplemented, "method PassiveRead not implemented")
+func (UnimplementedContentServiceServer) PassiveTransfer(ContentService_PassiveTransferServer) error {
+	return status.Errorf(codes.Unimplemented, "method PassiveTransfer not implemented")
 }
 func (UnimplementedContentServiceServer) mustEmbedUnimplementedContentServiceServer() {}
 
@@ -367,25 +434,30 @@ func (x *contentServiceReadFileServer) Send(m *ReadFileResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _ContentService_PassiveRead_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(PassiveReadRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ContentServiceServer).PassiveRead(m, &contentServicePassiveReadServer{stream})
+func _ContentService_PassiveTransfer_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ContentServiceServer).PassiveTransfer(&contentServicePassiveTransferServer{stream})
 }
 
-type ContentService_PassiveReadServer interface {
-	Send(*PassiveReadResponse) error
+type ContentService_PassiveTransferServer interface {
+	Send(*PassiveTransferResponse) error
+	Recv() (*PassiveTransferRequest, error)
 	grpc.ServerStream
 }
 
-type contentServicePassiveReadServer struct {
+type contentServicePassiveTransferServer struct {
 	grpc.ServerStream
 }
 
-func (x *contentServicePassiveReadServer) Send(m *PassiveReadResponse) error {
+func (x *contentServicePassiveTransferServer) Send(m *PassiveTransferResponse) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func (x *contentServicePassiveTransferServer) Recv() (*PassiveTransferRequest, error) {
+	m := new(PassiveTransferRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // ContentService_ServiceDesc is the grpc.ServiceDesc for ContentService service.
@@ -407,125 +479,8 @@ var ContentService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 		{
-			StreamName:    "PassiveRead",
-			Handler:       _ContentService_PassiveRead_Handler,
-			ServerStreams: true,
-		},
-	},
-	Metadata: "rufs.proto",
-}
-
-// DownloadOrchestratorClient is the client API for DownloadOrchestrator service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type DownloadOrchestratorClient interface {
-	Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DownloadOrchestrator_OrchestrateClient, error)
-}
-
-type downloadOrchestratorClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewDownloadOrchestratorClient(cc grpc.ClientConnInterface) DownloadOrchestratorClient {
-	return &downloadOrchestratorClient{cc}
-}
-
-func (c *downloadOrchestratorClient) Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DownloadOrchestrator_OrchestrateClient, error) {
-	stream, err := c.cc.NewStream(ctx, &DownloadOrchestrator_ServiceDesc.Streams[0], "/DownloadOrchestrator/Orchestrate", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &downloadOrchestratorOrchestrateClient{stream}
-	return x, nil
-}
-
-type DownloadOrchestrator_OrchestrateClient interface {
-	Send(*OrchestrateRequest) error
-	Recv() (*OrchestrateResponse, error)
-	grpc.ClientStream
-}
-
-type downloadOrchestratorOrchestrateClient struct {
-	grpc.ClientStream
-}
-
-func (x *downloadOrchestratorOrchestrateClient) Send(m *OrchestrateRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *downloadOrchestratorOrchestrateClient) Recv() (*OrchestrateResponse, error) {
-	m := new(OrchestrateResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// DownloadOrchestratorServer is the server API for DownloadOrchestrator service.
-// All implementations must embed UnimplementedDownloadOrchestratorServer
-// for forward compatibility
-type DownloadOrchestratorServer interface {
-	Orchestrate(DownloadOrchestrator_OrchestrateServer) error
-	mustEmbedUnimplementedDownloadOrchestratorServer()
-}
-
-// UnimplementedDownloadOrchestratorServer must be embedded to have forward compatible implementations.
-type UnimplementedDownloadOrchestratorServer struct {
-}
-
-func (UnimplementedDownloadOrchestratorServer) Orchestrate(DownloadOrchestrator_OrchestrateServer) error {
-	return status.Errorf(codes.Unimplemented, "method Orchestrate not implemented")
-}
-func (UnimplementedDownloadOrchestratorServer) mustEmbedUnimplementedDownloadOrchestratorServer() {}
-
-// UnsafeDownloadOrchestratorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to DownloadOrchestratorServer will
-// result in compilation errors.
-type UnsafeDownloadOrchestratorServer interface {
-	mustEmbedUnimplementedDownloadOrchestratorServer()
-}
-
-func RegisterDownloadOrchestratorServer(s grpc.ServiceRegistrar, srv DownloadOrchestratorServer) {
-	s.RegisterService(&DownloadOrchestrator_ServiceDesc, srv)
-}
-
-func _DownloadOrchestrator_Orchestrate_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(DownloadOrchestratorServer).Orchestrate(&downloadOrchestratorOrchestrateServer{stream})
-}
-
-type DownloadOrchestrator_OrchestrateServer interface {
-	Send(*OrchestrateResponse) error
-	Recv() (*OrchestrateRequest, error)
-	grpc.ServerStream
-}
-
-type downloadOrchestratorOrchestrateServer struct {
-	grpc.ServerStream
-}
-
-func (x *downloadOrchestratorOrchestrateServer) Send(m *OrchestrateResponse) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *downloadOrchestratorOrchestrateServer) Recv() (*OrchestrateRequest, error) {
-	m := new(OrchestrateRequest)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// DownloadOrchestrator_ServiceDesc is the grpc.ServiceDesc for DownloadOrchestrator service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var DownloadOrchestrator_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "DownloadOrchestrator",
-	HandlerType: (*DownloadOrchestratorServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Orchestrate",
-			Handler:       _DownloadOrchestrator_Orchestrate_Handler,
+			StreamName:    "PassiveTransfer",
+			Handler:       _ContentService_PassiveTransfer_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
