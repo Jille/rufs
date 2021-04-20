@@ -12,6 +12,9 @@ service DiscoveryService {
 
 	rpc GetMyIP(GetMyIPRequest) returns (GetMyIPResponse) {
 	}
+
+	rpc Orchestrate(stream OrchestrateRequest) returns (stream OrchestrateResponse) {
+	}
 }
 
 message RegisterRequest {
@@ -44,11 +47,55 @@ message Peer {
 	repeated string endpoints = 2;
 }
 
+message OrchestrateRequest {
+	message OrchestrateRequest {
+		int64 download_id = 1;
+		repeated Range have = 2;
+		repeated Range readnow = 3;
+		repeated Range readahead = 4;
+	}
+	message ConnectedPeers {
+		repeated string peers = 1;
+	}
+	message UploadFailed {
+		repeated string target_peers = 1;
+	}
+
+	oneof msg {
+		OrchestrateRequest orchestrate = 1;
+		ConnectedPeers connected_peers = 2;
+		UploadFailed upload_failed = 3;
+	}
+}
+
+message OrchestrateResponse {
+	message PeerList {
+		repeated string peers = 1;
+	}
+	message UploadCommand {
+		string peer = 1;
+		Range range = 2;
+	}
+
+	oneof msg {
+		PeerList peer_list = 1;
+		UploadCommand upload_command = 2;
+	}
+}
+
+message Range {
+	uint64 start = 1;
+	uint64 end = 2;
+}
+
 service ContentService {
 	rpc ReadDir(ReadDirRequest) returns (ReadDirResponse) {
 	}
 
 	rpc ReadFile(ReadFileRequest) returns (stream ReadFileResponse) {
+	}
+
+	rpc PassiveTransfer(stream PassiveTransferRequest) returns (stream PassiveTransferResponse) {
 	}
 }
 
@@ -79,6 +126,17 @@ message ReadFileRequest {
 }
 
 message ReadFileResponse {
+	uint64 offset = 1;
+	bytes data = 2;
+}
+
+message PassiveTransferRequest {
+	int64 download_id = 1;
+	uint64 offset = 2;
+	bytes data = 3;
+}
+
+message PassiveTransferResponse {
 	uint64 offset = 1;
 	bytes data = 2;
 }
