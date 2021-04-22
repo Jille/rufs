@@ -19,7 +19,7 @@ import (
 
 var (
 	cmtx    sync.Mutex
-	circles map[string]*circle
+	circles = map[string]*circle{}
 )
 
 type circle struct {
