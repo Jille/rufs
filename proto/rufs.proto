@@ -147,8 +147,6 @@ message File {
 	bool is_directory = 3;
 	uint64 size = 4;
 	int64 mtime = 5; // UNIX timestamp
-
-	int64 redirect_to_orchestrated_download = 6;
 }
 
 message ReadFileRequest {
@@ -161,6 +159,8 @@ message ReadFileRequest {
 message ReadFileResponse {
 	uint64 offset = 1;
 	bytes data = 2;
+
+	int64 redirect_to_orchestrated_download = 6;
 }
 
 message PassiveTransferRequest {
