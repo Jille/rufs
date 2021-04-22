@@ -185,7 +185,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 		}
 		hashCacheMtx.Lock()
 		if e, ok := hashCache[filepath.Join(dirpath, dirfile.Name())]; ok {
-			if e.size == file.Size && e.mtime.Unix() == file.Mtime {
+			if e.size == file.Size && e.mtime.Equal(dirfile.ModTime()) {
 				file.Hash = e.hash
 			} else {
 				delete(hashCache, filepath.Join(dirpath, dirfile.Name()))
