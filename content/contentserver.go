@@ -283,8 +283,12 @@ func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.Reso
 	if err != nil {
 		return err
 	}
-	hashQueue <- path
-	return nil
+	select{
+	case hashQueue <- path:
+		return nil
+	default:
+		return errors.New("hash queue overflow")
+	}
 }
 
 func (c *content) hashWorker() {
