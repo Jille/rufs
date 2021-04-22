@@ -144,7 +144,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 			if !isDirectoryEverywhere && (len(hashes) != 1 || hashes[""]) {
 				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, strings.Join(peers, ", ")))
 				delete(files, filename)
-				triggerResolveConflict(ctx, filename, peers)
+				triggerResolveConflict(ctx, filepath.Join(path, filename), peers)
 			}
 		}
 	}

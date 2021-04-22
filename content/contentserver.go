@@ -267,11 +267,18 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	}
 }
 
-func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRequest) error {
-	shares, err := c.getSharesForPeer(ctx)
-	if err != nil {
-		return err
+func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {
+	if err := c.handleResolveConflictRequestImpl(ctx, req, circle); err != nil {
+		log.Printf("handleResolveConflictRequest(%q) failed: %v", req.GetFilename(), err)
 	}
+}
+
+func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.ResolveConflictRequest, circle string) error {
+	circ, ok := config.GetCircle(circle)
+	if !ok {
+		return status.Error(codes.NotFound, "no shares configured for this circle")
+	}
+	shares := circ.Shares
 
 	reqpath := strings.TrimLeft(req.GetFilename(), "/")
 
