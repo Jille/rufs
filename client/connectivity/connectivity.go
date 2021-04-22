@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,10 +19,11 @@ import (
 
 var (
 	cmtx    sync.Mutex
-	circles []*circle
+	circles map[string]*circle
 )
 
 type circle struct {
+	name        string
 	client      pb.DiscoveryServiceClient
 	myEndpoints []string
 	keyPair     *security.KeyPair
@@ -32,8 +32,8 @@ type circle struct {
 	peers map[string]*Peer
 }
 
-func ConnectToCircle(ctx context.Context, discoveryServer string, myEndpoints []string, myPort int, kp *security.KeyPair) error {
-	conn, err := grpc.DialContext(ctx, discoveryServer, grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
+func ConnectToCircle(ctx context.Context, name string, port int, myEndpoints []string, myPort int, kp *security.KeyPair) error {
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(name, fmt.Sprint(port)), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}
@@ -57,13 +57,14 @@ func ConnectToCircle(ctx context.Context, discoveryServer string, myEndpoints []
 	}
 
 	c := &circle{
+		name:        name,
 		client:      client,
 		myEndpoints: myEndpoints,
 		keyPair:     kp,
 		peers:       map[string]*Peer{},
 	}
 	go c.run(ctx)
-	circles = append(circles, c)
+	circles[name] = c
 	return nil
 }
 
@@ -186,14 +187,6 @@ func AllPeers() []*Peer {
 }
 
 func AllPeersInCircle(name string) []*Peer {
-	// TODO(quis): Add circle.name so we can just get the peers from that one circle.
-	all := AllPeers()
-	var ret []*Peer
-	suffix := "@" + name
-	for _, p := range all {
-		if strings.HasSuffix(p.Name, suffix) {
-			ret = append(ret, p)
-		}
-	}
-	return ret
+	return circles[name].AllPeers()
+}
 }

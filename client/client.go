@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"strings"
 
 	"github.com/sgielen/rufs/client/connectivity"
@@ -57,7 +56,7 @@ func main() {
 	go content.Run()
 
 	for c, kp := range circles {
-		if err := connectivity.ConnectToCircle(ctx, net.JoinHostPort(c, fmt.Sprint(*discoveryPort)), splitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
+		if err := connectivity.ConnectToCircle(ctx, c, *discoveryPort, splitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
 			log.Fatalf("Failed to connect to circle %q: %v", c, err)
 		}
 	}
