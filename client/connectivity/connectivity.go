@@ -189,4 +189,7 @@ func AllPeers() []*Peer {
 func AllPeersInCircle(name string) []*Peer {
 	return circles[name].AllPeers()
 }
+
+func DiscoveryClient(circle string) pb.DiscoveryServiceClient {
+	return circles[circle].client
 }

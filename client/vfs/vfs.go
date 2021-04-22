@@ -142,6 +142,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 			if !isDirectoryEverywhere {
 				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, strings.Join(peers, ", ")))
 				delete(files, filename)
+				triggerResolveConflict(ctx, filename, peers)
 			}
 		}
 	}
@@ -205,4 +206,24 @@ func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.Re
 	}
 	wg.Wait()
 	return ret, errs
+}
+
+func triggerResolveConflict(ctx context.Context, filename string, peers []string) {
+	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer cancel()
+	circles := map[string]bool{}
+	for _, p := range peers {
+		circles[circleFromPeer(p)] = true
+	}
+	for c := range circles {
+		if _, err := connectivity.DiscoveryClient(c).ResolveConflict(ctx, &pb.ResolveConflictRequest{
+			Filename: filename,
+		}); err != nil {
+			log.Printf("Failed to start conflict resolution for %q: %v", filename, err)
+		}
+	}
+}
+
+func circleFromPeer(peer string) string {
+	return strings.Split(peer, "@")[1]
 }
