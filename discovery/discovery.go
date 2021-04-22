@@ -78,9 +78,13 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	d.cond.Broadcast()
 
 	for {
-		msg := &pb.ConnectResponse{}
+		msg := &pb.ConnectResponse{
+			Msg: &pb.ConnectResponse_PeerList_{
+				PeerList: &pb.ConnectResponse_PeerList{},
+			},
+		}
 		for _, p := range d.clients {
-			msg.Peers = append(msg.Peers, p)
+			msg.GetPeerList().Peers = append(msg.GetPeerList().Peers, p)
 		}
 		d.mtx.Unlock()
 		if err := stream.Send(msg); err != nil {
@@ -125,4 +129,8 @@ func (d *discovery) GetMyIP(ctx context.Context, req *pb.GetMyIPRequest) (*pb.Ge
 	return &pb.GetMyIPResponse{
 		Ip: host,
 	}, nil
+}
+
+func (d *discovery) ResolveConflict(ctx context.Context, req *pb.ResolveConflictRequest) (*pb.ResolveConflictResponse, error) {
+	return nil, nil
 }

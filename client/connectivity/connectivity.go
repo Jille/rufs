@@ -91,7 +91,9 @@ func (c *circle) connect(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("discovery server stream error: %v", err)
 		}
-		c.processPeers(ctx, msg.GetPeers())
+		if msg.GetPeerList() != nil {
+			c.processPeers(ctx, msg.GetPeerList().GetPeers())
+		}
 	}
 }
 
