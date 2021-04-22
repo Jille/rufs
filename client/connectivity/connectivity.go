@@ -3,6 +3,7 @@ package connectivity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -20,6 +21,10 @@ import (
 var (
 	cmtx    sync.Mutex
 	circles = map[string]*circle{}
+
+	HandleResolveConflictRequest = func(ctx context.Context, req *pb.ResolveConflictRequest) error {
+		return errors.New("connectivity.HandleResolveConflictRequest was not overridden")
+	}
 )
 
 type circle struct {

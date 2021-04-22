@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -10,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -22,6 +25,18 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
+
+var (
+	hashQueue    = make(chan string, 1000)
+	hashCacheMtx sync.Mutex
+	hashCache    = map[string]cachedHash{}
+)
+
+type cachedHash struct {
+	hash  string
+	mtime time.Time
+	size  uint64
+}
 
 func New(addr string, kps []*security.KeyPair) (*content, error) {
 	if addr == "" {
@@ -54,6 +69,8 @@ func New(addr string, kps []*security.KeyPair) (*content, error) {
 		addr:     addr,
 		keyPairs: kps,
 	}
+	go c.hashWorker()
+	connectivity.HandleResolveConflictRequest = c.handleResolveConflictRequest
 	return c, nil
 }
 
@@ -166,6 +183,15 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 			Size:        uint64(dirfile.Size()),
 			Mtime:       dirfile.ModTime().Unix(),
 		}
+		hashCacheMtx.Lock()
+		if e, ok := hashCache[filepath.Join(dirpath, dirfile.Name())]; ok {
+			if e.size == file.Size && e.mtime.Unix() == file.Mtime {
+				file.Hash = e.hash
+			} else {
+				delete(hashCache, filepath.Join(dirpath, dirfile.Name()))
+			}
+		}
+		hashCacheMtx.Unlock()
 		res.Files = append(res.Files, file)
 	}
 	return res, nil
@@ -239,4 +265,57 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		offset += n
 		remaining -= n
 	}
+}
+
+func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRequest) error {
+	shares, err := c.getSharesForPeer(ctx)
+	if err != nil {
+		return err
+	}
+
+	reqpath := strings.TrimLeft(req.GetFilename(), "/")
+
+	if reqpath == "" {
+		return status.Errorf(codes.FailedPrecondition, "is a directory")
+	}
+
+	path, err := c.getLocalPath(shares, reqpath)
+	if err != nil {
+		return err
+	}
+	hashQueue <- path
+	return nil
+}
+
+func (c *content) hashWorker() {
+	for fn := range hashQueue {
+		if err := c.hashFile(fn); err != nil {
+			log.Printf("Failed to hash %q: %v", fn, err)
+		}
+	}
+}
+
+func (c *content) hashFile(fn string) error {
+	fh, err := os.Open(fn)
+	if err != nil {
+		return err
+	}
+	defer fh.Close()
+	st, err := fh.Stat()
+	if err != nil {
+		return err
+	}
+	h := sha256.New()
+	if _, err := io.Copy(h, fh); err != nil {
+		return err
+	}
+	hash := fmt.Sprintf("%x", h.Sum(nil))
+	hashCacheMtx.Lock()
+	hashCache[fn] = cachedHash{
+		hash:  hash,
+		mtime: st.ModTime(),
+		size:  uint64(st.Size()),
+	}
+	hashCacheMtx.Unlock()
+	return nil
 }
