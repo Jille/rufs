@@ -175,5 +175,5 @@ func (d *discovery) ResolveConflict(ctx context.Context, req *pb.ResolveConflict
 		c.resolveConflictRequests = append(c.resolveConflictRequests, req)
 	}
 	d.cond.Broadcast()
-	return nil, nil
+	return &pb.ResolveConflictResponse{}, nil
 }
