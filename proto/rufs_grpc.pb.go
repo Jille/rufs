@@ -22,6 +22,7 @@ type DiscoveryServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Connect(ctx context.Context, in *ConnectRequest, opts ...grpc.CallOption) (DiscoveryService_ConnectClient, error)
 	GetMyIP(ctx context.Context, in *GetMyIPRequest, opts ...grpc.CallOption) (*GetMyIPResponse, error)
+	ResolveConflict(ctx context.Context, in *ResolveConflictRequest, opts ...grpc.CallOption) (*ResolveConflictResponse, error)
 	Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DiscoveryService_OrchestrateClient, error)
 }
 
@@ -83,6 +84,15 @@ func (c *discoveryServiceClient) GetMyIP(ctx context.Context, in *GetMyIPRequest
 	return out, nil
 }
 
+func (c *discoveryServiceClient) ResolveConflict(ctx context.Context, in *ResolveConflictRequest, opts ...grpc.CallOption) (*ResolveConflictResponse, error) {
+	out := new(ResolveConflictResponse)
+	err := c.cc.Invoke(ctx, "/DiscoveryService/ResolveConflict", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *discoveryServiceClient) Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DiscoveryService_OrchestrateClient, error) {
 	stream, err := c.cc.NewStream(ctx, &DiscoveryService_ServiceDesc.Streams[1], "/DiscoveryService/Orchestrate", opts...)
 	if err != nil {
@@ -122,6 +132,7 @@ type DiscoveryServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Connect(*ConnectRequest, DiscoveryService_ConnectServer) error
 	GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error)
+	ResolveConflict(context.Context, *ResolveConflictRequest) (*ResolveConflictResponse, error)
 	Orchestrate(DiscoveryService_OrchestrateServer) error
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
@@ -138,6 +149,9 @@ func (UnimplementedDiscoveryServiceServer) Connect(*ConnectRequest, DiscoverySer
 }
 func (UnimplementedDiscoveryServiceServer) GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetMyIP not implemented")
+}
+func (UnimplementedDiscoveryServiceServer) ResolveConflict(context.Context, *ResolveConflictRequest) (*ResolveConflictResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResolveConflict not implemented")
 }
 func (UnimplementedDiscoveryServiceServer) Orchestrate(DiscoveryService_OrchestrateServer) error {
 	return status.Errorf(codes.Unimplemented, "method Orchestrate not implemented")
@@ -212,6 +226,24 @@ func _DiscoveryService_GetMyIP_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DiscoveryService_ResolveConflict_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveConflictRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DiscoveryServiceServer).ResolveConflict(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/DiscoveryService/ResolveConflict",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DiscoveryServiceServer).ResolveConflict(ctx, req.(*ResolveConflictRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _DiscoveryService_Orchestrate_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(DiscoveryServiceServer).Orchestrate(&discoveryServiceOrchestrateServer{stream})
 }
@@ -252,6 +284,10 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetMyIP",
 			Handler:    _DiscoveryService_GetMyIP_Handler,
+		},
+		{
+			MethodName: "ResolveConflict",
+			Handler:    _DiscoveryService_ResolveConflict_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

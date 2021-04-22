@@ -13,6 +13,9 @@ service DiscoveryService {
 	rpc GetMyIP(GetMyIPRequest) returns (GetMyIPResponse) {
 	}
 
+	rpc ResolveConflict(ResolveConflictRequest) returns (ResolveConflictResponse) {
+	}
+
 	rpc Orchestrate(stream OrchestrateRequest) returns (stream OrchestrateResponse) {
 	}
 }
@@ -32,7 +35,23 @@ message ConnectRequest {
 }
 
 message ConnectResponse {
-	repeated Peer peers = 1;
+	message PeerList {
+		repeated Peer peers = 1;
+	}
+	message ActiveDownload {
+		int64 download_id = 1;
+		string hash = 2;
+		repeated string filenames = 3;
+	}
+	message ActiveDownloadList {
+		repeated ActiveDownload active_downloads = 1;
+	}
+
+	oneof msg {
+		PeerList peer_list = 1;
+		ActiveDownloadList active_downloads = 2;
+		ResolveConflictRequest resolve_conflict_request = 3;
+	}
 }
 
 message GetMyIPRequest {
@@ -47,12 +66,23 @@ message Peer {
 	repeated string endpoints = 2;
 }
 
+message ResolveConflictRequest {
+	string filename = 1;
+}
+
+message ResolveConflictResponse {
+}
+
 message OrchestrateRequest {
-	message OrchestrateRequest {
+	message StartOrchestrationRequest {
 		int64 download_id = 1;
-		repeated Range have = 2;
-		repeated Range readnow = 3;
-		repeated Range readahead = 4;
+		string filename = 2;
+		string hash = 3;
+	}
+	message UpdateByteRanges {
+		repeated Range have = 1;
+		repeated Range readnow = 2;
+		repeated Range readahead = 3;
 	}
 	message ConnectedPeers {
 		repeated string peers = 1;
@@ -62,9 +92,10 @@ message OrchestrateRequest {
 	}
 
 	oneof msg {
-		OrchestrateRequest orchestrate = 1;
-		ConnectedPeers connected_peers = 2;
-		UploadFailed upload_failed = 3;
+		StartOrchestrationRequest start_orchestration = 1;
+		UpdateByteRanges update_byte_ranges = 2;
+		ConnectedPeers connected_peers = 3;
+		UploadFailed upload_failed = 4;
 	}
 }
 
@@ -116,6 +147,8 @@ message File {
 	bool is_directory = 3;
 	uint64 size = 4;
 	int64 mtime = 5; // UNIX timestamp
+
+	int64 redirect_to_orchestrated_download = 6;
 }
 
 message ReadFileRequest {
