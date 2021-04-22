@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -34,8 +35,7 @@ func main() {
 	d := &discovery{
 		ca:      ca,
 		circle:  ca.Name(),
-		clients: map[string]*pb.Peer{},
-		streams: map[string]pb.DiscoveryService_ConnectServer{},
+		clients: map[string]*client{},
 	}
 	d.cond = sync.NewCond(&d.mtx)
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(ca.TLSConfigForDiscovery())))
@@ -58,9 +58,16 @@ type discovery struct {
 	circle string
 
 	mtx     sync.Mutex
-	clients map[string]*pb.Peer
-	streams map[string]pb.DiscoveryService_ConnectServer
+	clients map[string]*client
 	cond    *sync.Cond
+}
+
+type client struct {
+	peer                    *pb.Peer
+	stream                  pb.DiscoveryService_ConnectServer
+	newPeerList             bool
+	newActiveDownloads      bool
+	resolveConflictRequests []*pb.ResolveConflictRequest
 }
 
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
@@ -70,33 +77,62 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	}
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
-	d.clients[name] = &pb.Peer{
-		Name:      name,
-		Endpoints: req.GetEndpoints(),
+	c := &client{
+		peer: &pb.Peer{
+			Name:      name,
+			Endpoints: req.GetEndpoints(),
+		},
+		stream:             stream,
+		newPeerList:        true,
+		newActiveDownloads: true,
 	}
-	d.streams[name] = stream
+	d.clients[name] = c
 	d.cond.Broadcast()
+	defer func() {
+		if d.clients[name] == c {
+			delete(d.clients, name)
+			for _, c2 := range d.clients {
+				c2.newPeerList = true
+			}
+			d.cond.Broadcast()
+		}
+	}()
 
 	for {
-		msg := &pb.ConnectResponse{
-			Msg: &pb.ConnectResponse_PeerList_{
-				PeerList: &pb.ConnectResponse_PeerList{},
-			},
-		}
-		for _, p := range d.clients {
-			msg.GetPeerList().Peers = append(msg.GetPeerList().Peers, p)
-		}
-		d.mtx.Unlock()
-		if err := stream.Send(msg); err != nil {
+		for c.newPeerList || c.newActiveDownloads || len(c.resolveConflictRequests) > 0 {
+			msg := &pb.ConnectResponse{}
+			if len(c.resolveConflictRequests) > 0 {
+				msg.Msg = &pb.ConnectResponse_ResolveConflictRequest{
+					ResolveConflictRequest: c.resolveConflictRequests[0],
+				}
+				c.resolveConflictRequests = c.resolveConflictRequests[1:]
+			} else if c.newActiveDownloads {
+				msg.Msg = &pb.ConnectResponse_ActiveDownloads{
+					ActiveDownloads: &pb.ConnectResponse_ActiveDownloadList{},
+				}
+				c.newActiveDownloads = false
+			} else {
+				msg.Msg = &pb.ConnectResponse_PeerList_{
+					PeerList: &pb.ConnectResponse_PeerList{},
+				}
+				for _, c2 := range d.clients {
+					msg.GetPeerList().Peers = append(msg.GetPeerList().Peers, c2.peer)
+				}
+				c.newPeerList = false
+			}
+			d.mtx.Unlock()
+			if err := stream.Send(msg); err != nil {
+				d.mtx.Lock()
+				return err
+			}
 			d.mtx.Lock()
-			delete(d.clients, name)
-			delete(d.streams, name)
-			return err
+			if d.clients[name] != c {
+				return errors.New("connection from another process for your username")
+			}
 		}
-		d.mtx.Lock()
 
 		d.cond.Wait()
-		if stream != d.streams[name] {
+		if d.clients[name] != c {
 			return errors.New("connection from another process for your username")
 		}
 	}
@@ -132,5 +168,12 @@ func (d *discovery) GetMyIP(ctx context.Context, req *pb.GetMyIPRequest) (*pb.Ge
 }
 
 func (d *discovery) ResolveConflict(ctx context.Context, req *pb.ResolveConflictRequest) (*pb.ResolveConflictResponse, error) {
+	d.mtx.Lock()
+	defer d.mtx.Unlock()
+	req = proto.Clone(req).(*pb.ResolveConflictRequest)
+	for _, c := range d.clients {
+		c.resolveConflictRequests = append(c.resolveConflictRequests, req)
+	}
+	d.cond.Broadcast()
 	return nil, nil
 }
