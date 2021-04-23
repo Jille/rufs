@@ -1,7 +1,10 @@
 // Package intervals provides a set of intervals.
 package intervals
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 // TODO(quis): The efficiency is painful. Convert it to a fancy tree?
 
@@ -14,6 +17,9 @@ type Intervals struct {
 }
 
 func (is *Intervals) Add(s, e int64) {
+	if s >= e {
+		panic(fmt.Errorf("Invalid call to Intervals.Add(%d, %d)", s, e))
+	}
 	is.Remove(s, e)
 	is.ranges = append(is.ranges, Interval{s, e})
 	is.sort()
@@ -29,6 +35,9 @@ func (is *Intervals) Add(s, e int64) {
 }
 
 func (is *Intervals) Remove(s, e int64) {
+	if s >= e {
+		panic(fmt.Errorf("Invalid call to Intervals.Remove(%d, %d)", s, e))
+	}
 	var newRanges []Interval
 	for _, i := range is.ranges {
 		if s <= i.Start && i.End <= e {
@@ -50,6 +59,9 @@ func (is *Intervals) Remove(s, e int64) {
 }
 
 func (is *Intervals) Has(s, e int64) bool {
+	if s >= e {
+		panic(fmt.Errorf("Invalid call to Intervals.Has(%d, %d)", s, e))
+	}
 	for _, i := range is.ranges {
 		if i.Start <= s && e <= i.End {
 			return true
