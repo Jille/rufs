@@ -61,6 +61,9 @@ func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]b
 	for len(buf) < int(size) {
 		res, err := stream.Recv()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			log.Printf("Recv failed: %v", err)
 			return nil, err
 		}
