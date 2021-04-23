@@ -115,8 +115,8 @@ message OrchestrateResponse {
 }
 
 message Range {
-	uint64 start = 1;
-	uint64 end = 2;
+	int64 start = 1;
+	int64 end = 2;
 }
 
 service ContentService {
@@ -145,19 +145,19 @@ message File {
 	string hash = 2;
 
 	bool is_directory = 3;
-	uint64 size = 4;
+	int64 size = 4;
 	int64 mtime = 5; // UNIX timestamp
 }
 
 message ReadFileRequest {
 	string filename = 1;
-	uint64 offset = 2;
-	uint64 rdnow = 3;
-	uint64 rdahead = 4;
+	int64 offset = 2;
+	int64 rdnow = 3;
+	int64 rdahead = 4;
 }
 
 message ReadFileResponse {
-	uint64 offset = 1;
+	int64 offset = 1;
 	bytes data = 2;
 
 	int64 redirect_to_orchestrated_download = 6;
@@ -165,11 +165,11 @@ message ReadFileResponse {
 
 message PassiveTransferRequest {
 	int64 download_id = 1;
-	uint64 offset = 2;
+	int64 offset = 2;
 	bytes data = 3;
 }
 
 message PassiveTransferResponse {
-	uint64 offset = 1;
+	int64 offset = 1;
 	bytes data = 2;
 }

@@ -24,7 +24,7 @@ type File struct {
 	FullPath     string
 	IsDirectory  bool
 	Mtime        time.Time
-	Size         uint64
+	Size         int64
 	Peers        []*connectivity.Peer
 	FixedContent []byte
 }
@@ -35,9 +35,9 @@ type Handle struct {
 	FixedContent []byte
 }
 
-func (handle *Handle) Read(ctx context.Context, offset uint64, size uint64) ([]byte, error) {
+func (handle *Handle) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
 	if handle.Peer == nil {
-		length := uint64(len(handle.FixedContent))
+		length := int64(len(handle.FixedContent))
 		if offset >= length {
 			return nil, io.EOF
 		}
@@ -179,7 +179,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 			FullPath:     path + "/rufs-warnings.txt",
 			IsDirectory:  false,
 			Mtime:        time.Now(),
-			Size:         uint64(len(warning)),
+			Size:         int64(len(warning)),
 			FixedContent: []byte(warning),
 		}
 	}

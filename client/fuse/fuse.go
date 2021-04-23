@@ -235,7 +235,7 @@ type handle struct {
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	response.Data, retErr = h.vh.Read(ctx, uint64(request.Offset), uint64(request.Size))
+	response.Data, retErr = h.vh.Read(ctx, request.Offset, int64(request.Size))
 	return retErr
 }
 

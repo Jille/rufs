@@ -35,7 +35,7 @@ var (
 type cachedHash struct {
 	hash  string
 	mtime time.Time
-	size  uint64
+	size  int64
 }
 
 func New(addr string, kps []*security.KeyPair) (*content, error) {
@@ -180,7 +180,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 		file := &pb.File{
 			Filename:    dirfile.Name(),
 			IsDirectory: dirfile.IsDir(),
-			Size:        uint64(dirfile.Size()),
+			Size:        dirfile.Size(),
 			Mtime:       dirfile.ModTime().Unix(),
 		}
 		hashCacheMtx.Lock()
@@ -244,14 +244,14 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 			readNowDone = true
 		}
 		r := remaining
-		if r > uint64(len(buf)) {
-			r = uint64(len(buf))
+		if r > int64(len(buf)) {
+			r = int64(len(buf))
 		}
-		sn, err := fh.ReadAt(buf[:r], int64(offset))
+		rn, err := fh.ReadAt(buf[:r], offset)
 		if err != nil && err != io.EOF {
 			return status.Errorf(codes.ResourceExhausted, "failed to read from %q at %d: %v", req.GetFilename(), offset, err)
 		}
-		n := uint64(sn)
+		n := int64(rn)
 		if err := stream.Send(&pb.ReadFileResponse{
 			Offset: offset,
 			Data:   buf[:n],
@@ -325,7 +325,7 @@ func (c *content) hashFile(fn string) error {
 	hashCache[fn] = cachedHash{
 		hash:  hash,
 		mtime: st.ModTime(),
-		size:  uint64(st.Size()),
+		size:  st.Size(),
 	}
 	hashCacheMtx.Unlock()
 	return nil

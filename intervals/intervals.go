@@ -6,14 +6,14 @@ import "sort"
 // TODO(quis): The efficiency is painful. Convert it to a fancy tree?
 
 type Interval struct {
-	Start, End uint64
+	Start, End int64
 }
 
 type Intervals struct {
 	ranges []Interval
 }
 
-func (is *Intervals) Add(s, e uint64) {
+func (is *Intervals) Add(s, e int64) {
 	is.Remove(s, e)
 	is.ranges = append(is.ranges, Interval{s, e})
 	is.sort()
@@ -28,7 +28,7 @@ func (is *Intervals) Add(s, e uint64) {
 	is.ranges = newRanges
 }
 
-func (is *Intervals) Remove(s, e uint64) {
+func (is *Intervals) Remove(s, e int64) {
 	var newRanges []Interval
 	for _, i := range is.ranges {
 		if s <= i.Start && i.End <= e {
@@ -49,7 +49,7 @@ func (is *Intervals) Remove(s, e uint64) {
 	is.ranges = newRanges
 }
 
-func (is *Intervals) Has(s, e uint64) bool {
+func (is *Intervals) Has(s, e int64) bool {
 	for _, i := range is.ranges {
 		if i.Start <= s && e <= i.End {
 			return true

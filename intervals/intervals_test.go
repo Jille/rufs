@@ -11,8 +11,8 @@ type dumbIntervals struct {
 	items []bool
 }
 
-func (di *dumbIntervals) Add(s, e uint64) {
-	if uint64(len(di.items)) < e {
+func (di *dumbIntervals) Add(s, e int64) {
+	if int64(len(di.items)) < e {
 		n := make([]bool, e)
 		copy(n, di.items)
 		di.items = n
@@ -22,9 +22,9 @@ func (di *dumbIntervals) Add(s, e uint64) {
 	}
 }
 
-func (di *dumbIntervals) Remove(s, e uint64) {
-	if uint64(len(di.items)) < e {
-		e = uint64(len(di.items))
+func (di *dumbIntervals) Remove(s, e int64) {
+	if int64(len(di.items)) < e {
+		e = int64(len(di.items))
 	}
 	for i := s; e > i; i++ {
 		di.items[i] = false
@@ -37,9 +37,9 @@ func (di *dumbIntervals) Export() []Interval {
 	for i := 0; len(di.items) > i; i++ {
 		if di.items[i] {
 			if active == nil {
-				active = &Interval{Start: uint64(i)}
+				active = &Interval{Start: int64(i)}
 			}
-			active.End = uint64(i) + 1
+			active.End = int64(i) + 1
 		} else if active != nil {
 			ret = append(ret, *active)
 			active = nil
@@ -60,8 +60,8 @@ func TestBasicsDumbIntervals(t *testing.T) {
 }
 
 type someIntervals interface {
-	Add(s, e uint64)
-	Remove(s, e uint64)
+	Add(s, e int64)
+	Remove(s, e int64)
 	Export() []Interval
 }
 
@@ -96,11 +96,11 @@ func TestFuzz(t *testing.T) {
 		s := rand.Intn(1000)
 		e := s + rand.Intn(1000-s) + 1
 		if rand.Intn(2) == 0 {
-			di.Add(uint64(s), uint64(e))
-			si.Add(uint64(s), uint64(e))
+			di.Add(int64(s), int64(e))
+			si.Add(int64(s), int64(e))
 		} else {
-			di.Remove(uint64(s), uint64(e))
-			si.Remove(uint64(s), uint64(e))
+			di.Remove(int64(s), int64(e))
+			si.Remove(int64(s), int64(e))
 		}
 		compare(t, di, si)
 	}
