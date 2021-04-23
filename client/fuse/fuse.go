@@ -231,7 +231,7 @@ func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fu
 
 type handle struct {
 	node
-	vh *vfs.Handle
+	vh vfs.Handle
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
@@ -248,6 +248,6 @@ func (h *handle) Fsync(ctx context.Context, request *fuse.FsyncRequest) error {
 }
 
 func (h *handle) Release(ctx context.Context, request *fuse.ReleaseRequest) error {
-	//h.vh.Close()
+	h.vh.Close()
 	return nil
 }

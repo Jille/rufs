@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/transfer"
 	pb "github.com/sgielen/rufs/proto"
 )
 
@@ -25,54 +25,36 @@ type File struct {
 	IsDirectory  bool
 	Mtime        time.Time
 	Size         int64
+	Hash         string
 	Peers        []*connectivity.Peer
 	FixedContent []byte
 }
 
-type Handle struct {
-	Peer         *connectivity.Peer
-	FullPath     string
-	FixedContent []byte
+type Handle interface {
+	Read(ctx context.Context, offset int64, size int64) ([]byte, error)
+	Close() error
 }
 
-func (handle *Handle) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
-	if handle.Peer == nil {
-		length := int64(len(handle.FixedContent))
-		if offset >= length {
-			return nil, io.EOF
-		}
-		if offset+size >= length {
-			size = length - offset
-		}
-		return handle.FixedContent[offset : offset+size], nil
-	}
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	stream, err := handle.Peer.ContentServiceClient().ReadFile(ctx, &pb.ReadFileRequest{
-		Filename: handle.FullPath,
-		Offset:   offset,
-		Rdnow:    size,
-		Rdahead:  0,
-	})
-	if err != nil {
-		return nil, err
-	}
-	buf := make([]byte, 0, size)
-	for len(buf) < int(size) {
-		res, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			log.Printf("Recv failed: %v", err)
-			return nil, err
-		}
-		buf = append(buf, res.Data...)
-	}
-	return buf, nil
+type fixedContentHandle struct {
+	content []byte
 }
 
-func Open(ctx context.Context, path string) (*Handle, error) {
+func (handle *fixedContentHandle) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
+	length := int64(len(handle.content))
+	if offset >= length {
+		return nil, io.EOF
+	}
+	if offset+size >= length {
+		size = length - offset
+	}
+	return handle.content[offset : offset+size], nil
+}
+
+func (*fixedContentHandle) Close() error {
+	return nil
+}
+
+func Open(ctx context.Context, path string) (Handle, error) {
 	basename := filepath.Base(path)
 	dirname := filepath.Dir(path)
 	dir, err := Readdir(ctx, dirname)
@@ -86,16 +68,12 @@ func Open(ctx context.Context, path string) (*Handle, error) {
 	if file.IsDirectory {
 		return nil, errors.New("EISDIR")
 	}
-	var peer *connectivity.Peer
-	if len(file.Peers) >= 1 {
-		// TODO(sjors): do something smarter than selecting a random peer.
-		peer = file.Peers[rand.Intn(len(file.Peers))]
+	if len(file.FixedContent) > 0 {
+		return &fixedContentHandle{
+			content: file.FixedContent,
+		}, nil
 	}
-	return &Handle{
-		Peer:         peer,
-		FullPath:     path,
-		FixedContent: file.FixedContent,
-	}, nil
+	return transfer.NewRemoteFile(ctx, path, file.Hash, file.Size, file.Peers)
 }
 
 func Readdir(ctx context.Context, path string) (*Directory, error) {
@@ -169,6 +147,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 			IsDirectory: file.instances[0].file.GetIsDirectory(),
 			Mtime:       time.Unix(highestMtime, 0),
 			Size:        file.instances[0].file.GetSize(),
+			Hash:        file.instances[0].file.GetHash(),
 			Peers:       peers,
 		}
 	}
