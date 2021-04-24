@@ -199,15 +199,9 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 			Size:        dirfile.Size(),
 			Mtime:       dirfile.ModTime().Unix(),
 		}
-		hashCacheMtx.Lock()
-		if e, ok := hashCache[filepath.Join(dirpath, dirfile.Name())]; ok {
-			if e.size == file.Size && e.mtime.Equal(dirfile.ModTime()) {
-				file.Hash = e.hash
-			} else {
-				delete(hashCache, filepath.Join(dirpath, dirfile.Name()))
-			}
+		if h, err := c.getFileHash(filepath.Join(dirpath, dirfile.Name())); err == nil {
+			file.Hash = h
 		}
-		hashCacheMtx.Unlock()
 		res.Files = append(res.Files, file)
 	}
 	return res, nil
@@ -253,10 +247,11 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		circleState.activeTransfersMtx.Unlock()
 	}()
 	if upgrade && t == nil {
-		hashCacheMtx.Lock()
-		h := hashCache[path]
-		hashCacheMtx.Unlock()
-		t, err = transfer.NewLocalFile(path, h.hash, circle.Name)
+		h, err := c.getFileHash(path)
+		if err != nil {
+			h = ""
+		}
+		t, err = transfer.NewLocalFile(path, h, circle.Name)
 		if err != nil {
 			return err
 		}
@@ -367,6 +362,13 @@ func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.
 	if err != nil {
 		return err
 	}
+
+	h, err := c.getFileHash(path)
+	if err == nil && h != "" {
+		// already hashed
+		return nil
+	}
+
 	select {
 	case hashQueue <- path:
 		return nil
@@ -377,10 +379,40 @@ func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.
 
 func (c *content) hashWorker() {
 	for fn := range hashQueue {
+		hash, err := c.getFileHash(fn)
+		if err != nil {
+			log.Printf("Failed to determine if %q is hashed: %v", fn, err)
+		}
+		if hash != "" {
+			continue
+		}
 		if err := c.hashFile(fn); err != nil {
 			log.Printf("Failed to hash %q: %v", fn, err)
 		}
+		// TODO: if any orchestrations exist for this file, update the hash in those orchestrations
 	}
+}
+
+func (c *content) getFileHash(fn string) (string, error) {
+	fh, err := os.Open(fn)
+	if err != nil {
+		return "", err
+	}
+	defer fh.Close()
+	st, err := fh.Stat()
+	if err != nil {
+		return "", err
+	}
+	hashCacheMtx.Lock()
+	h, ok := hashCache[fn]
+	hashCacheMtx.Unlock()
+	if ok && h.mtime == st.ModTime() && h.size == st.Size() {
+		return h.hash, nil
+	}
+	if ok {
+		delete(hashCache, fn)
+	}
+	return "", nil
 }
 
 func (c *content) hashFile(fn string) error {
