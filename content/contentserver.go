@@ -256,7 +256,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		hashCacheMtx.Lock()
 		h := hashCache[path]
 		hashCacheMtx.Unlock()
-		t, err = transfer.NewLocalFile(path, h.hash)
+		t, err = transfer.NewLocalFile(path, h.hash, circle.Name)
 		if err != nil {
 			return err
 		}

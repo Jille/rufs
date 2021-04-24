@@ -25,6 +25,7 @@ func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, 
 		return nil, err
 	}
 	t := &Transfer{
+		circle:   common.CircleFromPeer(peers[0].Name),
 		storage:  c,
 		filename: filename,
 		hash:     maybeHash,
@@ -40,7 +41,7 @@ func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, 
 	return t, nil
 }
 
-func NewLocalFile(filename, maybeHash string) (*Transfer, error) {
+func NewLocalFile(filename, maybeHash, circle string) (*Transfer, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -50,6 +51,7 @@ func NewLocalFile(filename, maybeHash string) (*Transfer, error) {
 		return nil, err
 	}
 	t := &Transfer{
+		circle:   circle,
 		storage:  f,
 		filename: filename,
 		hash:     maybeHash,
@@ -67,6 +69,7 @@ type backend interface {
 }
 
 type Transfer struct {
+	circle       string
 	storage      backend
 	filename     string
 	hash         string
@@ -227,9 +230,8 @@ func (t *Transfer) receivedBytes(start, end int64) {
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	ctx := context.Background()
-	circle := common.CircleFromPeer(t.peers[0].Name)
 	pt := passive.New(ctx, t.storage, downloadId, passiveCallbacks{t})
-	s, err := orchestream.New(ctx, circle, &pb.OrchestrateRequest_StartOrchestrationRequest{
+	s, err := orchestream.New(ctx, t.circle, &pb.OrchestrateRequest_StartOrchestrationRequest{
 		DownloadId: downloadId,
 		Filename:   t.filename,
 		Hash:       t.hash,
