@@ -458,8 +458,8 @@ func (c *content) getFileHash(fn string) (string, error) {
 		return "", err
 	}
 	hashCacheMtx.Lock()
+	defer hashCacheMtx.Unlock()
 	h, ok := hashCache[fn]
-	hashCacheMtx.Unlock()
 	if ok && h.mtime == st.ModTime() && h.size == st.Size() {
 		return h.hash, nil
 	}
