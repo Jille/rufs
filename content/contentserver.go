@@ -240,7 +240,6 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	circleState.activeReads[path]++
 	upgrade := circleState.activeReads[path] > 1
 	t := circleState.activeTransfers[path]
-	circleState.activeTransfersMtx.Unlock()
 	defer func() {
 		circleState.activeTransfersMtx.Lock()
 		circleState.activeReads[path]--
@@ -258,7 +257,9 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		if err := t.SwitchToOrchestratedMode(0); err != nil {
 			return err
 		}
+		circleState.activeTransfers[path] = t
 	}
+	circleState.activeTransfersMtx.Unlock()
 	if t != nil {
 		if err := stream.Send(&pb.ReadFileResponse{
 			RedirectToOrchestratedDownload: t.DownloadId(),
