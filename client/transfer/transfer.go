@@ -64,11 +64,11 @@ type backend interface {
 }
 
 type Transfer struct {
-	storage  backend
-	filename string
-	hash     string
-	size     int64
-	peers    []*connectivity.Peer
+	storage      backend
+	filename     string
+	hash         string
+	size         int64
+	peers        []*connectivity.Peer
 	killFetchers func()
 
 	mtx       sync.Mutex
@@ -77,7 +77,7 @@ type Transfer struct {
 	have      intervals.Intervals
 	want      intervals.Intervals
 	readahead intervals.Intervals
-	quit bool
+	quit      bool
 }
 
 func (t *Transfer) init() {
