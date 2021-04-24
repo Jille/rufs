@@ -13,6 +13,7 @@ import (
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/transfer"
+	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 )
 
@@ -197,7 +198,7 @@ func triggerResolveConflict(ctx context.Context, filename string, peers []string
 	defer cancel()
 	circles := map[string]bool{}
 	for _, p := range peers {
-		circles[circleFromPeer(p)] = true
+		circles[common.CircleFromPeer(p)] = true
 	}
 	for c := range circles {
 		if _, err := connectivity.DiscoveryClient(c).ResolveConflict(ctx, &pb.ResolveConflictRequest{
@@ -206,8 +207,4 @@ func triggerResolveConflict(ctx context.Context, filename string, peers []string
 			log.Printf("Failed to start conflict resolution for %q: %v", filename, err)
 		}
 	}
-}
-
-func circleFromPeer(peer string) string {
-	return strings.Split(peer, "@")[1]
 }
