@@ -100,6 +100,9 @@ message OrchestrateRequest {
 }
 
 message OrchestrateResponse {
+	message Welcome {
+		int64 download_id = 1;
+	}
 	message PeerList {
 		repeated string peers = 1;
 	}
@@ -109,8 +112,9 @@ message OrchestrateResponse {
 	}
 
 	oneof msg {
-		PeerList peer_list = 1;
-		UploadCommand upload_command = 2;
+		Welcome welcome = 1;
+		PeerList peer_list = 2;
+		UploadCommand upload_command = 3;
 	}
 }
 
