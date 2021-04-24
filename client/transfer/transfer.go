@@ -315,8 +315,8 @@ func (t *Transfer) Close() error {
 	t.serveCond.Broadcast()
 	if t.orchestream != nil {
 		t.orchestream.Close()
+		t.passive.Close()
 	}
-	t.passive.Close()
 	t.mtx.Unlock()
 	return t.storage.Close()
 }
