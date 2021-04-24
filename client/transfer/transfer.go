@@ -298,7 +298,9 @@ func (pc passiveCallbacks) SetConnectedPeers(peers []string) {
 func (t *Transfer) SetHash(hash string) {
 	t.mtx.Lock()
 	t.hash = hash
-	// TODO: Poke orchestream
+	if t.orchestream != nil {
+		t.orchestream.SetHash(hash)
+	}
 	t.mtx.Unlock()
 }
 

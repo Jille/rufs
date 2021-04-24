@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/sgielen/rufs/discovery/orchestrate"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -18,6 +19,7 @@ var (
 )
 
 type orchestration struct {
+	discovery      *discovery
 	activeDownload *pb.ConnectResponse_ActiveDownload
 
 	mtx         sync.Mutex
@@ -57,6 +59,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 			}
 		}
 		o := &orchestration{
+			discovery: d,
 			activeDownload: &pb.ConnectResponse_ActiveDownload{
 				DownloadId: rand.Int63(),
 				Hash:       msg.GetStartOrchestration().GetHash(),
@@ -70,12 +73,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 			o.activeDownload.DownloadId = msg.GetStartOrchestration().GetDownloadId()
 		}
 		activeOrchestration[o.activeDownload.GetDownloadId()] = o
-		d.mtx.Lock()
-		for _, dc := range d.clients {
-			dc.newActiveDownloads = true
-		}
-		d.cond.Broadcast()
-		d.mtx.Unlock()
+		d.broadcastNewActiveDownloads()
 	}
 	activeOrchestrationMtx.Unlock()
 	if err := stream.Send(&pb.OrchestrateResponse{
@@ -130,6 +128,17 @@ func (c *orchestrationClient) reader() error {
 		}
 		if msg.GetUploadFailed() != nil {
 			c.o.scheduler.UploadFailed(c.peer, msg.GetUploadFailed())
+		}
+		if msg.GetSetHash() != nil {
+			if c.o.activeDownload.Hash != "" {
+				c.o.mtx.Unlock()
+				return errors.New("hash is already known for this orchestration")
+			}
+			// Clone before changing as we might be stream.Send()ing the old proto concurrently.
+			nad := proto.Clone(c.o.activeDownload).(*pb.ConnectResponse_ActiveDownload)
+			nad.Hash = msg.GetSetHash().GetHash()
+			c.o.activeDownload = nad
+			c.o.discovery.broadcastNewActiveDownloads()
 		}
 		c.o.mtx.Unlock()
 	}

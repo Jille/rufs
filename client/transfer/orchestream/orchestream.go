@@ -53,6 +53,7 @@ type Stream struct {
 
 	mtx                  sync.Mutex
 	cond                 *sync.Cond
+	setHash              string
 	updateByteRanges     bool
 	ranges               *pb.OrchestrateRequest_UpdateByteRanges
 	updateConnectedPeers bool
@@ -81,7 +82,7 @@ func (s *Stream) writer(ctx context.Context) {
 	defer s.mtx.Unlock()
 	for {
 		msg := &pb.OrchestrateRequest{}
-		for s.updateByteRanges || s.updateConnectedPeers || len(s.failedUploads) > 0 {
+		for s.updateByteRanges || s.updateConnectedPeers || s.setHash != "" || len(s.failedUploads) > 0 {
 			if s.updateByteRanges {
 				msg.Msg = &pb.OrchestrateRequest_UpdateByteRanges_{
 					UpdateByteRanges: s.ranges,
@@ -94,6 +95,13 @@ func (s *Stream) writer(ctx context.Context) {
 					},
 				}
 				s.updateConnectedPeers = false
+			} else if s.setHash != "" {
+				msg.Msg = &pb.OrchestrateRequest_SetHash_{
+					SetHash: &pb.OrchestrateRequest_SetHash{
+						Hash: s.setHash,
+					},
+				}
+				s.setHash = ""
 			} else {
 				msg.Msg = &pb.OrchestrateRequest_UploadFailed_{
 					UploadFailed: &pb.OrchestrateRequest_UploadFailed{
@@ -134,6 +142,13 @@ func (s *Stream) UploadFailed(peer string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.failedUploads = append(s.failedUploads, peer)
+	s.cond.Broadcast()
+}
+
+func (s *Stream) SetHash(hash string) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.setHash = hash
 	s.cond.Broadcast()
 }
 

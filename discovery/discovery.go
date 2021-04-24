@@ -70,6 +70,15 @@ type client struct {
 	resolveConflictRequests []*pb.ResolveConflictRequest
 }
 
+func (d *discovery) broadcastNewActiveDownloads() {
+	d.mtx.Lock()
+	for _, dc := range d.clients {
+		dc.newActiveDownloads = true
+	}
+	d.cond.Broadcast()
+	d.mtx.Unlock()
+}
+
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
 	name, _, err := security.PeerFromContext(stream.Context())
 	if err != nil {

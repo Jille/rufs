@@ -405,5 +405,12 @@ func (c *content) hashFile(fn string) error {
 		size:  st.Size(),
 	}
 	hashCacheMtx.Unlock()
+	for _, circ := range c.circles {
+		circ.activeTransfersMtx.Lock()
+		if t, ok := circ.activeTransfers[fn]; ok {
+			t.SetHash(hash)
+		}
+		circ.activeTransfersMtx.Unlock()
+	}
 	return nil
 }

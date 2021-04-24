@@ -90,12 +90,16 @@ message OrchestrateRequest {
 	message UploadFailed {
 		repeated string target_peers = 1;
 	}
+	message SetHash {
+		string hash = 1;
+	}
 
 	oneof msg {
 		StartOrchestrationRequest start_orchestration = 1;
 		UpdateByteRanges update_byte_ranges = 2;
 		ConnectedPeers connected_peers = 3;
 		UploadFailed upload_failed = 4;
+		SetHash set_hash = 5;
 	}
 }
 
