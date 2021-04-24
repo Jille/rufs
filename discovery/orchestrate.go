@@ -64,18 +64,20 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 			activeDownload: &pb.ConnectResponse_ActiveDownload{
 				DownloadId: rand.Int63(),
 				Hash:       msg.GetStartOrchestration().GetHash(),
-				Filenames:  []string{msg.GetStartOrchestration().GetFilename()},
 			},
 			scheduler: orchestrate.New(),
 		}
 		o.schedCond = sync.NewCond(&o.mtx)
+		if msg.GetStartOrchestration().GetFilename() != "" {
+			o.activeDownload.Filenames = append(o.activeDownload.Filenames, msg.GetStartOrchestration().GetFilename())
+		}
 		if msg.GetStartOrchestration().GetDownloadId() != 0 {
 			// Allow resuming after discovery server restarts.
 			o.activeDownload.DownloadId = msg.GetStartOrchestration().GetDownloadId()
 		}
 		activeOrchestration[o.activeDownload.GetDownloadId()] = o
 		d.broadcastNewActiveDownloads()
-	} else if !stringslice.Has(o.activeDownload.Filenames, msg.GetStartOrchestration().GetFilename()) {
+	} else if msg.GetStartOrchestration().GetFilename() != "" && !stringslice.Has(o.activeDownload.Filenames, msg.GetStartOrchestration().GetFilename()) {
 		nad := proto.Clone(o.activeDownload).(*pb.ConnectResponse_ActiveDownload)
 		nad.Filenames = append(nad.Filenames, msg.GetStartOrchestration().GetFilename())
 		o.activeDownload = nad
