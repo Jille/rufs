@@ -199,7 +199,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 			Size:        dirfile.Size(),
 			Mtime:       dirfile.ModTime().Unix(),
 		}
-		if h, err := c.getFileHash(filepath.Join(dirpath, dirfile.Name())); err == nil {
+		if h := c.getFileHash(filepath.Join(dirpath, dirfile.Name()), dirfile); h != "" {
 			file.Hash = h
 		}
 		res.Files = append(res.Files, file)
@@ -246,7 +246,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		circleState.activeTransfersMtx.Unlock()
 	}()
 	if upgrade && t == nil {
-		h, err := c.getFileHash(path)
+		h, err := c.getFileHashWithStat(path)
 		if err != nil {
 			h = ""
 		}
@@ -364,7 +364,7 @@ func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.
 		return err
 	}
 
-	h, err := c.getFileHash(path)
+	h, err := c.getFileHashWithStat(path)
 	if err == nil && h != "" {
 		// already hashed
 		return nil
@@ -405,7 +405,7 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			continue
 		}
 
-		h, err := c.getFileHash(localpath)
+		h, err := c.getFileHashWithStat(localpath)
 		if err != nil || h == "" {
 			select {
 			case hashQueue <- localpath:
@@ -433,13 +433,6 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 
 func (c *content) hashWorker() {
 	for fn := range hashQueue {
-		hash, err := c.getFileHash(fn)
-		if err != nil {
-			log.Printf("Failed to determine if %q is hashed: %v", fn, err)
-		}
-		if hash != "" {
-			continue
-		}
 		if err := c.hashFile(fn); err != nil {
 			log.Printf("Failed to hash %q: %v", fn, err)
 		}
@@ -447,26 +440,26 @@ func (c *content) hashWorker() {
 	}
 }
 
-func (c *content) getFileHash(fn string) (string, error) {
-	fh, err := os.Open(fn)
+func (c *content) getFileHashWithStat(fn string) (string, error) {
+	var err error
+	st, err := os.Stat(fn)
 	if err != nil {
 		return "", err
 	}
-	defer fh.Close()
-	st, err := fh.Stat()
-	if err != nil {
-		return "", err
-	}
+	return c.getFileHash(fn, st), nil
+}
+
+func (c *content) getFileHash(fn string, st os.FileInfo) string {
 	hashCacheMtx.Lock()
 	defer hashCacheMtx.Unlock()
 	h, ok := hashCache[fn]
 	if ok && h.mtime == st.ModTime() && h.size == st.Size() {
-		return h.hash, nil
+		return h.hash
 	}
 	if ok {
 		delete(hashCache, fn)
 	}
-	return "", nil
+	return ""
 }
 
 func (c *content) hashFile(fn string) error {
@@ -478,6 +471,10 @@ func (c *content) hashFile(fn string) error {
 	st, err := fh.Stat()
 	if err != nil {
 		return err
+	}
+	if c.getFileHash(fn, st) != "" {
+		// We already have the latest hash.
+		return nil
 	}
 	h := sha256.New()
 	if _, err := io.Copy(h, fh); err != nil {
