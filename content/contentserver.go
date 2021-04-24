@@ -399,6 +399,14 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			l, err := c.getLocalPath(shares, path)
 			if err != nil {
 				localpath = l
+
+				if activeDownload.GetHash() == "" {
+					if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
+						Filename: path,
+					}); err != nil {
+						log.Printf("Failed to start conflict resolution for %q: %v", path, err)
+					}
+				}
 			}
 		}
 		if localpath == "" {
