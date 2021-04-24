@@ -304,8 +304,24 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 }
 
 func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
-	// TODO: find the download_id, and forward it to the right transfer, who should forward it to the passive module.
-	return errors.New("not yet implemented")
+	msg, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	d := msg.GetDownloadId()
+	if d == 0 {
+		return errors.New("download_id should be set (and nothing else)")
+	}
+	activeTransfersMtx.Lock()
+	var at *transfer.Transfer
+	for _, t := range activeTransfers {
+		if d == t.DownloadId() {
+			at = t
+			break
+		}
+	}
+	activeTransfersMtx.Unlock()
+	return at.HandleIncomingPassiveTransfer(stream)
 }
 
 func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {

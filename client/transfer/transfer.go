@@ -83,6 +83,7 @@ type Transfer struct {
 	pending      intervals.Intervals
 	quitFetchers bool
 	orchestream  *orchestream.Stream
+	passive      *passive.Transfer
 }
 
 func (t *Transfer) init() {
@@ -238,6 +239,7 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	}
 	t.mtx.Lock()
 	t.orchestream = s
+	t.passive = pt
 	t.quitFetchers = true
 	t.killFetchers()
 	t.fetchCond.Broadcast()
@@ -248,6 +250,10 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 
 func (t *Transfer) DownloadId() int64 {
 	return t.orchestream.DownloadId
+}
+
+func (t *Transfer) HandleIncomingPassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
+	return t.passive.HandleIncomingPassiveTransfer(stream)
 }
 
 func (t *Transfer) byteRangesUpdated() {
