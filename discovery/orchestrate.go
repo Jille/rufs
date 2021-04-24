@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/ory/go-convenience/stringslice"
 	"github.com/sgielen/rufs/discovery/orchestrate"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -73,6 +74,11 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 			o.activeDownload.DownloadId = msg.GetStartOrchestration().GetDownloadId()
 		}
 		activeOrchestration[o.activeDownload.GetDownloadId()] = o
+		d.broadcastNewActiveDownloads()
+	} else if !stringslice.Has(o.activeDownload.Filenames, msg.GetStartOrchestration().GetFilename()) {
+		nad := proto.Clone(o.activeDownload).(*pb.ConnectResponse_ActiveDownload)
+		nad.Filenames = append(nad.Filenames, msg.GetStartOrchestration().GetFilename())
+		o.activeDownload = nad
 		d.broadcastNewActiveDownloads()
 	}
 	activeOrchestrationMtx.Unlock()

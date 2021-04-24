@@ -7,6 +7,7 @@ require (
 	github.com/Jille/grpc-multi-resolver v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
+	github.com/ory/go-convenience v0.1.0
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	google.golang.org/grpc v1.37.0
