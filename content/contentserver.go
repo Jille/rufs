@@ -255,6 +255,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 			return err
 		}
 		if err := t.SwitchToOrchestratedMode(0); err != nil {
+			t.Close()
 			return err
 		}
 		circleState.activeTransfers[path] = t
@@ -442,6 +443,7 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			}
 			if err := t.SwitchToOrchestratedMode(0); err != nil {
 				log.Printf("Error while handling ActiveDownloads: error while switching to orchestrated mode: %v", err)
+				t.Close()
 				circleState.activeTransfersMtx.Unlock()
 				continue
 			}
