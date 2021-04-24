@@ -77,6 +77,7 @@ type Transfer struct {
 	have      intervals.Intervals
 	want      intervals.Intervals
 	readahead intervals.Intervals
+	pending   intervals.Intervals
 	quit      bool
 }
 
@@ -107,6 +108,7 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, 
 	t.mtx.Lock()
 	if !t.have.Has(offset, offset+size) {
 		t.want.Add(offset, offset+size)
+		t.pending.Add(offset, offset+size)
 		t.fetchCond.Broadcast()
 		for {
 			t.serveCond.Wait()
@@ -139,9 +141,10 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				t.mtx.Unlock()
 				return
 			}
-			want := t.want.Export()
-			if len(want) > 0 {
-				iv = want[0]
+			p := t.pending.Export()
+			if len(p) > 0 {
+				iv = p[0]
+				t.pending.Remove(iv.Start, iv.End)
 				break
 			}
 			t.fetchCond.Wait()
@@ -202,6 +205,7 @@ func (t *Transfer) Close() error {
 	t.killFetchers()
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
+	t.pending = intervals.Intervals{}
 	t.fetchCond.Broadcast()
 	t.serveCond.Broadcast()
 	t.mtx.Unlock()
