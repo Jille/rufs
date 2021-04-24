@@ -59,7 +59,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 				return fmt.Errorf("attempt to start new orchestration for active download of hash %q", msg.GetStartOrchestration().GetHash())
 			}
 		}
-		o := &orchestration{
+		o = &orchestration{
 			discovery: d,
 			activeDownload: &pb.ConnectResponse_ActiveDownload{
 				DownloadId: rand.Int63(),
