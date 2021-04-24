@@ -31,11 +31,6 @@ var (
 	hashQueue    = make(chan string, 1000)
 	hashCacheMtx sync.Mutex
 	hashCache    = map[string]cachedHash{}
-
-	// TODO: Subscribe to new active downloads from the discovery server, hash if needed and join the orchestration.
-	activeTransfersMtx sync.Mutex
-	activeReads        = map[string]int{}
-	activeTransfers    = map[string]*transfer.Transfer{}
 )
 
 type cachedHash struct {
@@ -49,7 +44,18 @@ func New(addr string, kps []*security.KeyPair) (*content, error) {
 		return nil, errors.New("missing parameter addr")
 	}
 
+	c := &content{
+		addr:     addr,
+		keyPairs: kps,
+		circles:  map[string]*circleState{},
+	}
+
 	for _, circle := range config.GetCircles() {
+		c.circles[circle.Name] = &circleState{
+			activeReads:     map[string]int{},
+			activeTransfers: map[string]*transfer.Transfer{},
+		}
+
 		for _, share := range circle.Shares {
 			if strings.Contains(share.Remote, "/") || share.Remote == "." || share.Remote == ".." {
 				return nil, fmt.Errorf("remote path invalid: %s", share.Remote)
@@ -71,10 +77,6 @@ func New(addr string, kps []*security.KeyPair) (*content, error) {
 		}
 	}
 
-	c := &content{
-		addr:     addr,
-		keyPairs: kps,
-	}
 	go c.hashWorker()
 	connectivity.HandleResolveConflictRequest = c.handleResolveConflictRequest
 	return c, nil
@@ -85,6 +87,14 @@ type content struct {
 
 	addr     string
 	keyPairs []*security.KeyPair
+	circles  map[string]*circleState
+}
+
+type circleState struct {
+	// TODO: Subscribe to new active downloads from the discovery server, hash if needed and join the orchestration.
+	activeTransfersMtx sync.Mutex
+	activeReads        map[string]int
+	activeTransfers    map[string]*transfer.Transfer
 }
 
 func (c *content) Run() {
@@ -101,7 +111,7 @@ func (c *content) Run() {
 	}
 }
 
-func (c *content) getSharesForPeer(ctx context.Context) ([]*config.Share, error) {
+func (c *content) getCircleForPeer(ctx context.Context) (*config.Circle, error) {
 	_, circle, err := security.PeerFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -110,7 +120,7 @@ func (c *content) getSharesForPeer(ctx context.Context) ([]*config.Share, error)
 	if !ok {
 		return nil, status.Error(codes.NotFound, "no shares configured for this circle")
 	}
-	return circ.Shares, nil
+	return circ, nil
 }
 
 func (c *content) getLocalPath(shares []*config.Share, path string) (string, error) {
@@ -153,7 +163,7 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 }
 
 func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
-	shares, err := c.getSharesForPeer(ctx)
+	circle, err := c.getCircleForPeer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +173,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 	res := &pb.ReadDirResponse{}
 
 	if reqpath == "" {
-		for _, share := range shares {
+		for _, share := range circle.Shares {
 			file := &pb.File{
 				Filename:    share.Remote,
 				IsDirectory: true,
@@ -174,7 +184,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 		return res, nil
 	}
 
-	dirpath, err := c.getLocalPath(shares, reqpath)
+	dirpath, err := c.getLocalPath(circle.Shares, reqpath)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +224,7 @@ func readdir(name string) ([]os.FileInfo, error) {
 }
 
 func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) error {
-	shares, err := c.getSharesForPeer(stream.Context())
+	circle, err := c.getCircleForPeer(stream.Context())
 	if err != nil {
 		return err
 	}
@@ -225,19 +235,22 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		return status.Errorf(codes.FailedPrecondition, "is a directory")
 	}
 
-	path, err := c.getLocalPath(shares, reqpath)
+	path, err := c.getLocalPath(circle.Shares, reqpath)
 	if err != nil {
 		return err
 	}
-	activeTransfersMtx.Lock()
-	activeReads[path]++
-	upgrade := activeReads[path] > 1
-	t := activeTransfers[path]
-	activeTransfersMtx.Unlock()
+
+	circleState := c.circles[circle.Name]
+
+	circleState.activeTransfersMtx.Lock()
+	circleState.activeReads[path]++
+	upgrade := circleState.activeReads[path] > 1
+	t := circleState.activeTransfers[path]
+	circleState.activeTransfersMtx.Unlock()
 	defer func() {
-		activeTransfersMtx.Lock()
-		activeReads[path]--
-		activeTransfersMtx.Unlock()
+		circleState.activeTransfersMtx.Lock()
+		circleState.activeReads[path]--
+		circleState.activeTransfersMtx.Unlock()
 	}()
 	if upgrade && t == nil {
 		hashCacheMtx.Lock()
@@ -304,6 +317,11 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 }
 
 func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
+	circle, err := c.getCircleForPeer(stream.Context())
+	if err != nil {
+		return err
+	}
+
 	msg, err := stream.Recv()
 	if err != nil {
 		return err
@@ -312,15 +330,17 @@ func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer
 	if d == 0 {
 		return errors.New("download_id should be set (and nothing else)")
 	}
-	activeTransfersMtx.Lock()
+
+	circleState := c.circles[circle.Name]
+	circleState.activeTransfersMtx.Lock()
 	var at *transfer.Transfer
-	for _, t := range activeTransfers {
+	for _, t := range circleState.activeTransfers {
 		if d == t.DownloadId() {
 			at = t
 			break
 		}
 	}
-	activeTransfersMtx.Unlock()
+	circleState.activeTransfersMtx.Unlock()
 	return at.HandleIncomingPassiveTransfer(stream)
 }
 
