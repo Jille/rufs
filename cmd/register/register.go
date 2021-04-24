@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -73,6 +74,10 @@ func main() {
 	}
 
 	caFile, crtFile, keyFile := config.PKIFiles(*circle)
+	if err := os.MkdirAll(filepath.Dir(caFile), 0755); err != nil {
+		log.Fatalf("Failed to create PKI directory %q: %v", filepath.Dir(caFile), err)
+	}
+
 	if err := key.StorePrivateKey(keyFile); err != nil {
 		log.Fatalf("Failed to store private key: %v", err)
 	}
