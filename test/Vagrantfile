@@ -1,0 +1,25 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/debian10"
+  config.vm.provision "shell", :inline => "systemctl stop rufs-discovery 2>/dev/null || true"
+  config.vm.provision "file", source: "bin", destination: "bin"
+  config.vm.provision "shell", :inline => "rm /etc/localtime && ln -s /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime", run: "always"
+
+  config.vm.define "rufs-discovery" do |discovery|
+    discovery.vm.hostname = "rufs-discovery"
+    discovery.vm.network "private_network", ip: "198.51.100.42",
+        virtualbox__intnet: "rufs-peers"
+    discovery.vm.synced_folder "public/", "/public/"
+    discovery.vm.provision "shell", path: "vagrant-init.sh", args: "discovery"
+  end
+
+  config.vm.define "rufs-client" do |client|
+    client.vm.hostname = "rufs-client"
+    client.vm.network "private_network", ip: "198.51.100.137",
+        virtualbox__intnet: "rufs-peers"
+    client.vm.synced_folder "public/", "/public/"
+    client.vm.provision "shell", path: "vagrant-init.sh", args: "client"
+  end
+end

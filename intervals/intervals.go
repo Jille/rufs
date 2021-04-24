@@ -2,7 +2,7 @@
 package intervals
 
 import (
-	"fmt"
+	"log"
 	"sort"
 )
 
@@ -18,7 +18,7 @@ type Intervals struct {
 
 func (is *Intervals) Add(s, e int64) {
 	if s >= e {
-		panic(fmt.Errorf("Invalid call to Intervals.Add(%d, %d)", s, e))
+		log.Panicf("Invalid call to Intervals.Add(%d, %d)", s, e)
 	}
 	is.Remove(s, e)
 	is.ranges = append(is.ranges, Interval{s, e})
@@ -36,7 +36,7 @@ func (is *Intervals) Add(s, e int64) {
 
 func (is *Intervals) Remove(s, e int64) {
 	if s >= e {
-		panic(fmt.Errorf("Invalid call to Intervals.Remove(%d, %d)", s, e))
+		log.Panicf("Invalid call to Intervals.Remove(%d, %d)", s, e)
 	}
 	var newRanges []Interval
 	for _, i := range is.ranges {
@@ -60,7 +60,7 @@ func (is *Intervals) Remove(s, e int64) {
 
 func (is *Intervals) Has(s, e int64) bool {
 	if s >= e {
-		panic(fmt.Errorf("Invalid call to Intervals.Has(%d, %d)", s, e))
+		log.Panicf("Invalid call to Intervals.Has(%d, %d)", s, e)
 	}
 	for _, i := range is.ranges {
 		if i.Start <= s && e <= i.End {
@@ -68,6 +68,41 @@ func (is *Intervals) Has(s, e int64) bool {
 		}
 	}
 	return false
+}
+
+func (is *Intervals) FindUncovered(s, e int64) []Interval {
+	if s >= e {
+		log.Panicf("Invalid call to Intervals.FindUncovered(%d, %d)", s, e)
+	}
+
+	var res []Interval
+	found := int64(0)
+	for i := 0; i < len(is.ranges); i += 1 {
+		iv := is.ranges[i]
+		if iv.End <= s {
+			continue
+		}
+
+		if iv.Start > s && found < s {
+			if iv.End >= e {
+				res = append(res, Interval{found, e})
+				return res
+			}
+			res = append(res, Interval{found, s})
+			found = iv.End
+			continue
+		}
+
+		if iv.Start > e {
+			break
+		}
+	}
+
+	if found < e {
+		res = append(res, Interval{found, e})
+	}
+
+	return res
 }
 
 func (is *Intervals) Export() []Interval {
