@@ -314,7 +314,7 @@ func (t *Transfer) Close() error {
 	if t.orchestream != nil {
 		t.orchestream.Close()
 	}
-	// TODO: close passive transfers
+	t.passive.Close()
 	t.mtx.Unlock()
 	return t.storage.Close()
 }
