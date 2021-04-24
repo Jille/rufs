@@ -108,7 +108,7 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 				c.resolveConflictRequests = c.resolveConflictRequests[1:]
 			} else if c.newActiveDownloads {
 				activeOrchestrationMtx.Lock()
-				active := make([]*pb.ActiveDownload, 0, len(activeOrchestration))
+				active := make([]*pb.ConnectResponse_ActiveDownload, 0, len(activeOrchestration))
 				for _, ao := range activeOrchestration {
 					active = append(active, ao.activeDownload)
 				}

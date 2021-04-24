@@ -52,7 +52,7 @@ func New() *Orchestrator {
 	}
 }
 
-func (o *Orchestrator) UpdatePeerState(peer string, ranges *pb.OrchestrateRequest_UpdateByteRanges) {
+func (o *Orchestrator) UpdateByteRanges(peer string, ranges *pb.OrchestrateRequest_UpdateByteRanges) {
 	o.ranges[peer] = ranges
 
 	// Remove any transfers that are now in ranges.have
@@ -79,15 +79,17 @@ func (o *Orchestrator) UpdatePeerState(peer string, ranges *pb.OrchestrateReques
 	}
 }
 
-func (o *Orchestrator) UpdatePeerConnections(peer string, connections *pb.OrchestrateRequest_ConnectedPeers) {
+func (o *Orchestrator) SetConnectedPeers(peer string, connections *pb.OrchestrateRequest_ConnectedPeers) {
 	o.connections[peer] = connections
 }
 
-func (o *Orchestrator) FailedTransmission(sender string, receiver string) {
+func (o *Orchestrator) UploadFailed(sender string, uf *pb.OrchestrateRequest_UploadFailed) {
 	var newTransfers []*pb.OrchestrateResponse_UploadCommand
-	for _, transfer := range o.transfers[sender] {
-		if transfer.Peer != receiver {
-			newTransfers = append(newTransfers, transfer)
+	for _, receiver := range uf.GetTargetPeers() {
+		for _, transfer := range o.transfers[sender] {
+			if transfer.Peer != receiver {
+				newTransfers = append(newTransfers, transfer)
+			}
 		}
 	}
 	o.transfers[sender] = newTransfers

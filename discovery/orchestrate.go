@@ -21,7 +21,7 @@ type orchestration struct {
 	activeDownload *pb.ConnectResponse_ActiveDownload
 
 	mtx         sync.Mutex
-	schedCond   *sync.Once
+	schedCond   *sync.Cond
 	connections map[string]*orchestrationClient
 	scheduler   *orchestrate.Orchestrator
 }
@@ -51,16 +51,16 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 	o, ok := activeOrchestration[msg.GetStartOrchestration().GetDownloadId()]
 	if !ok {
 		for _, ao := range activeOrchestration {
-			if msg.GetStartOrchestration().GetHash() == ao.hash && msg.GetStartOrchestration().GetHash() != "" {
+			if msg.GetStartOrchestration().GetHash() == ao.activeDownload.GetHash() && msg.GetStartOrchestration().GetHash() != "" {
 				activeOrchestrationMtx.Unlock()
 				return fmt.Errorf("attempt to start new orchestration for active download of hash %q", msg.GetStartOrchestration().GetHash())
 			}
 		}
 		o := &orchestration{
-			activeDownload: &pb.ActiveDownload{
+			activeDownload: &pb.ConnectResponse_ActiveDownload{
 				DownloadId: rand.Int63(),
 				Hash:       msg.GetStartOrchestration().GetHash(),
-				Filename:   []string{msg.GetStartOrchestration().GetFilename()},
+				Filenames:  []string{msg.GetStartOrchestration().GetFilename()},
 			},
 			scheduler: orchestrate.New(),
 		}
@@ -123,13 +123,13 @@ func (c *orchestrationClient) reader() error {
 			return errors.New("second Orchestrate call cancelled this one")
 		}
 		if msg.GetUpdateByteRanges() != nil {
-			o.scheduler.UpdateByteRanges(c.peer, msg.GetUpdateByteRanges())
+			c.o.scheduler.UpdateByteRanges(c.peer, msg.GetUpdateByteRanges())
 		}
 		if msg.GetConnectedPeers() != nil {
-			o.scheduler.SetConnectedPeers(c.peer, msg.GetConnectedPeers())
+			c.o.scheduler.SetConnectedPeers(c.peer, msg.GetConnectedPeers())
 		}
 		if msg.GetUploadFailed() != nil {
-			o.scheduler.UploadFailed(c.peer, msg.GetUploadFailed())
+			c.o.scheduler.UploadFailed(c.peer, msg.GetUploadFailed())
 		}
 		c.o.mtx.Unlock()
 	}
