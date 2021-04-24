@@ -411,7 +411,8 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			case hashQueue <- localpath:
 				break
 			default:
-				return errors.New("hash queue overflow")
+				log.Println("Error while handling ActiveDownloads: hash queue overflow")
+				continue
 			}
 		}
 
@@ -419,10 +420,14 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		if circleState.activeTransfers[localpath] == nil {
 			t, err := transfer.NewLocalFile(localpath, h, circ.Name)
 			if err != nil {
-				return err
+				log.Printf("Error while handling ActiveDownloads: error while creating *transfer.Transfer: %v", err)
+				circleState.activeTransfersMtx.Unlock()
+				continue
 			}
 			if err := t.SwitchToOrchestratedMode(0); err != nil {
-				return err
+				log.Printf("Error while handling ActiveDownloads: error while switching to orchestrated mode: %v", err)
+				circleState.activeTransfersMtx.Unlock()
+				continue
 			}
 			circleState.activeTransfers[localpath] = t
 		}
