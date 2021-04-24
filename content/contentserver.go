@@ -79,6 +79,7 @@ func New(addr string, kps []*security.KeyPair) (*content, error) {
 
 	go c.hashWorker()
 	connectivity.HandleResolveConflictRequest = c.handleResolveConflictRequest
+	connectivity.HandleActiveDownloadList = c.handleActiveDownloadList
 	return c, nil
 }
 
@@ -91,7 +92,6 @@ type content struct {
 }
 
 type circleState struct {
-	// TODO: Subscribe to new active downloads from the discovery server, hash if needed and join the orchestration.
 	activeTransfersMtx sync.Mutex
 	activeReads        map[string]int
 	activeTransfers    map[string]*transfer.Transfer
@@ -376,6 +376,59 @@ func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.
 	default:
 		return errors.New("hash queue overflow")
 	}
+}
+
+func (c *content) handleActiveDownloadList(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {
+	if err := c.handleActiveDownloadListImpl(ctx, req, circle); err != nil {
+		log.Printf("handleActiveDownloadList() failed: %v", err)
+	}
+}
+
+func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) error {
+	circ, ok := config.GetCircle(circle)
+	if !ok {
+		return status.Error(codes.NotFound, "no shares configured for this circle")
+	}
+
+	shares := circ.Shares
+	circleState := c.circles[circ.Name]
+
+	for _, activeDownload := range req.GetActiveDownloads() {
+		localpath := ""
+		for _, path := range activeDownload.GetFilenames() {
+			l, err := c.getLocalPath(shares, path)
+			if err != nil {
+				localpath = l
+			}
+		}
+		if localpath == "" {
+			continue
+		}
+
+		h, err := c.getFileHash(localpath)
+		if err != nil || h == "" {
+			select {
+			case hashQueue <- localpath:
+				break
+			default:
+				return errors.New("hash queue overflow")
+			}
+		}
+
+		circleState.activeTransfersMtx.Lock()
+		if circleState.activeTransfers[localpath] == nil {
+			t, err := transfer.NewLocalFile(localpath, h, circ.Name)
+			if err != nil {
+				return err
+			}
+			if err := t.SwitchToOrchestratedMode(0); err != nil {
+				return err
+			}
+			circleState.activeTransfers[localpath] = t
+		}
+		circleState.activeTransfersMtx.Unlock()
+	}
+	return nil
 }
 
 func (c *content) hashWorker() {

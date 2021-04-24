@@ -22,6 +22,7 @@ var (
 	circles = map[string]*circle{}
 
 	HandleResolveConflictRequest = func(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {}
+	HandleActiveDownloadList     = func(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {}
 )
 
 type circle struct {
@@ -99,6 +100,9 @@ func (c *circle) connect(ctx context.Context) error {
 		}
 		if msg.GetResolveConflictRequest() != nil {
 			HandleResolveConflictRequest(ctx, msg.GetResolveConflictRequest(), c.name)
+		}
+		if msg.GetActiveDownloads() != nil {
+			HandleActiveDownloadList(ctx, msg.GetActiveDownloads(), c.name)
 		}
 	}
 }
