@@ -32,6 +32,7 @@ var (
 	hashCacheMtx sync.Mutex
 	hashCache    = map[string]cachedHash{}
 
+	// TODO: Subscribe to new active downloads from the discovery server, hash if needed and join the orchestration.
 	activeTransfersMtx sync.Mutex
 	activeReads        = map[string]int{}
 	activeTransfers    = map[string]*transfer.Transfer{}
@@ -300,6 +301,11 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		offset += n
 		remaining -= n
 	}
+}
+
+func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
+	// TODO: find the download_id, and forward it to the right transfer, who should forward it to the passive module.
+	return errors.New("not yet implemented")
 }
 
 func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {
