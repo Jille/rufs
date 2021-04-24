@@ -126,7 +126,7 @@ service ContentService {
 	rpc ReadFile(ReadFileRequest) returns (stream ReadFileResponse) {
 	}
 
-	rpc PassiveTransfer(stream PassiveTransferRequest) returns (stream PassiveTransferResponse) {
+	rpc PassiveTransfer(stream PassiveTransferData) returns (stream PassiveTransferData) {
 	}
 }
 
@@ -163,13 +163,8 @@ message ReadFileResponse {
 	int64 redirect_to_orchestrated_download = 6;
 }
 
-message PassiveTransferRequest {
+message PassiveTransferData {
 	int64 download_id = 1;
 	int64 offset = 2;
 	bytes data = 3;
-}
-
-message PassiveTransferResponse {
-	int64 offset = 1;
-	bytes data = 2;
 }

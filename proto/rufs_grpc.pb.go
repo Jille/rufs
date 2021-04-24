@@ -374,8 +374,8 @@ func (c *contentServiceClient) PassiveTransfer(ctx context.Context, opts ...grpc
 }
 
 type ContentService_PassiveTransferClient interface {
-	Send(*PassiveTransferRequest) error
-	Recv() (*PassiveTransferResponse, error)
+	Send(*PassiveTransferData) error
+	Recv() (*PassiveTransferData, error)
 	grpc.ClientStream
 }
 
@@ -383,12 +383,12 @@ type contentServicePassiveTransferClient struct {
 	grpc.ClientStream
 }
 
-func (x *contentServicePassiveTransferClient) Send(m *PassiveTransferRequest) error {
+func (x *contentServicePassiveTransferClient) Send(m *PassiveTransferData) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *contentServicePassiveTransferClient) Recv() (*PassiveTransferResponse, error) {
-	m := new(PassiveTransferResponse)
+func (x *contentServicePassiveTransferClient) Recv() (*PassiveTransferData, error) {
+	m := new(PassiveTransferData)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -475,8 +475,8 @@ func _ContentService_PassiveTransfer_Handler(srv interface{}, stream grpc.Server
 }
 
 type ContentService_PassiveTransferServer interface {
-	Send(*PassiveTransferResponse) error
-	Recv() (*PassiveTransferRequest, error)
+	Send(*PassiveTransferData) error
+	Recv() (*PassiveTransferData, error)
 	grpc.ServerStream
 }
 
@@ -484,12 +484,12 @@ type contentServicePassiveTransferServer struct {
 	grpc.ServerStream
 }
 
-func (x *contentServicePassiveTransferServer) Send(m *PassiveTransferResponse) error {
+func (x *contentServicePassiveTransferServer) Send(m *PassiveTransferData) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *contentServicePassiveTransferServer) Recv() (*PassiveTransferRequest, error) {
-	m := new(PassiveTransferRequest)
+func (x *contentServicePassiveTransferServer) Recv() (*PassiveTransferData, error) {
+	m := new(PassiveTransferData)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
