@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/transfer"
 	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -30,6 +31,10 @@ var (
 	hashQueue    = make(chan string, 1000)
 	hashCacheMtx sync.Mutex
 	hashCache    = map[string]cachedHash{}
+
+	activeTransfersMtx sync.Mutex
+	activeReads        = map[string]int{}
+	activeTransfers    = map[string]*transfer.Transfer{}
 )
 
 type cachedHash struct {
@@ -223,6 +228,36 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	if err != nil {
 		return err
 	}
+	activeTransfersMtx.Lock()
+	activeReads[path]++
+	upgrade := activeReads[path] > 1
+	t := activeTransfers[path]
+	activeTransfersMtx.Unlock()
+	defer func() {
+		activeTransfersMtx.Lock()
+		activeReads[path]--
+		activeTransfersMtx.Unlock()
+	}()
+	if upgrade && t == nil {
+		hashCacheMtx.Lock()
+		h := hashCache[path]
+		hashCacheMtx.Unlock()
+		t, err = transfer.NewLocalFile(path, h.hash)
+		if err != nil {
+			return err
+		}
+		if err := t.SwitchToOrchestratedMode(0); err != nil {
+			return err
+		}
+	}
+	if t != nil {
+		if err := stream.Send(&pb.ReadFileResponse{
+			RedirectToOrchestratedDownload: t.DownloadId(),
+		}); err != nil {
+			return err
+		}
+		return nil
+	}
 	fh, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -290,7 +325,7 @@ func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.
 	if err != nil {
 		return err
 	}
-	select{
+	select {
 	case hashQueue <- path:
 		return nil
 	default:
