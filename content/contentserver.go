@@ -406,14 +406,17 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		}
 
 		h, err := c.getFileHashWithStat(localpath)
-		if err != nil || h == "" {
+		if err != nil {
+			log.Printf("Error while handling ActiveDownloads: couldn't determine hash for %q: %v", localpath, err)
+			continue
+		}
+		if h == "" {
 			select {
 			case hashQueue <- localpath:
-				break
 			default:
 				log.Println("Error while handling ActiveDownloads: hash queue overflow")
-				continue
 			}
+			continue
 		}
 
 		circleState.activeTransfersMtx.Lock()
