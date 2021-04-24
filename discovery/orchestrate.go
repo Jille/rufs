@@ -15,7 +15,7 @@ import (
 
 var (
 	activeOrchestrationMtx sync.Mutex
-	activeOrchestration    map[int64]*orchestration
+	activeOrchestration    = map[int64]*orchestration{}
 )
 
 type orchestration struct {
