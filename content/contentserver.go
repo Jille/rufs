@@ -419,6 +419,11 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			continue
 		}
 
+		if h != activeDownload.GetHash() {
+			log.Println("Error while handling ActiveDownloads: hash mismatch for %q (%s vs %s)", localpath, h, activeDownload.GetHash())
+			continue
+		}
+
 		circleState.activeTransfersMtx.Lock()
 		if circleState.activeTransfers[localpath] == nil {
 			t, err := transfer.NewLocalFile(localpath, h, circ.Name)
