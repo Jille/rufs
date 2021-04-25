@@ -96,6 +96,9 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 		newActiveDownloads: true,
 	}
 	d.clients[name] = c
+	for _, c2 := range d.clients {
+		c2.newPeerList = true
+	}
 	d.cond.Broadcast()
 	defer func() {
 		if d.clients[name] == c {
