@@ -65,6 +65,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 				DownloadId: rand.Int63(),
 				Hash:       msg.GetStartOrchestration().GetHash(),
 			},
+			connections: map[string]*orchestrationClient{},
 			scheduler: orchestrate.New(),
 		}
 		o.schedCond = sync.NewCond(&o.mtx)
