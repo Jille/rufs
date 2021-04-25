@@ -15,6 +15,8 @@ import (
 	"github.com/sgielen/rufs/client/transfer"
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type Directory struct {
@@ -182,7 +184,9 @@ func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.Re
 			r, err := p.ContentServiceClient().ReadDir(ctx, req)
 			mtx.Lock()
 			defer mtx.Unlock()
-			if err != nil {
+			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+				// File not found on peer, don't include peer in errs or ret
+			} else if err != nil {
 				errs[p] = err
 			} else {
 				ret[p] = r
