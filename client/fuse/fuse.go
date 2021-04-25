@@ -236,6 +236,9 @@ type handle struct {
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
 	response.Data, retErr = h.vh.Read(ctx, request.Offset, int64(request.Size))
+	if retErr != nil {
+		log.Printf("VFS read failed for {%s}: %v", h.path, retErr)
+	}
 	return retErr
 }
 
