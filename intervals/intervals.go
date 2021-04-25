@@ -34,6 +34,12 @@ func (is *Intervals) Add(s, e int64) {
 	is.ranges = newRanges
 }
 
+func (is *Intervals) AddRange(other Intervals) {
+	for _, i := range other.ranges {
+		is.Add(i.Start, i.End)
+	}
+}
+
 func (is *Intervals) Remove(s, e int64) {
 	if s >= e {
 		log.Panicf("Invalid call to Intervals.Remove(%d, %d)", s, e)
@@ -70,25 +76,26 @@ func (is *Intervals) Has(s, e int64) bool {
 	return false
 }
 
-func (is *Intervals) FindUncovered(s, e int64) []Interval {
+func (is *Intervals) FindUncovered(s, e int64) Intervals {
 	if s >= e {
 		log.Panicf("Invalid call to Intervals.FindUncovered(%d, %d)", s, e)
 	}
 
-	var res []Interval
+	res := Intervals{}
 	found := int64(0)
 	for i := 0; i < len(is.ranges); i += 1 {
 		iv := is.ranges[i]
 		if iv.End <= s {
+			found = iv.End
 			continue
 		}
 
 		if iv.Start > s && found < s {
 			if iv.End >= e {
-				res = append(res, Interval{found, e})
+				res.Add(found, e)
 				return res
 			}
-			res = append(res, Interval{found, s})
+			res.Add(found, s)
 			found = iv.End
 			continue
 		}
@@ -96,17 +103,31 @@ func (is *Intervals) FindUncovered(s, e int64) []Interval {
 		if iv.Start > e {
 			break
 		}
+
+		found = iv.End
 	}
 
 	if found < e {
-		res = append(res, Interval{found, e})
+		res.Add(found, e)
 	}
 
 	return res
 }
 
+func (is *Intervals) FindUncoveredRange(other Intervals) Intervals {
+	res := Intervals{}
+	for _, i := range other.ranges {
+		res.AddRange(is.FindUncovered(i.Start, i.End))
+	}
+	return res
+}
+
 func (is *Intervals) Export() []Interval {
 	return is.ranges
+}
+
+func (is *Intervals) IsEmpty() bool {
+	return len(is.ranges) == 0
 }
 
 func (is *Intervals) sort() {

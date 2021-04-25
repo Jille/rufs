@@ -114,17 +114,20 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, 
 		return nil, nil
 	}
 	t.mtx.Lock()
-	if !t.have.Has(offset, offset+size) {
-		t.want.Add(offset, offset+size)
-		t.pending.Add(offset, offset+size)
+	missing := t.have.FindUncovered(offset, offset+size)
+	if !missing.IsEmpty() {
+		t.want.AddRange(missing)
+		t.pending.AddRange(missing)
 		t.byteRangesUpdated()
 		t.fetchCond.Broadcast()
 		for {
 			t.serveCond.Wait()
-			if t.have.Has(offset, offset+size) {
+			missing = t.have.FindUncovered(offset, offset+size)
+			if missing.IsEmpty() {
 				break
 			}
-			if !t.want.Has(offset, offset+size) {
+			missingWant := t.want.FindUncoveredRange(missing)
+			if !missingWant.IsEmpty() {
 				t.mtx.Unlock()
 				return nil, errors.New("simpleFetcher admitted failure")
 			}

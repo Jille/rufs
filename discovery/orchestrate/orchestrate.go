@@ -65,10 +65,10 @@ func (o *Orchestrator) UpdateByteRanges(peer string, ranges *pb.OrchestrateReque
 		var newTransfers []*pb.OrchestrateResponse_UploadCommand
 		for _, transfer := range transfers {
 			uncovered := have.FindUncovered(transfer.Range.Start, transfer.Range.End)
-			if len(uncovered) == 0 {
+			if uncovered.IsEmpty() {
 				continue
 			}
-			for _, newTransfer := range uncovered {
+			for _, newTransfer := range uncovered.Export() {
 				newTransfers = append(newTransfers, &pb.OrchestrateResponse_UploadCommand{
 					Peer:  transfer.Peer,
 					Range: &pb.Range{Start: newTransfer.Start, End: newTransfer.End},
