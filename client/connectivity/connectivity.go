@@ -120,12 +120,13 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 	for name, cp := range c.peers {
 		found := false
 		for _, pe := range peers {
-			if pe.GetName() == cp.Name {
+			if pe.GetName() == name {
 				found = true
 				break
 			}
 		}
 		if !found {
+			cp.conn.Close()
 			delete(c.peers, name)
 		}
 	}
