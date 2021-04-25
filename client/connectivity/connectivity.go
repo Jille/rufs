@@ -117,6 +117,18 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 			c.peers[pe.GetName()] = c.newPeer(ctx, pe)
 		}
 	}
+	for name, cp := range c.peers {
+		found := false
+		for _, pe := range peers {
+			if pe.GetName() == cp.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			delete(c.peers, name)
+		}
+	}
 }
 
 func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
