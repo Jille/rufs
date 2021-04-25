@@ -429,7 +429,7 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		}
 
 		if h != activeDownload.GetHash() {
-			log.Println("Error while handling ActiveDownloads: hash mismatch for %q (%s vs %s)", localpath, h, activeDownload.GetHash())
+			log.Printf("Error while handling ActiveDownloads: hash mismatch for %q (%s vs %s)", localpath, h, activeDownload.GetHash())
 			continue
 		}
 
