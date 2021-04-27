@@ -32,7 +32,7 @@ func increaseCounter(circle string, id pb.PushMetricsRequest_MetricId, fields []
 }
 
 func appendDistribution(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
-	// TODO(sgielen)
+	circles[circle].SetOrAdd(id, fields, value)
 }
 
 func getSingleValue(m pb.PushMetricsRequest_MetricId, v []float64) float64 {
