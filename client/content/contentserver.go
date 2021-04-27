@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfer"
 	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
@@ -98,7 +99,7 @@ type circleState struct {
 }
 
 func (c *content) Run() {
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(c.keyPairs))))
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(c.keyPairs))), grpc.ChainUnaryInterceptor(c.unaryInterceptor), grpc.ChainStreamInterceptor(c.streamInterceptor))
 	pb.RegisterContentServiceServer(s, c)
 	reflection.Register(s)
 	sock, err := net.Listen("tcp", c.addr)
@@ -109,6 +110,32 @@ func (c *content) Run() {
 	if err := s.Serve(sock); err != nil {
 		log.Fatalf("content server failed to serve on %s: %v", c.addr, err)
 	}
+}
+
+func (c *content) unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	peer, circle, err := security.PeerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	start := time.Now()
+	resp, err := handler(ctx, req)
+	d := time.Since(start)
+	metrics.AddContentRpcsRecv([]string{circle}, info.FullMethod, peer, status.Code(err).String(), 1)
+	metrics.AppendContentRpcsRecvLatency([]string{circle}, info.FullMethod, peer, status.Code(err).String(), d.Seconds())
+	return resp, err
+}
+
+func (c *content) streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	peer, circle, err := security.PeerFromContext(ss.Context())
+	if err != nil {
+		return err
+	}
+	start := time.Now()
+	err = handler(srv, ss)
+	d := time.Since(start)
+	metrics.AddContentRpcsRecv([]string{circle}, info.FullMethod, peer, status.Code(err).String(), 1)
+	metrics.AppendContentRpcsRecvLatency([]string{circle}, info.FullMethod, peer, status.Code(err).String(), d.Seconds())
+	return err
 }
 
 func (c *content) getCircleForPeer(ctx context.Context) (*config.Circle, error) {
