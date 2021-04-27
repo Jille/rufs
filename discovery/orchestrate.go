@@ -175,9 +175,12 @@ func (c *orchestrationClient) writer() error {
 					},
 				}
 			}
+			c.o.mtx.Unlock()
 			if err := c.stream.Send(msg); err != nil {
+				c.o.mtx.Lock()
 				return err
 			}
+			c.o.mtx.Lock()
 		}
 		c.cond.Wait()
 		if c.o.connections[c.peer] != c {
