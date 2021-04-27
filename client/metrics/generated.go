@@ -7,20 +7,20 @@ import (
 	pb "github.com/sgielen/rufs/proto"
 )
 
-func SetClientStartTimeSeconds(circle string, v time.Time) {
-	setGauge(circle, pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS, []string{}, float64(v.UnixNano()) / 1000.0)
+func SetClientStartTimeSeconds(circles []string, v time.Time) {
+	setGauge(circles, pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS, []string{}, float64(v.UnixNano()) / 1000.0)
 }
 
-func SetActiveVfsReads(circle string, v int64) {
-	setGauge(circle, pb.PushMetricsRequest_ACTIVE_VFS_READS, []string{}, float64(v))
+func SetActiveVfsReads(circles []string, v int64) {
+	setGauge(circles, pb.PushMetricsRequest_ACTIVE_VFS_READS, []string{}, float64(v))
 }
 
-func AddVfsReads(circle string, v int64) {
-	increaseCounter(circle, pb.PushMetricsRequest_VFS_READS, []string{}, float64(v))
+func AddVfsReads(circles []string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_VFS_READS, []string{}, float64(v))
 }
 
-func AppendVfsReadLatency(circle string, cached string, v int64) {
-	appendDistribution(circle, pb.PushMetricsRequest_VFS_READ_LATENCY, []string{cached}, float64(v))
+func AppendVfsReadLatency(circles []string, cached string, v int64) {
+	appendDistribution(circles, pb.PushMetricsRequest_VFS_READ_LATENCY, []string{cached}, float64(v))
 }
 
 func isCounter(t pb.PushMetricsRequest_MetricId) bool {

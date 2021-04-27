@@ -78,8 +78,8 @@ loop:
 		}
 
 		out.WriteString("\n")
-		fmt.Fprintf(&out, "func %s%s(circle string,%s %s) {\n", namePrefix, strcase.UpperCamelCase(name), fieldsSignature, arg)
-		fmt.Fprintf(&out, "	%s(circle, pb.PushMetricsRequest_%s, []string{%s}, %s)\n", internalFunction, name, strings.Join(fields, ", "), transformation)
+		fmt.Fprintf(&out, "func %s%s(circles []string,%s %s) {\n", namePrefix, strcase.UpperCamelCase(name), fieldsSignature, arg)
+		fmt.Fprintf(&out, "	%s(circles, pb.PushMetricsRequest_%s, []string{%s}, %s)\n", internalFunction, name, strings.Join(fields, ", "), transformation)
 		out.WriteString("}\n")
 	}
 

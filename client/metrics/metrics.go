@@ -23,16 +23,22 @@ func GetAndResetMetrics(circle string) []*pb.PushMetricsRequest_Metric {
 	return circles[circle].GetAndResetMetrics()
 }
 
-func setGauge(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
-	circles[circle].SetOrAdd(id, fields, value)
+func setGauge(circs []string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
+	for _, c := range circs {
+		circles[c].SetOrAdd(id, fields, value)
+	}
 }
 
-func increaseCounter(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
-	circles[circle].SetOrAdd(id, fields, value)
+func increaseCounter(circs []string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
+	for _, c := range circs {
+		circles[c].SetOrAdd(id, fields, value)
+	}
 }
 
-func appendDistribution(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
-	circles[circle].SetOrAdd(id, fields, value)
+func appendDistribution(circs []string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
+	for _, c := range circs {
+		circles[c].SetOrAdd(id, fields, value)
+	}
 }
 
 func getSingleValue(m pb.PushMetricsRequest_MetricId, v []float64) float64 {

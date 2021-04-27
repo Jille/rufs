@@ -55,7 +55,7 @@ func main() {
 		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
 			log.Fatalf("Failed to connect to circle %q: %v", circle, err)
 		}
-		metrics.SetClientStartTimeSeconds(circle, time.Now())
+		metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
 	}
 
 	f, err := fuse.NewMount(*mountpoint, *allowUsers)
