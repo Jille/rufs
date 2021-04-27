@@ -18,6 +18,9 @@ service DiscoveryService {
 
 	rpc Orchestrate(stream OrchestrateRequest) returns (stream OrchestrateResponse) {
 	}
+
+	rpc PushMetrics(PushMetricsRequest) returns (PushMetricsResponse) {
+	}
 }
 
 message RegisterRequest {
@@ -125,6 +128,21 @@ message OrchestrateResponse {
 message Range {
 	int64 start = 1;
 	int64 end = 2;
+}
+
+message PushMetricsRequest {
+	enum MetricId {
+		UNKNOWN = 0;
+	}
+	message Metric {
+		MetricId id = 1;
+		repeated string fields = 2;
+		int64 value = 3;
+	}
+	repeated Metric metrics = 1;
+}
+
+message PushMetricsResponse {
 }
 
 service ContentService {

@@ -24,6 +24,7 @@ type DiscoveryServiceClient interface {
 	GetMyIP(ctx context.Context, in *GetMyIPRequest, opts ...grpc.CallOption) (*GetMyIPResponse, error)
 	ResolveConflict(ctx context.Context, in *ResolveConflictRequest, opts ...grpc.CallOption) (*ResolveConflictResponse, error)
 	Orchestrate(ctx context.Context, opts ...grpc.CallOption) (DiscoveryService_OrchestrateClient, error)
+	PushMetrics(ctx context.Context, in *PushMetricsRequest, opts ...grpc.CallOption) (*PushMetricsResponse, error)
 }
 
 type discoveryServiceClient struct {
@@ -124,6 +125,15 @@ func (x *discoveryServiceOrchestrateClient) Recv() (*OrchestrateResponse, error)
 	return m, nil
 }
 
+func (c *discoveryServiceClient) PushMetrics(ctx context.Context, in *PushMetricsRequest, opts ...grpc.CallOption) (*PushMetricsResponse, error) {
+	out := new(PushMetricsResponse)
+	err := c.cc.Invoke(ctx, "/DiscoveryService/PushMetrics", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DiscoveryServiceServer is the server API for DiscoveryService service.
 // All implementations must embed UnimplementedDiscoveryServiceServer
 // for forward compatibility
@@ -134,6 +144,7 @@ type DiscoveryServiceServer interface {
 	GetMyIP(context.Context, *GetMyIPRequest) (*GetMyIPResponse, error)
 	ResolveConflict(context.Context, *ResolveConflictRequest) (*ResolveConflictResponse, error)
 	Orchestrate(DiscoveryService_OrchestrateServer) error
+	PushMetrics(context.Context, *PushMetricsRequest) (*PushMetricsResponse, error)
 	mustEmbedUnimplementedDiscoveryServiceServer()
 }
 
@@ -155,6 +166,9 @@ func (UnimplementedDiscoveryServiceServer) ResolveConflict(context.Context, *Res
 }
 func (UnimplementedDiscoveryServiceServer) Orchestrate(DiscoveryService_OrchestrateServer) error {
 	return status.Errorf(codes.Unimplemented, "method Orchestrate not implemented")
+}
+func (UnimplementedDiscoveryServiceServer) PushMetrics(context.Context, *PushMetricsRequest) (*PushMetricsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PushMetrics not implemented")
 }
 func (UnimplementedDiscoveryServiceServer) mustEmbedUnimplementedDiscoveryServiceServer() {}
 
@@ -270,6 +284,24 @@ func (x *discoveryServiceOrchestrateServer) Recv() (*OrchestrateRequest, error) 
 	return m, nil
 }
 
+func _DiscoveryService_PushMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PushMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DiscoveryServiceServer).PushMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/DiscoveryService/PushMetrics",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DiscoveryServiceServer).PushMetrics(ctx, req.(*PushMetricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DiscoveryService_ServiceDesc is the grpc.ServiceDesc for DiscoveryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -288,6 +320,10 @@ var DiscoveryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResolveConflict",
 			Handler:    _DiscoveryService_ResolveConflict_Handler,
+		},
+		{
+			MethodName: "PushMetrics",
+			Handler:    _DiscoveryService_PushMetrics_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
