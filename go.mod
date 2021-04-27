@@ -9,6 +9,7 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/ory/go-convenience v0.1.0
 	github.com/prometheus/client_golang v1.10.0
+	github.com/stoewer/go-strcase v1.2.0
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
 	google.golang.org/grpc v1.37.0

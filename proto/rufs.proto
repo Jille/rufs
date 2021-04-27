@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/descriptor.proto";
+
 option go_package = "github.com/sgielen/rufs/proto";
 
 service DiscoveryService {
@@ -131,9 +133,23 @@ message Range {
 }
 
 message PushMetricsRequest {
+	enum MetricType {
+		UNKNOWN_TYPE = 0;
+		INT64_GAUGE = 1;
+		TIME_GAUGE = 2;
+		COUNTER = 3;
+		DISTRIBUTION = 4;
+	}
+	extend google.protobuf.EnumValueOptions {
+		MetricType metric_type = 50001;
+		repeated string metric_fields = 50002;
+	}
 	enum MetricId {
-		UNKNOWN = 0;
-		CLIENT_START_TIME_SECONDS = 1;
+		UNKNOWN = 0 [(metric_type) = UNKNOWN_TYPE];
+		CLIENT_START_TIME_SECONDS = 1 [(metric_type) = TIME_GAUGE];
+		ACTIVE_VFS_READS = 2 [(metric_type) = INT64_GAUGE];
+		VFS_READS = 3 [(metric_type) = COUNTER];
+		VFS_READ_LATENCY = 4 [(metric_type) = DISTRIBUTION, (metric_fields) = "cached"];
 	}
 	message Metric {
 		MetricId id = 1;

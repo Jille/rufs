@@ -3,7 +3,6 @@ package metrics
 import (
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/config"
@@ -24,27 +23,20 @@ func GetAndResetMetrics(circle string) []*pb.PushMetricsRequest_Metric {
 	return circles[circle].GetAndResetMetrics()
 }
 
-// TODO: generate
-func SetClientStartTimeSeconds(circle string, v time.Time) {
-	setGauge(circle, pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS, []string{}, float64(v.UnixNano()/1e9))
-}
-
 func setGauge(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
 	circles[circle].SetOrAdd(id, fields, value)
 }
 
-// TODO: generate
-func isCounter(m pb.PushMetricsRequest_MetricId) bool {
-	return m != pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS
+func increaseCounter(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
+	circles[circle].SetOrAdd(id, fields, value)
 }
 
-// TODO: generate
-func isDistributive(m pb.PushMetricsRequest_MetricId) bool {
-	return m != pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS
+func appendDistribution(circle string, id pb.PushMetricsRequest_MetricId, fields []string, value float64) {
+	// TODO(sgielen)
 }
 
 func getSingleValue(m pb.PushMetricsRequest_MetricId, v []float64) float64 {
-	if isDistributive(m) {
+	if isDistributionMetric(m) {
 		return 0
 	} else {
 		return v[0]
@@ -52,7 +44,7 @@ func getSingleValue(m pb.PushMetricsRequest_MetricId, v []float64) float64 {
 }
 
 func getDistributiveValues(m pb.PushMetricsRequest_MetricId, v []float64) []float64 {
-	if isDistributive(m) {
+	if isDistributionMetric(m) {
 		return v
 	} else {
 		return nil
@@ -94,7 +86,7 @@ func (m *circleMetrics) SetOrAdd(id pb.PushMetricsRequest_MetricId, fields []str
 		m.metrics[id] = map[string][]float64{}
 	}
 	fs := strings.Join(fields, "\x00")
-	if isDistributive(id) {
+	if isDistributionMetric(id) {
 		m.metrics[id][fs] = append(m.metrics[id][fs], value)
 	} else if len(m.metrics[id][fs]) == 0 || !isCounter(id) {
 		m.metrics[id][fs] = []float64{value}
