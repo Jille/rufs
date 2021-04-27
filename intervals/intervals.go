@@ -82,35 +82,32 @@ func (is *Intervals) FindUncovered(s, e int64) Intervals {
 	}
 
 	res := Intervals{}
-	found := int64(0)
-	for i := 0; i < len(is.ranges); i += 1 {
-		iv := is.ranges[i]
+	for _, iv := range is.ranges {
 		if iv.End <= s {
-			found = iv.End
+			// before search range
 			continue
 		}
 
-		if iv.Start > s && found < s {
-			if iv.End >= e {
-				res.Add(found, e)
-				return res
-			}
-			res.Add(found, s)
-			found = iv.End
-			continue
-		}
-
-		if iv.Start > e {
+		if iv.Start >= e {
+			// after search range
 			break
 		}
 
-		found = iv.End
+		if iv.Start > s {
+			// range uncovered since start / last block
+			res.Add(s, iv.Start)
+		}
+
+		if iv.End >= e {
+			// rest of range is covered
+			return res
+		}
+
+		s = iv.End
 	}
 
-	if found < e {
-		res.Add(found, e)
-	}
-
+	// rest of range is uncovered
+	res.Add(s, e)
 	return res
 }
 

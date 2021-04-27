@@ -105,3 +105,46 @@ func TestFuzz(t *testing.T) {
 		compare(t, di, si)
 	}
 }
+
+func TestUncovered(t *testing.T) {
+	ivs := Intervals{}
+	ivs.Add(20, 40)
+	ivs.Add(60, 80)
+	var uncovered Intervals
+	uncovered = ivs.FindUncovered(10, 15)
+	if diff := cmp.Diff([]Interval{{10, 15}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(10, 20)
+	if diff := cmp.Diff([]Interval{{10, 20}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(10, 30)
+	if diff := cmp.Diff([]Interval{{10, 20}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(10, 50)
+	if diff := cmp.Diff([]Interval{{10, 20}, {40, 50}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(30, 50)
+	if diff := cmp.Diff([]Interval{{40, 50}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(50, 60)
+	if diff := cmp.Diff([]Interval{{50, 60}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(50, 70)
+	if diff := cmp.Diff([]Interval{{50, 60}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(50, 90)
+	if diff := cmp.Diff([]Interval{{50, 60}, {80, 90}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+	uncovered = ivs.FindUncovered(0, 100)
+	if diff := cmp.Diff([]Interval{{0, 20}, {40, 60}, {80, 100}}, uncovered.Export()); diff != "" {
+		t.Errorf("Mismatch: %s", diff)
+	}
+}
