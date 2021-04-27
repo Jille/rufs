@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/sgielen/rufs/discovery/metrics"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -46,7 +47,7 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	log.Printf("Listening on port %d for circle %q", *port, d.circle)
-	go serveMetrics()
+	go metrics.Serve()
 	if err := s.Serve(sock); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
@@ -197,4 +198,11 @@ func (d *discovery) ResolveConflict(ctx context.Context, req *pb.ResolveConflict
 	}
 	d.cond.Broadcast()
 	return &pb.ResolveConflictResponse{}, nil
+}
+
+func (d *discovery) PushMetrics(ctx context.Context, req *pb.PushMetricsRequest) (*pb.PushMetricsResponse, error) {
+	if err := metrics.PushMetrics(ctx, req); err != nil {
+		return nil, err
+	}
+	return &pb.PushMetricsResponse{}, nil
 }
