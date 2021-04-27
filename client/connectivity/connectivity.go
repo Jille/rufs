@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -215,4 +216,16 @@ func AllPeersInCircle(name string) []*Peer {
 
 func DiscoveryClient(circle string) pb.DiscoveryServiceClient {
 	return circles[circle].client
+}
+
+func CirclesFromPeers(peers []*Peer) []string {
+	cs := map[string]bool{}
+	for _, p := range peers {
+		cs[common.CircleFromPeer(p.Name)] = true
+	}
+	ret := make([]string, 0, len(cs))
+	for c := range cs {
+		ret = append(ret, c)
+	}
+	return ret
 }

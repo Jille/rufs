@@ -8,15 +8,21 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfer/cache"
 	"github.com/sgielen/rufs/client/transfer/orchestream"
 	"github.com/sgielen/rufs/client/transfer/passive"
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/intervals"
 	pb "github.com/sgielen/rufs/proto"
+)
+
+var (
+	activeReadCounter int64
 )
 
 func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, peers []*connectivity.Peer) (*Transfer, error) {
@@ -104,6 +110,11 @@ func (t *Transfer) init() {
 }
 
 func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
+	metrics.AddVfsReads(connectivity.CirclesFromPeers(t.peers), 1)
+	metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, 1))
+	defer func() {
+		metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, -1))
+	}()
 	if offset >= t.size {
 		return nil, io.EOF
 	}
