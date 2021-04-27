@@ -70,6 +70,8 @@ loop:
 		case pb.PushMetricsRequest_DISTRIBUTION:
 			namePrefix = "Append"
 			internalFunction = "appendDistribution"
+			arg = "v float64"
+			transformation = "v"
 			distributionMetrics = append(distributionMetrics, fmt.Sprintf("pb.PushMetricsRequest_%s", name))
 		default:
 			out.WriteString("\n")

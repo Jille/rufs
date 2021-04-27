@@ -3,6 +3,7 @@ package transfer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/rand"
@@ -115,6 +116,7 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, 
 	defer func() {
 		metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, -1))
 	}()
+	start := time.Now()
 	if offset >= t.size {
 		return nil, io.EOF
 	}
@@ -124,9 +126,11 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, 
 	if size == 0 {
 		return nil, nil
 	}
+	cached := true
 	t.mtx.Lock()
 	missing := t.have.FindUncovered(offset, offset+size)
 	if !missing.IsEmpty() {
+		cached = false
 		t.want.AddRange(missing)
 		t.pending.AddRange(missing)
 		t.byteRangesUpdated()
@@ -150,6 +154,7 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
+	metrics.AppendVfsReadLatency(connectivity.CirclesFromPeers(t.peers), fmt.Sprint(cached), time.Since(start).Seconds())
 	return buf, nil
 }
 

@@ -19,8 +19,8 @@ func AddVfsReads(circles []string, v int64) {
 	increaseCounter(circles, pb.PushMetricsRequest_VFS_READS, []string{}, float64(v))
 }
 
-func AppendVfsReadLatency(circles []string, cached string, v int64) {
-	appendDistribution(circles, pb.PushMetricsRequest_VFS_READ_LATENCY, []string{cached}, float64(v))
+func AppendVfsReadLatency(circles []string, cached string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_VFS_READ_LATENCY, []string{cached}, v)
 }
 
 func isCounter(t pb.PushMetricsRequest_MetricId) bool {
