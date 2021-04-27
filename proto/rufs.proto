@@ -133,7 +133,7 @@ message Range {
 message PushMetricsRequest {
 	enum MetricId {
 		UNKNOWN = 0;
-		CLIENT_START_TIME_US = 1;
+		CLIENT_START_TIME_SECONDS = 1;
 	}
 	message Metric {
 		MetricId id = 1;

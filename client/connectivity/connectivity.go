@@ -89,6 +89,7 @@ func (c *circle) connect(ctx context.Context) error {
 		return fmt.Errorf("failed to subscribe to discovery server: %v", err)
 	}
 	log.Printf("Connected to RuFS. My endpoints: %s", c.myEndpoints)
+	go runConnectivityMetrics(ctx, c.name, c.client)
 
 	for {
 		msg, err := stream.Recv()

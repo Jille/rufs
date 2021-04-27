@@ -5,11 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"strings"
+	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
+	"github.com/sgielen/rufs/client/metrics"
+	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/security"
 )
@@ -22,13 +24,6 @@ var (
 	mountpoint    = flag.String("mountpoint", "", "Where to mount everyone's stuff")
 )
 
-func splitMaybeEmpty(str, sep string) []string {
-	if str == "" {
-		return nil
-	}
-	return strings.Split(str, sep)
-}
-
 func main() {
 	flag.Parse()
 	ctx := context.Background()
@@ -37,6 +32,7 @@ func main() {
 		log.Fatalf("--mountpoint must not be empty (see -help)")
 	}
 	config.MustLoadConfig()
+	metrics.Init()
 
 	circles := map[string]*security.KeyPair{}
 	var kps []*security.KeyPair
@@ -55,10 +51,11 @@ func main() {
 	}
 	go content.Run()
 
-	for c, kp := range circles {
-		if err := connectivity.ConnectToCircle(ctx, c, *discoveryPort, splitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
-			log.Fatalf("Failed to connect to circle %q: %v", c, err)
+	for circle, kp := range circles {
+		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
+			log.Fatalf("Failed to connect to circle %q: %v", circle, err)
 		}
+		metrics.SetClientStartTimeSeconds(circle, time.Now())
 	}
 
 	f, err := fuse.NewMount(*mountpoint, *allowUsers)
