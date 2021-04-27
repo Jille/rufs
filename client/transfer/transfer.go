@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"sync"
@@ -27,7 +28,10 @@ var (
 	activeReadCounter int64
 )
 
-func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, peers []*connectivity.Peer) (*Transfer, error) {
+func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
+	defer func() {
+		metrics.AddTransferOpens(connectivity.CirclesFromPeers(peers), status.Code(retErr).String(), 1)
+	}()
 	c, err := cache.New(size)
 	if err != nil {
 		return nil, err
@@ -112,14 +116,19 @@ func (t *Transfer) init() {
 }
 
 func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+	startTime := time.Now()
+	var recvBytes int64
+	metrics.SetTransferReadsActive(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, 1))
 	defer func() {
-		metrics.AddTransferReads(connectivity.CirclesFromPeers(t.peers), status.Code(retErr).String(), 1)
+		circles := connectivity.CirclesFromPeers(t.peers)
+		code := status.Code(retErr).String()
+		latency := time.Since(startTime).Seconds()
+		kbytes := fmt.Sprintf("%.0f", math.Ceil(float64(recvBytes)/1024))
+		metrics.AddTransferReads(circles, code, 1)
+		metrics.AppendTransferReadSizes(circles, float64(size))
+		metrics.AppendTransferReadLatency(circles, code, kbytes, latency)
+		metrics.SetTransferReadsActive(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, -1))
 	}()
-	metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, 1))
-	defer func() {
-		metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, -1))
-	}()
-	start := time.Now()
 	if offset >= t.size {
 		return nil, io.EOF
 	}
@@ -129,11 +138,12 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte
 	if size == 0 {
 		return nil, nil
 	}
-	cached := true
 	t.mtx.Lock()
 	missing := t.have.FindUncovered(offset, offset+size)
 	if !missing.IsEmpty() {
-		cached = false
+		for _, m := range missing.Export() {
+			recvBytes += m.End - m.Start
+		}
 		t.want.AddRange(missing)
 		t.pending.AddRange(missing)
 		t.byteRangesUpdated()
@@ -157,7 +167,6 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte
 	if err != nil {
 		return nil, err
 	}
-	metrics.AppendTransferReadLatency(connectivity.CirclesFromPeers(t.peers), fmt.Sprint(cached), time.Since(start).Seconds())
 	return buf, nil
 }
 

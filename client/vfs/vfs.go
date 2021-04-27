@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfer"
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
@@ -60,10 +61,7 @@ func (*fixedContentHandle) Close() error {
 func Open(ctx context.Context, path string) (Handle, error) {
 	basename := filepath.Base(path)
 	dirname := filepath.Dir(path)
-	dir, err := Readdir(ctx, dirname)
-	if err != nil {
-		return nil, err
-	}
+	dir := Readdir(ctx, dirname)
 	file := dir.Files[basename]
 	if file == nil {
 		return nil, errors.New("ENOENT")
@@ -72,6 +70,7 @@ func Open(ctx context.Context, path string) (Handle, error) {
 		return nil, errors.New("EISDIR")
 	}
 	if len(file.FixedContent) > 0 {
+		metrics.AddVfsFixedContentOpens(connectivity.CirclesFromPeers(connectivity.AllPeers()), basename, 1)
 		return &fixedContentHandle{
 			content: file.FixedContent,
 		}, nil
@@ -79,7 +78,14 @@ func Open(ctx context.Context, path string) (Handle, error) {
 	return transfer.NewRemoteFile(ctx, path, file.Hash, file.Size, file.Peers)
 }
 
-func Readdir(ctx context.Context, path string) (*Directory, error) {
+func Readdir(ctx context.Context, path string) *Directory {
+	peers := connectivity.AllPeers()
+	startTime := time.Now()
+	go func() {
+		circles := connectivity.CirclesFromPeers(peers)
+		metrics.AddVfsReaddirs(circles, 1)
+		metrics.AppendVfsReaddirLatency(circles, time.Since(startTime).Seconds())
+	}()
 	path = strings.Trim(path, "/")
 
 	type peerFileInstance struct {
@@ -93,7 +99,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 	var warnings []string
 	files := make(map[string]*peerFile)
 
-	resps, errs := parallelReadDir(ctx, connectivity.AllPeers(), &pb.ReadDirRequest{
+	resps, errs := parallelReadDir(ctx, peers, &pb.ReadDirRequest{
 		Path: path,
 	})
 	for p, err := range errs {
@@ -166,7 +172,7 @@ func Readdir(ctx context.Context, path string) (*Directory, error) {
 		}
 	}
 
-	return res, nil
+	return res
 }
 
 func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.ReadDirRequest) (map[*connectivity.Peer]*pb.ReadDirResponse, map[*connectivity.Peer]error) {
@@ -181,7 +187,12 @@ func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.Re
 		p := p
 		go func() {
 			defer wg.Done()
+			circles := []string{common.CircleFromPeer(p.Name)}
+			startTime := time.Now()
 			r, err := p.ContentServiceClient().ReadDir(ctx, req)
+			code := status.Code(err).String()
+			metrics.AddVfsPeerReaddirs(circles, p.Name, code, 1)
+			metrics.AppendVfsPeerReaddirLatency(circles, p.Name, code, time.Since(startTime).Seconds())
 			mtx.Lock()
 			defer mtx.Unlock()
 			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
