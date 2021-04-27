@@ -137,7 +137,8 @@ message PushMetricsRequest {
 	message Metric {
 		MetricId id = 1;
 		repeated string fields = 2;
-		int64 value = 3;
+		int64 single_value = 3;
+		repeated int64 new_distribution_values = 4;
 	}
 	repeated Metric metrics = 1;
 }
