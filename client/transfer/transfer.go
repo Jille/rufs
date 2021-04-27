@@ -157,7 +157,7 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte
 	if err != nil {
 		return nil, err
 	}
-	metrics.AppendVfsReadLatency(connectivity.CirclesFromPeers(t.peers), fmt.Sprint(cached), time.Since(start).Seconds())
+	metrics.AppendTransferReadLatency(connectivity.CirclesFromPeers(t.peers), fmt.Sprint(cached), time.Since(start).Seconds())
 	return buf, nil
 }
 
