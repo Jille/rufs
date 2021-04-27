@@ -159,13 +159,13 @@ func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (retry
 			task := p.pendingTransmissions[0]
 			p.pendingTransmissions = p.pendingTransmissions[1:]
 			p.mtx.Unlock()
-			sent, internalError, err := p.upload(stream, task)
+			offset, internalError, err := p.upload(stream, task)
 			p.mtx.Lock()
 			if err != nil {
 				if internalError {
 					return nil, true, err
 				}
-				return &pb.Range{Start: sent, End: task.End}, false, err
+				return &pb.Range{Start: offset, End: task.End}, false, err
 			}
 		}
 		select {
@@ -177,20 +177,29 @@ func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (retry
 	}
 }
 
-func (p *peer) upload(stream PassiveStream, task *pb.Range) (sent int64, internalError bool, err error) {
+func (p *peer) upload(stream PassiveStream, task *pb.Range) (remainingOffset int64, internalError bool, err error) {
 	var buf [8192]byte
-	l := task.GetEnd() - task.GetStart()
-	n, err := p.transfer.storage.ReadAt(buf[:l], task.GetStart())
-	if err != nil {
-		return 0, true, err
+	offset := task.GetStart()
+	for {
+		s := task.GetEnd() - offset
+		if s > int64(len(buf)) {
+			s = int64(len(buf))
+		}
+		if s <= 0 {
+			return offset, false, nil
+		}
+		n, err := p.transfer.storage.ReadAt(buf[:s], offset)
+		if err != nil {
+			return offset, true, err
+		}
+		if err := stream.Send(&pb.PassiveTransferData{
+			Data:   buf[:n],
+			Offset: offset,
+		}); err != nil {
+			return offset, false, err
+		}
+		offset += int64(n)
 	}
-	if err := stream.Send(&pb.PassiveTransferData{
-		Data:   buf[:n],
-		Offset: task.GetStart(),
-	}); err != nil {
-		return 0, false, err
-	}
-	return int64(n), false, nil
 }
 
 func (t *Transfer) HandleIncomingPassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
