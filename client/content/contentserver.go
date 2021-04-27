@@ -279,13 +279,16 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		}
 		t, err = transfer.NewLocalFile(path, h, circle.Name)
 		if err != nil {
+			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 			return err
 		}
 		if err := t.SwitchToOrchestratedMode(0); err != nil {
 			t.Close()
+			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 			return err
 		}
 		circleState.activeTransfers[path] = t
+		metrics.AddContentOrchestrationJoined([]string{circle.Name}, "busy-file", 1)
 	}
 	circleState.activeTransfersMtx.Unlock()
 	if t != nil {
@@ -466,15 +469,18 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			if err != nil {
 				log.Printf("Error while handling ActiveDownloads: error while creating *transfer.Transfer: %v", err)
 				circleState.activeTransfersMtx.Unlock()
+				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 				continue
 			}
 			if err := t.SwitchToOrchestratedMode(0); err != nil {
 				log.Printf("Error while handling ActiveDownloads: error while switching to orchestrated mode: %v", err)
 				t.Close()
 				circleState.activeTransfersMtx.Unlock()
+				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 				continue
 			}
 			circleState.activeTransfers[localpath] = t
+			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
 		}
 		circleState.activeTransfersMtx.Unlock()
 	}

@@ -162,7 +162,7 @@ message PushMetricsRequest {
 		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code"];
 		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code"];
 		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why"];
-		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "code"];
+		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why"];
 	}
 	message Metric {
 		MetricId id = 1;

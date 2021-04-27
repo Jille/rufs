@@ -71,8 +71,8 @@ func AddContentOrchestrationJoined(circles []string, why string, v int64) {
 	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED, []string{why}, float64(v))
 }
 
-func AddContentOrchestrationJoinFailed(circles []string, code string, v int64) {
-	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED, []string{code}, float64(v))
+func AddContentOrchestrationJoinFailed(circles []string, why string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED, []string{why}, float64(v))
 }
 
 func isCounter(t pb.PushMetricsRequest_MetricId) bool {
