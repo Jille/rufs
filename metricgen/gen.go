@@ -59,8 +59,14 @@ func listMetrics() []metric {
 		if err != nil {
 			fs = []string{}
 		}
+		help, err := proto.GetExtension(ed, pb.E_PushMetricsRequest_MetricDescription)
+		if err != nil {
+			var empty string
+			help = &empty
+		}
 		ret = append(ret, metric{
 			name:       string(ev.Name()),
+			help:       *help.(*string),
 			metricType: *(mt.(*pb.PushMetricsRequest_MetricType)),
 			fields:     fs.([]string),
 		})

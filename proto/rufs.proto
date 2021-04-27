@@ -143,25 +143,26 @@ message PushMetricsRequest {
 	extend google.protobuf.EnumValueOptions {
 		MetricType metric_type = 50001;
 		repeated string metric_fields = 50002;
+		string metric_description = 50003;
 	}
 	enum MetricId {
 		UNKNOWN = 0 [(metric_type) = UNKNOWN_TYPE];
-		CLIENT_START_TIME_SECONDS = 1 [(metric_type) = TIME_GAUGE];
-		TRANSFER_READS_ACTIVE = 2 [(metric_type) = INT64_GAUGE];
-		TRANSFER_OPENS = 3 [(metric_type) = COUNTER, (metric_fields) = "code"];
-		TRANSFER_READS = 5 [(metric_type) = COUNTER, (metric_fields) = "code"];
-		TRANSFER_READ_SIZES = 6 [(metric_type) = DISTRIBUTION];
-		TRANSFER_READ_LATENCY = 7 [(metric_type) = DISTRIBUTION, (metric_fields) = "code", (metric_fields) = "recv_kbytes"];
-		VFS_FIXED_CONTENT_OPENS = 8 [(metric_type) = COUNTER, (metric_fields) = "basename"];
-		VFS_READDIRS = 9 [(metric_type) = COUNTER];
-		VFS_READDIR_LATENCY = 10 [(metric_type) = DISTRIBUTION];
-		VFS_PEER_READDIRS = 11 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "code"];
-		VFS_PEER_READDIR_LATENCY = 12 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "code"];
-		CONTENT_HASHES = 13 [(metric_type) = COUNTER];
-		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code"];
-		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code"];
-		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why"];
-		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why"];
+		CLIENT_START_TIME_SECONDS = 1 [(metric_type) = TIME_GAUGE, (metric_description) = "Timestamp at which each client started"];
+		TRANSFER_READS_ACTIVE = 2 [(metric_type) = INT64_GAUGE, (metric_description) = "Number of currently active reads"];
+		TRANSFER_OPENS = 3 [(metric_type) = COUNTER, (metric_fields) = "code", (metric_description) = "Number of open calls from the VFS"];
+		TRANSFER_READS = 5 [(metric_type) = COUNTER, (metric_fields) = "code", (metric_description) = "Number of read calls from the VFS"];
+		TRANSFER_READ_SIZES = 6 [(metric_type) = DISTRIBUTION, (metric_description) = "Distribution of read sizes through the VFS"];
+		TRANSFER_READ_LATENCY = 7 [(metric_type) = DISTRIBUTION, (metric_fields) = "code", (metric_fields) = "recv_kbytes", (metric_description) = "Latency of read RPCs from the VFS"];
+		VFS_FIXED_CONTENT_OPENS = 8 [(metric_type) = COUNTER, (metric_fields) = "basename", (metric_description) = "TODO"];
+		VFS_READDIRS = 9 [(metric_type) = COUNTER, (metric_description) = "TODO"];
+		VFS_READDIR_LATENCY = 10 [(metric_type) = DISTRIBUTION, (metric_description) = "TODO"];
+		VFS_PEER_READDIRS = 11 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
+		VFS_PEER_READDIR_LATENCY = 12 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
+		CONTENT_HASHES = 13 [(metric_type) = COUNTER, (metric_description) = "TODO"];
+		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
+		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
+		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
+		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
 	}
 	message Metric {
 		MetricId id = 1;
