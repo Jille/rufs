@@ -14,8 +14,9 @@ type processMetric func(peer string, m *pb.PushMetricsRequest_Metric)
 var (
 	metrics = map[pb.PushMetricsRequest_MetricId]processMetric{
 		pb.PushMetricsRequest_CLIENT_START_TIME_US: newCounter(prometheus.CounterOpts{
-			Name: "client_start_time_us",
-			Help: "Microseconds since the epoch at which this client started",
+			Namespace: "rufs",
+			Name:      "client_start_time_us",
+			Help:      "Microseconds since the epoch at which this client started",
 		}, nil),
 	}
 )
