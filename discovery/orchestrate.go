@@ -36,6 +36,7 @@ type orchestrationClient struct {
 	cond           *sync.Cond
 	updatePeerList bool
 	uploadCommands []*pb.OrchestrateResponse_UploadCommand
+	disconnecting  bool
 }
 
 func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) error {
@@ -111,6 +112,8 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 	g.Go(c.writer)
 	err = g.Wait()
 	o.mtx.Lock()
+	c.disconnecting = true
+	c.cond.Broadcast()
 	if o.connections[peer] == c {
 		delete(o.connections, peer)
 	}
@@ -158,6 +161,9 @@ func (c *orchestrationClient) writer() error {
 	defer c.o.mtx.Unlock()
 	for {
 		for c.updatePeerList || len(c.uploadCommands) > 0 {
+			if c.disconnecting {
+				return nil
+			}
 			msg := &pb.OrchestrateResponse{}
 			if len(c.uploadCommands) > 0 {
 				msg.Msg = &pb.OrchestrateResponse_UploadCommand_{
@@ -182,7 +188,13 @@ func (c *orchestrationClient) writer() error {
 			}
 			c.o.mtx.Lock()
 		}
+		if c.disconnecting {
+			return nil
+		}
 		c.cond.Wait()
+		if c.disconnecting {
+			return nil
+		}
 		if c.o.connections[c.peer] != c {
 			return errors.New("second Orchestrate call cancelled this one")
 		}
