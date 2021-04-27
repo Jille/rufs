@@ -119,13 +119,7 @@ func (n *node) Attr(ctx context.Context, attr *fuse.Attr) (retErr error) {
 		return nil
 	}
 	dn, fn := filepath.Split(n.path)
-	ret, err := vfs.Readdir(ctx, dn)
-	if err != nil {
-		if err.Error() == "ENOENT" {
-			return fuse.ENOENT
-		}
-		return err
-	}
+	ret := vfs.Readdir(ctx, dn)
 	if f, found := ret.Files[fn]; found {
 		attr.Size = uint64(f.Size)
 		if f.IsDirectory {
@@ -161,13 +155,7 @@ func (d *dir) Create(ctx context.Context, request *fuse.CreateRequest, response 
 
 func (d *dir) Lookup(ctx context.Context, name string) (_ fs.Node, retErr error) {
 	path := filepath.Join(d.path, name)
-	ret, err := vfs.Readdir(ctx, d.path)
-	if err != nil {
-		if err.Error() == "ENOENT" {
-			return nil, fuse.ENOENT
-		}
-		return nil, err
-	}
+	ret := vfs.Readdir(ctx, d.path)
 	if f, found := ret.Files[name]; found {
 		if f.IsDirectory {
 			return &dir{node{d.fs, path}}, nil
@@ -183,13 +171,7 @@ func (d *dir) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (_ fs.Node,
 }
 
 func (d *dir) ReadDirAll(ctx context.Context) (_ []fuse.Dirent, retErr error) {
-	ret, err := vfs.Readdir(ctx, d.path)
-	if err != nil {
-		if err.Error() == "ENOENT" {
-			return nil, fuse.ENOENT
-		}
-		return nil, err
-	}
+	ret := vfs.Readdir(ctx, d.path)
 
 	dirents := make([]fuse.Dirent, 0, len(ret.Files))
 	for fn, file := range ret.Files {
