@@ -200,11 +200,8 @@ func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.Re
 func triggerResolveConflict(ctx context.Context, filename string, peers []string) {
 	ctx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
 	defer cancel()
-	circles := map[string]bool{}
-	for _, p := range peers {
-		circles[common.CircleFromPeer(p)] = true
-	}
-	for c := range circles {
+	circles := common.CirclesFromPeers(peers)
+	for _, c := range circles {
 		if _, err := connectivity.DiscoveryClient(c).ResolveConflict(ctx, &pb.ResolveConflictRequest{
 			Filename: filename,
 		}); err != nil {
