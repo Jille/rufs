@@ -18,6 +18,7 @@ func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartO
 	ctx, cancel := context.WithCancel(ctx)
 	stream, err := connectivity.DiscoveryClient(circle).Orchestrate(ctx)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	if err := stream.Send(&pb.OrchestrateRequest{
@@ -26,11 +27,13 @@ func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartO
 		},
 	}); err != nil {
 		stream.CloseSend()
+		cancel()
 		return nil, err
 	}
 	msg, err := stream.Recv()
 	if err != nil {
 		stream.CloseSend()
+		cancel()
 		return nil, err
 	}
 	s := &Stream{
