@@ -138,7 +138,7 @@ loop:
 			namePrefix = "Set"
 			internalFunction = "setGauge"
 			arg = "v time.Time"
-			transformation = "float64(v.UnixNano()) / 1000.0"
+			transformation = "float64(v.UnixNano()) / 1e9"
 		case pb.PushMetricsRequest_INT64_GAUGE:
 			namePrefix = "Set"
 			internalFunction = "setGauge"
