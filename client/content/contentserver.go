@@ -373,7 +373,9 @@ func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer
 
 func (c *content) handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {
 	if err := c.handleResolveConflictRequestImpl(ctx, req, circle); err != nil {
-		log.Printf("handleResolveConflictRequest(%q) failed: %v", req.GetFilename(), err)
+		if st, ok := status.FromError(err); ok && st.Code() != codes.NotFound {
+			log.Printf("handleResolveConflictRequest(%q) failed: %v", req.GetFilename(), err)
+		}
 	}
 }
 
