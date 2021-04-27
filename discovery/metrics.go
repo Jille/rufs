@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 )
@@ -48,4 +50,9 @@ func (d *discovery) PushMetrics(ctx context.Context, req *pb.PushMetricsRequest)
 		md(peer, m)
 	}
 	return &pb.PushMetricsResponse{}, nil
+}
+
+func serveMetrics() {
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":12001", nil)
 }
