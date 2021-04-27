@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/config"
-	"github.com/sgielen/rufs/content"
 	"github.com/sgielen/rufs/security"
 )
 
