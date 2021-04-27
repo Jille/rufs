@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
@@ -90,7 +89,9 @@ func (p *peer) connectLoop() {
 }
 
 func (p *peer) connect() error {
-	stream, err := connectivity.GetPeer(p.name).ContentServiceClient().PassiveTransfer(p.transfer.ctx, grpc.WaitForReady(true))
+	ctx, cancel := context.WithCancel(p.transfer.ctx)
+	defer cancel()
+	stream, err := connectivity.GetPeer(p.name).ContentServiceClient().PassiveTransfer(ctx, grpc.WaitForReady(true))
 	if err != nil {
 		return err
 	}
@@ -103,10 +104,20 @@ func (p *peer) connect() error {
 }
 
 func (p *peer) handleStream(stream PassiveStream) error {
-	dead := int32(0)
-	defer atomic.StoreInt32(&dead, 1)
-	go p.transmitDataLoop(stream, &dead)
-	return p.transfer.handleInboundData(stream)
+	errCh := make(chan error, 2)
+	quit := make(chan struct{})
+	go func() {
+		errCh <- p.transmitDataLoopManager(stream, quit)
+	}()
+	go func() {
+		errCh <- p.transfer.handleInboundData(stream)
+	}()
+	err := <-errCh
+	close(quit)
+	p.mtx.Lock()
+	p.cond.Broadcast()
+	p.mtx.Unlock()
+	return err
 }
 
 func (t *Transfer) handleInboundData(stream PassiveStream) error {
@@ -122,55 +133,64 @@ func (t *Transfer) handleInboundData(stream PassiveStream) error {
 	}
 }
 
-func (p *peer) transmitDataLoop(stream PassiveStream, dead *int32) error {
-	var buf [8192]byte
+func (p *peer) transmitDataLoopManager(stream PassiveStream, quit chan struct{}) error {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.activeSenders++
-	fail := func(work *pb.Range) {
-		p.mtx.Lock()
-		defer p.mtx.Unlock()
-		p.activeSenders--
-		d := atomic.LoadInt32(dead) != 0
-		if p.activeSenders == 0 || work != nil {
-			if !d {
-				p.transfer.callbacks.UploadFailed(p.name)
-				p.pendingTransmissions = nil
-			} else if work != nil {
-				p.pendingTransmissions = append([]*pb.Range{work}, p.pendingTransmissions...)
-			}
-		}
+	retryTask, internalError, err := p.transmitDataLoop(stream, quit)
+	p.activeSenders--
+	if p.activeSenders == 0 || internalError {
+		p.transfer.callbacks.UploadFailed(p.name)
+		p.pendingTransmissions = nil
+	} else if retryTask != nil {
+		p.pendingTransmissions = append([]*pb.Range{retryTask}, p.pendingTransmissions...)
 	}
+	return err
+}
+
+func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (retryTask *pb.Range, internalError bool, err error) {
 	for {
-		if atomic.LoadInt32(dead) != 0 {
-			fail(nil)
-			return nil
-		}
 		for len(p.pendingTransmissions) > 0 {
+			select {
+			case <-quit:
+				return nil, false, nil
+			default:
+			}
 			task := p.pendingTransmissions[0]
 			p.pendingTransmissions = p.pendingTransmissions[1:]
 			p.mtx.Unlock()
-			l := task.GetEnd() - task.GetStart()
-			n, err := p.transfer.storage.ReadAt(buf[:l], task.GetStart())
-			if err != nil {
-				fail(task)
-				return err
-			}
-			if err := stream.Send(&pb.PassiveTransferData{
-				Data:   buf[:n],
-				Offset: task.GetStart(),
-			}); err != nil {
-				fail(task)
-				return err
-			}
+			sent, internalError, err := p.upload(stream, task)
 			p.mtx.Lock()
-			if atomic.LoadInt32(dead) != 0 {
-				fail(nil)
-				return nil
+			if err != nil {
+				if internalError {
+					return nil, true, err
+				}
+				return &pb.Range{Start: sent, End: task.End}, false, err
 			}
+		}
+		select {
+		case <-quit:
+			return nil, false, nil
+		default:
 		}
 		p.cond.Wait()
 	}
+}
+
+func (p *peer) upload(stream PassiveStream, task *pb.Range) (sent int64, internalError bool, err error) {
+	var buf [8192]byte
+	l := task.GetEnd() - task.GetStart()
+	n, err := p.transfer.storage.ReadAt(buf[:l], task.GetStart())
+	if err != nil {
+		return 0, true, err
+	}
+	if err := stream.Send(&pb.PassiveTransferData{
+		Data:   buf[:n],
+		Offset: task.GetStart(),
+	}); err != nil {
+		return 0, false, err
+	}
+	return int64(n), false, nil
 }
 
 func (t *Transfer) HandleIncomingPassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
