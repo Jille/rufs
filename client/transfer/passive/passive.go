@@ -30,11 +30,12 @@ type TransferClient interface {
 func New(ctx context.Context, storage backend, downloadId int64, callbacks TransferClient) *Transfer {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Transfer{
-		ctx:        ctx,
-		cancel:     cancel,
-		storage:    storage,
-		downloadId: downloadId,
-		callbacks:  callbacks,
+		ctx:            ctx,
+		cancel:         cancel,
+		storage:        storage,
+		downloadId:     downloadId,
+		callbacks:      callbacks,
+		connectedPeers: map[string]*peer{},
 	}
 }
 
