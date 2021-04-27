@@ -20,6 +20,7 @@ import (
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/intervals"
 	pb "github.com/sgielen/rufs/proto"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -110,8 +111,10 @@ func (t *Transfer) init() {
 	}()
 }
 
-func (t *Transfer) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
-	metrics.AddVfsReads(connectivity.CirclesFromPeers(t.peers), 1)
+func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+	defer func() {
+		metrics.AddTransferReads(connectivity.CirclesFromPeers(t.peers), status.Code(retErr).String(), 1)
+	}()
 	metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, 1))
 	defer func() {
 		metrics.SetActiveVfsReads(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, -1))

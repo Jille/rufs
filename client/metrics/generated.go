@@ -15,17 +15,69 @@ func SetActiveVfsReads(circles []string, v int64) {
 	setGauge(circles, pb.PushMetricsRequest_ACTIVE_VFS_READS, []string{}, float64(v))
 }
 
-func AddVfsReads(circles []string, v int64) {
-	increaseCounter(circles, pb.PushMetricsRequest_VFS_READS, []string{}, float64(v))
+func AddVfsOpens(circles []string, code string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_VFS_OPENS, []string{code}, float64(v))
 }
 
-func AppendVfsReadLatency(circles []string, cached string, v float64) {
-	appendDistribution(circles, pb.PushMetricsRequest_VFS_READ_LATENCY, []string{cached}, v)
+func AppendVfsOpenLatency(circles []string, code string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_VFS_OPEN_LATENCY, []string{code}, v)
+}
+
+func AddTransferReads(circles []string, code string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_TRANSFER_READS, []string{code}, float64(v))
+}
+
+func AppendTransferReadSizes(circles []string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_TRANSFER_READ_SIZES, []string{}, v)
+}
+
+func AppendTransferReadLatency(circles []string, recv_bytes string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_TRANSFER_READ_LATENCY, []string{recv_bytes}, v)
+}
+
+func AddVfsWarningstxtOpens(circles []string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_VFS_WARNINGSTXT_OPENS, []string{}, float64(v))
+}
+
+func AddVfsReaddirs(circles []string, code string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_VFS_READDIRS, []string{code}, float64(v))
+}
+
+func AppendVfsReaddirLatency(circles []string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_VFS_READDIR_LATENCY, []string{}, v)
+}
+
+func AppendVfsPeerReaddirLatency(circles []string, peer, success string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_VFS_PEER_READDIR_LATENCY, []string{peer, success}, v)
+}
+
+func AddVfsPeerReaddirErrors(circles []string, peer string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_VFS_PEER_READDIR_ERRORS, []string{peer}, float64(v))
+}
+
+func AddContentHashes(circles []string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_HASHES, []string{}, float64(v))
+}
+
+func AddContentRpcsRecv(circles []string, rpc, peer, code string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_RPCS_RECV, []string{rpc, peer, code}, float64(v))
+}
+
+func AppendContentRpcsRecvLatency(circles []string, rpc, peer, code string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_CONTENT_RPCS_RECV_LATENCY, []string{rpc, peer, code}, v)
+}
+
+func AddContentOrchestrationJoined(circles []string, why string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED, []string{why}, float64(v))
+}
+
+func AddContentOrchestrationJoinFailed(circles []string, code string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED, []string{code}, float64(v))
 }
 
 func isCounter(t pb.PushMetricsRequest_MetricId) bool {
 	switch t {
-	case pb.PushMetricsRequest_VFS_READS:
+	case pb.PushMetricsRequest_VFS_OPENS, pb.PushMetricsRequest_TRANSFER_READS, pb.PushMetricsRequest_VFS_WARNINGSTXT_OPENS, pb.PushMetricsRequest_VFS_READDIRS, pb.PushMetricsRequest_VFS_PEER_READDIR_ERRORS, pb.PushMetricsRequest_CONTENT_HASHES, pb.PushMetricsRequest_CONTENT_RPCS_RECV, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED:
 		return true
 	default:
 		return false
@@ -34,7 +86,7 @@ func isCounter(t pb.PushMetricsRequest_MetricId) bool {
 
 func isDistributionMetric(t pb.PushMetricsRequest_MetricId) bool {
 	switch t {
-	case pb.PushMetricsRequest_VFS_READ_LATENCY:
+	case pb.PushMetricsRequest_VFS_OPEN_LATENCY, pb.PushMetricsRequest_TRANSFER_READ_SIZES, pb.PushMetricsRequest_TRANSFER_READ_LATENCY, pb.PushMetricsRequest_VFS_READDIR_LATENCY, pb.PushMetricsRequest_VFS_PEER_READDIR_LATENCY, pb.PushMetricsRequest_CONTENT_RPCS_RECV_LATENCY:
 		return true
 	default:
 		return false

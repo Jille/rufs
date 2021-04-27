@@ -148,8 +148,21 @@ message PushMetricsRequest {
 		UNKNOWN = 0 [(metric_type) = UNKNOWN_TYPE];
 		CLIENT_START_TIME_SECONDS = 1 [(metric_type) = TIME_GAUGE];
 		ACTIVE_VFS_READS = 2 [(metric_type) = INT64_GAUGE];
-		VFS_READS = 3 [(metric_type) = COUNTER];
-		VFS_READ_LATENCY = 4 [(metric_type) = DISTRIBUTION, (metric_fields) = "cached"];
+		VFS_OPENS = 3 [(metric_type) = COUNTER, (metric_fields) = "code"];
+		VFS_OPEN_LATENCY = 4 [(metric_type) = DISTRIBUTION, (metric_fields) = "code"];
+		TRANSFER_READS = 5 [(metric_type) = COUNTER, (metric_fields) = "code"];
+		TRANSFER_READ_SIZES = 6 [(metric_type) = DISTRIBUTION];
+		TRANSFER_READ_LATENCY = 7 [(metric_type) = DISTRIBUTION, (metric_fields) = "recv_bytes"];
+		VFS_WARNINGSTXT_OPENS = 8 [(metric_type) = COUNTER];
+		VFS_READDIRS = 9 [(metric_type) = COUNTER, (metric_fields) = "code"];
+		VFS_READDIR_LATENCY = 10 [(metric_type) = DISTRIBUTION];
+		VFS_PEER_READDIR_LATENCY = 11 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "success"];
+		VFS_PEER_READDIR_ERRORS = 12 [(metric_type) = COUNTER, (metric_fields) = "peer"];
+		CONTENT_HASHES = 13 [(metric_type) = COUNTER];
+		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code"];
+		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code"];
+		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why"];
+		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "code"];
 	}
 	message Metric {
 		MetricId id = 1;
