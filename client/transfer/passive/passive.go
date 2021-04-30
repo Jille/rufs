@@ -4,6 +4,7 @@ package passive
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"sync"
@@ -92,7 +93,11 @@ func (p *peer) connectLoop() {
 func (p *peer) connect() error {
 	ctx, cancel := context.WithCancel(p.transfer.ctx)
 	defer cancel()
-	stream, err := connectivity.GetPeer(p.name).ContentServiceClient().PassiveTransfer(ctx, grpc.WaitForReady(true))
+	peer := connectivity.GetPeer(p.name)
+	if peer == nil {
+		return fmt.Errorf("attempted to connect to peer {%s}, but it isn't known", p.name)
+	}
+	stream, err := peer.ContentServiceClient().PassiveTransfer(ctx, grpc.WaitForReady(true))
 	if err != nil {
 		return err
 	}
