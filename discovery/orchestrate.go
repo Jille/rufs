@@ -79,6 +79,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		}
 		activeOrchestration[o.activeDownload.GetDownloadId()] = o
 		d.broadcastNewActiveDownloads()
+		go o.schedulerThread()
 	} else if msg.GetStartOrchestration().GetFilename() != "" && !stringslice.Has(o.activeDownload.Filenames, msg.GetStartOrchestration().GetFilename()) {
 		nad := proto.Clone(o.activeDownload).(*pb.ConnectResponse_ActiveDownload)
 		nad.Filenames = append(nad.Filenames, msg.GetStartOrchestration().GetFilename())
@@ -140,12 +141,15 @@ func (c *orchestrationClient) reader() error {
 		}
 		if msg.GetUpdateByteRanges() != nil {
 			c.o.scheduler.UpdateByteRanges(c.peer, msg.GetUpdateByteRanges())
+			c.o.schedCond.Broadcast()
 		}
 		if msg.GetConnectedPeers() != nil {
 			c.o.scheduler.SetConnectedPeers(c.peer, msg.GetConnectedPeers())
+			c.o.schedCond.Broadcast()
 		}
 		if msg.GetUploadFailed() != nil {
 			c.o.scheduler.UploadFailed(c.peer, msg.GetUploadFailed())
+			c.o.schedCond.Broadcast()
 		}
 		if msg.GetSetHash() != nil {
 			if !c.initiator {
