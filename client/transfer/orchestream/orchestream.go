@@ -10,6 +10,7 @@ import (
 )
 
 type StreamClient interface {
+	Welcome(downloadId int64)
 	SetPeers(ctx context.Context, peers []string)
 	Upload(ctx context.Context, peer string, byteRange *pb.Range)
 }
@@ -42,6 +43,7 @@ func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartO
 		callbacks:  callbacks,
 		cancel:     cancel,
 	}
+	callbacks.Welcome(s.DownloadId)
 	s.cond = sync.NewCond(&s.mtx)
 	go s.reader(ctx)
 	go s.writer(ctx)

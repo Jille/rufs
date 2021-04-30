@@ -61,6 +61,10 @@ type peer struct {
 	activeSenders        int
 }
 
+func (t *Transfer) Welcome(downloadId int64) {
+	t.downloadId = downloadId
+}
+
 func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
