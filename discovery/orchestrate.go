@@ -11,7 +11,6 @@ import (
 	"github.com/sgielen/rufs/discovery/orchestrate"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -67,7 +66,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 				Hash:       msg.GetStartOrchestration().GetHash(),
 			},
 			connections: map[string]*orchestrationClient{},
-			scheduler: orchestrate.New(),
+			scheduler:   orchestrate.New(),
 		}
 		o.schedCond = sync.NewCond(&o.mtx)
 		if msg.GetStartOrchestration().GetFilename() != "" {
@@ -108,10 +107,14 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		conn.cond.Broadcast()
 	}
 	o.mtx.Unlock()
-	var g errgroup.Group
-	g.Go(c.reader)
-	g.Go(c.writer)
-	err = g.Wait()
+	errCh := make(chan error, 2)
+	go func() {
+		errCh <- c.reader()
+	}()
+	go func() {
+		errCh <- c.writer()
+	}()
+	err = <-errCh
 	o.mtx.Lock()
 	c.disconnecting = true
 	c.cond.Broadcast()
