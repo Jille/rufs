@@ -123,6 +123,36 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 	return t, nil
 }
 
+func (t *Transfer) SetLocalFile(localFilename, maybeHash string) error {
+	f, err := os.Open(localFilename)
+	if err != nil {
+		return err
+	}
+	st, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	t.mtx.Lock()
+	t.storage.Close()
+	t.storage = f
+	t.have.Add(0, st.Size())
+	t.want = intervals.Intervals{}
+	t.readahead = intervals.Intervals{}
+	t.pending = intervals.Intervals{}
+	if maybeHash != "" {
+		t.hash = maybeHash
+	}
+	t.quitFetchers = true
+	t.killFetchers()
+	t.serveCond.Broadcast()
+	t.fetchCond.Broadcast()
+	t.byteRangesUpdated()
+	t.peers = nil
+	t.size = st.Size()
+	t.mtx.Unlock()
+	return nil
+}
+
 type backend interface {
 	io.ReaderAt
 	io.WriterAt
@@ -163,6 +193,12 @@ func (t *Transfer) init() {
 			t.mtx.Unlock()
 		}
 	}()
+}
+
+func (t *Transfer) getStorageUnlocked() backend {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	return t.storage
 }
 
 func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
@@ -213,7 +249,7 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte
 	}
 	t.mtx.Unlock()
 	buf := make([]byte, size)
-	_, err := t.storage.ReadAt(buf, offset)
+	_, err := t.getStorageUnlocked().ReadAt(buf, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +308,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				break
 			}
 			if len(res.Data) > 0 {
-				if _, err := t.storage.WriteAt(res.Data, offset); err != nil {
+				if _, err := t.getStorageUnlocked().WriteAt(res.Data, offset); err != nil {
 					t.mtx.Lock()
 					log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
 					t.want.Remove(offset, iv.End)
@@ -307,7 +343,7 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	initiator := downloadId == 0
 	ctx := context.Background()
-	pt := passive.New(ctx, t.storage, downloadId, passiveCallbacks{t})
+	pt := passive.New(ctx, t.getStorageUnlocked(), downloadId, passiveCallbacks{t})
 	s, err := orchestream.New(ctx, t.circle, &pb.OrchestrateRequest_StartOrchestrationRequest{
 		DownloadId: downloadId,
 		Filename:   t.filename,
@@ -404,6 +440,7 @@ func (t *Transfer) Close() error {
 
 func (t *Transfer) CloseImmediately() error {
 	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	t.quitFetchers = true
 	t.killFetchers()
 	t.want = intervals.Intervals{}
@@ -415,6 +452,5 @@ func (t *Transfer) CloseImmediately() error {
 		t.orchestream.Close()
 		t.passive.Close()
 	}
-	t.mtx.Unlock()
 	return t.storage.Close()
 }
