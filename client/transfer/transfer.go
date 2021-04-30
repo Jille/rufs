@@ -33,7 +33,7 @@ var (
 
 func getOrCreateActiveTransfer(circle, remoteFilename string, create func() (*Transfer, error)) (*Transfer, error) {
 	activeMtx.Lock()
-	defer activeMtx.Lock()
+	defer activeMtx.Unlock()
 	if t, ok := activeTransfers[circle][remoteFilename]; ok {
 		return t, nil
 	}
