@@ -28,8 +28,25 @@ var (
 	activeReadCounter int64
 
 	activeMtx       sync.Mutex
-	activeTransfers map[string]map[string]*Transfer
+	activeTransfers = map[string]map[string]*Transfer{}
 )
+
+func GetTransferForDownloadId(circle string, downloadId int64) *Transfer {
+	activeMtx.Lock()
+	defer activeMtx.Unlock()
+	for _, t := range activeTransfers[circle] {
+		if t.DownloadId() == downloadId {
+			return t
+		}
+	}
+	return nil
+}
+
+func GetActiveTransfer(circle, remoteFilename string) *Transfer {
+	activeMtx.Lock()
+	defer activeMtx.Unlock()
+	return activeTransfers[circle][remoteFilename]
+}
 
 func getOrCreateActiveTransfer(circle, remoteFilename string, create func() (*Transfer, error)) (*Transfer, error) {
 	activeMtx.Lock()

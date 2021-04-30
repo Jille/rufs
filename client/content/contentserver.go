@@ -60,8 +60,7 @@ func New(addr string, kps []*security.KeyPair) (*content, error) {
 
 	for _, circle := range config.GetCircles() {
 		c.circles[circle.Name] = &circleState{
-			activeReads:     map[string]int{},
-			activeTransfers: map[string]*transfer.Transfer{},
+			activeReads: map[string]int{},
 		}
 
 		for _, share := range circle.Shares {
@@ -100,20 +99,8 @@ type content struct {
 }
 
 type circleState struct {
-	activeTransfersMtx sync.Mutex
-	activeReads        map[string]int
-	activeTransfers    map[string]*transfer.Transfer
-}
-
-func (c *circleState) getTransferForDownloadId(downloadId int64) *transfer.Transfer {
-	c.activeTransfersMtx.Lock()
-	defer c.activeTransfersMtx.Unlock()
-	for _, t := range c.activeTransfers {
-		if t.DownloadId() == downloadId {
-			return t
-		}
-	}
-	return nil
+	mtx         sync.Mutex
+	activeReads map[string]int
 }
 
 func (c *content) Run() {
@@ -283,16 +270,18 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 
 	circleState := c.circles[circle.Name]
 
-	circleState.activeTransfersMtx.Lock()
-	dropLock := d.Add(circleState.activeTransfersMtx.Unlock)
+	circleState.mtx.Lock()
 	circleState.activeReads[path]++
 	upgrade := circleState.activeReads[path] > 1
-	t := circleState.activeTransfers[path]
+	circleState.mtx.Unlock()
 	defer func() {
-		circleState.activeTransfersMtx.Lock()
+		circleState.mtx.Lock()
 		circleState.activeReads[path]--
-		circleState.activeTransfersMtx.Unlock()
+		circleState.mtx.Unlock()
 	}()
+
+	t := transfer.GetActiveTransfer(circle.Name, reqpath)
+
 	if upgrade && t == nil {
 		h, err := c.getFileHashWithStat(path)
 		if err != nil {
@@ -303,16 +292,18 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 			return err
 		}
-		if err := t.SwitchToOrchestratedMode(0); err != nil {
-			t.Close()
-			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
-			return err
-		}
-		circleState.activeTransfers[path] = t
-		metrics.AddContentOrchestrationJoined([]string{circle.Name}, "busy-file", 1)
 	}
-	dropLock(true)
+
 	if t != nil {
+		if t.DownloadId() == 0 {
+			if err := t.SwitchToOrchestratedMode(0); err != nil {
+				t.Close()
+				metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
+				return err
+			}
+			metrics.AddContentOrchestrationJoined([]string{circle.Name}, "busy-file", 1)
+		}
+
 		if err := stream.Send(&pb.ReadFileResponse{
 			RedirectToOrchestratedDownload: t.DownloadId(),
 		}); err != nil {
@@ -320,6 +311,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		}
 		return nil
 	}
+
 	fh, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -379,8 +371,7 @@ func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer
 		return errors.New("download_id should be set (and nothing else)")
 	}
 
-	circleState := c.circles[circle.Name]
-	at := circleState.getTransferForDownloadId(d)
+	at := transfer.GetTransferForDownloadId(circle.Name, d)
 	if at == nil {
 		return errors.New("that download_id is not known (yet?) at this side, please ring later")
 	}
@@ -442,10 +433,9 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 	}
 
 	shares := circ.Shares
-	circleState := c.circles[circ.Name]
 
 	for _, activeDownload := range req.GetActiveDownloads() {
-		if t := circleState.getTransferForDownloadId(activeDownload.GetDownloadId()); t != nil {
+		if t := transfer.GetTransferForDownloadId(circ.Name, activeDownload.GetDownloadId()); t != nil {
 			// This active-download isn't new to us
 			continue
 		}
@@ -501,8 +491,6 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			continue
 		}
 
-		circleState.activeTransfersMtx.Lock()
-		dropLock := d.Add(circleState.activeTransfersMtx.Unlock)
 		t, err := transfer.OpenLocalFile(remotePath, localPath, h, circ.Name)
 		if err != nil {
 			log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
@@ -512,10 +500,8 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			t.Close()
 			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 		} else {
-			circleState.activeTransfers[localPath] = t
 			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
 		}
-		dropLock(true)
 	}
 	return nil
 }
@@ -527,16 +513,13 @@ func (c *content) hashWorker() {
 			log.Printf("Failed to hash %q: %v", req.local, err)
 			continue
 		}
-
-		for name, circ := range c.circles {
-			circ.activeTransfersMtx.Lock()
-			if t, ok := circ.activeTransfers[req.local]; ok {
+		for name := range c.circles {
+			t := transfer.GetActiveTransfer(name, req.remote)
+			if t != nil {
 				if t.GetHash() == "" {
 					t.SetHash(hash)
 				} else if t.GetHash() != hash {
 					log.Printf("Leaving orchestration mode for %q: Hash mismatch (%s vs %s)", req.local, t.GetHash(), hash)
-					t.Close()
-					circ.activeTransfers[req.local] = nil
 				}
 			} else if req.downloadId != 0 {
 				t, err = transfer.OpenLocalFile(req.remote, req.local, hash, name)
@@ -549,11 +532,9 @@ func (c *content) hashWorker() {
 					log.Printf("Failed to switch to orchestrated mode after hashing %q: %v", req.local, err)
 				} else {
 					t.SetHash(hash)
-					circ.activeTransfers[req.local] = t
 					metrics.AddContentOrchestrationJoined([]string{name}, "hashed", 1)
 				}
 			}
-			circ.activeTransfersMtx.Unlock()
 			metrics.AddContentHashes([]string{name}, 1)
 		}
 	}
