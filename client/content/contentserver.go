@@ -143,16 +143,16 @@ func (c *content) streamInterceptor(srv interface{}, ss grpc.ServerStream, info 
 	return err
 }
 
-func (c *content) getCircleForPeer(ctx context.Context) (*config.Circle, error) {
-	_, circle, err := security.PeerFromContext(ctx)
+func (c *content) getPeerAndCircle(ctx context.Context) (string, *config.Circle, error) {
+	peer, circle, err := security.PeerFromContext(ctx)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	circ, ok := config.GetCircle(circle)
 	if !ok {
-		return nil, status.Error(codes.NotFound, "no shares configured for this circle")
+		return "", nil, status.Error(codes.NotFound, "no shares configured for this circle")
 	}
-	return circ, nil
+	return peer, circ, nil
 }
 
 func (c *content) getLocalPath(shares []*config.Share, path string) (string, error) {
@@ -195,7 +195,7 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 }
 
 func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
-	circle, err := c.getCircleForPeer(ctx)
+	_, circle, err := c.getPeerAndCircle(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +252,7 @@ func readdir(name string) ([]os.FileInfo, error) {
 func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) (retErr error) {
 	d := dfr.D{}
 	defer d.Run(&retErr)
-	circle, err := c.getCircleForPeer(stream.Context())
+	peer, circle, err := c.getPeerAndCircle(stream.Context())
 	if err != nil {
 		return err
 	}
@@ -359,6 +359,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		}); err != nil {
 			return err
 		}
+		metrics.AddTransferSendBytes([]string{circle.Name}, peer, "simple", n)
 		if n < r {
 			// Short read, so we hit EOF.
 			return nil
@@ -369,7 +370,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 }
 
 func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
-	circle, err := c.getCircleForPeer(stream.Context())
+	_, circle, err := c.getPeerAndCircle(stream.Context())
 	if err != nil {
 		return err
 	}

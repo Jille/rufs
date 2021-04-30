@@ -71,9 +71,17 @@ func AddContentOrchestrationJoinFailed(circles []string, why string, v int64) {
 	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED, []string{why}, float64(v))
 }
 
+func AddTransferRecvBytes(circles []string, peer, transfer_type string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_TRANSFER_RECV_BYTES, []string{peer, transfer_type}, float64(v))
+}
+
+func AddTransferSendBytes(circles []string, peer, transfer_type string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_TRANSFER_SEND_BYTES, []string{peer, transfer_type}, float64(v))
+}
+
 func isCounter(t pb.PushMetricsRequest_MetricId) bool {
 	switch t {
-	case pb.PushMetricsRequest_TRANSFER_OPENS, pb.PushMetricsRequest_TRANSFER_READS, pb.PushMetricsRequest_VFS_FIXED_CONTENT_OPENS, pb.PushMetricsRequest_VFS_READDIRS, pb.PushMetricsRequest_VFS_PEER_READDIRS, pb.PushMetricsRequest_CONTENT_HASHES, pb.PushMetricsRequest_CONTENT_RPCS_RECV, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED:
+	case pb.PushMetricsRequest_TRANSFER_OPENS, pb.PushMetricsRequest_TRANSFER_READS, pb.PushMetricsRequest_VFS_FIXED_CONTENT_OPENS, pb.PushMetricsRequest_VFS_READDIRS, pb.PushMetricsRequest_VFS_PEER_READDIRS, pb.PushMetricsRequest_CONTENT_HASHES, pb.PushMetricsRequest_CONTENT_RPCS_RECV, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED, pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED, pb.PushMetricsRequest_TRANSFER_RECV_BYTES, pb.PushMetricsRequest_TRANSFER_SEND_BYTES:
 		return true
 	default:
 		return false

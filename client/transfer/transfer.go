@@ -281,7 +281,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 					t.serveCond.Broadcast()
 					break
 				}
-				t.receivedBytes(offset, offset+int64(len(res.Data)))
+				t.receivedBytes(offset, offset+int64(len(res.Data)), "simple", t.peers[pno].Name)
 				offset += int64(len(res.Data))
 			}
 			if downloadId := res.GetRedirectToOrchestratedDownload(); downloadId != 0 {
@@ -293,7 +293,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 	}
 }
 
-func (t *Transfer) receivedBytes(start, end int64) {
+func (t *Transfer) receivedBytes(start, end int64, transferType string, peer string) {
 	t.mtx.Lock()
 	t.have.Add(start, end)
 	t.want.Remove(start, end)
@@ -301,6 +301,7 @@ func (t *Transfer) receivedBytes(start, end int64) {
 	t.byteRangesUpdated()
 	t.serveCond.Broadcast()
 	t.mtx.Unlock()
+	metrics.AddTransferRecvBytes([]string{t.circle}, peer, transferType, end-start)
 }
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
@@ -365,8 +366,8 @@ type passiveCallbacks struct {
 	t *Transfer
 }
 
-func (pc passiveCallbacks) ReceivedBytes(start, end int64) {
-	pc.t.receivedBytes(start, end)
+func (pc passiveCallbacks) ReceivedBytes(start, end int64, peer string) {
+	pc.t.receivedBytes(start, end, "passive", peer)
 }
 
 func (pc passiveCallbacks) UploadFailed(peer string) {

@@ -163,6 +163,8 @@ message PushMetricsRequest {
 		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
 		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
 		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
+		TRANSFER_RECV_BYTES = 18 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "transfer_type", (metric_description) = "Number of bytes received from other peers"];
+		TRANSFER_SEND_BYTES = 19 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "transfer_type", (metric_description) = "Number of bytes received from other peers"];
 	}
 	message Metric {
 		MetricId id = 1;

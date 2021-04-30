@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/metrics"
+	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -22,7 +24,7 @@ type backend interface {
 }
 
 type TransferClient interface {
-	ReceivedBytes(start, end int64)
+	ReceivedBytes(start, end int64, peer string)
 	SetConnectedPeers(peers []string)
 	UploadFailed(peer string)
 }
@@ -153,7 +155,7 @@ func (p *peer) handleStream(stream PassiveStream) error {
 		errCh <- p.transmitDataLoopManager(stream)
 	}()
 	go func() {
-		errCh <- p.transfer.handleInboundData(stream)
+		errCh <- p.handleInboundData(stream)
 	}()
 	p.mtx.Lock()
 	p.connectedStreams++
@@ -182,16 +184,16 @@ func (p *peer) handleStream(stream PassiveStream) error {
 	return err
 }
 
-func (t *Transfer) handleInboundData(stream PassiveStream) error {
+func (p *peer) handleInboundData(stream PassiveStream) error {
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
 			return err
 		}
-		if _, err = t.storage.WriteAt(msg.GetData(), msg.GetOffset()); err != nil {
+		if _, err = p.transfer.storage.WriteAt(msg.GetData(), msg.GetOffset()); err != nil {
 			return err
 		}
-		t.callbacks.ReceivedBytes(msg.GetOffset(), msg.GetOffset()+int64(len(msg.GetData())))
+		p.transfer.callbacks.ReceivedBytes(msg.GetOffset(), msg.GetOffset()+int64(len(msg.GetData())), p.name)
 	}
 }
 
@@ -259,6 +261,7 @@ func (p *peer) upload(stream PassiveStream, task *pb.Range) (remainingOffset int
 		}); err != nil {
 			return offset, false, err
 		}
+		metrics.AddTransferSendBytes([]string{common.CircleFromPeer(p.name)}, p.name, "passive", int64(n))
 		offset += int64(n)
 	}
 }
