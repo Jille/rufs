@@ -442,20 +442,25 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		localPath := ""
 		for _, path := range activeDownload.GetFilenames() {
 			l, err := c.getLocalPath(shares, path)
-			if err != nil {
+			if err == nil {
 				remotePath = path
 				localPath = l
-
-				if activeDownload.GetHash() == "" {
-					if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
-						Filename: path,
-					}); err != nil {
-						log.Printf("Failed to start conflict resolution for %q: %v", path, err)
-					}
-				}
+				break
 			}
 		}
+
 		if localPath == "" {
+			continue
+		}
+
+		if activeDownload.GetHash() == "" {
+			if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
+				Filename: remotePath,
+			}); err != nil {
+				log.Printf("Failed to start conflict resolution for %q: %v", remotePath, err)
+			}
+			// Can't join this orchestration until the hash is known; once it is in the orchestration, we'll get
+			// another activeDownloadList and rejoin
 			continue
 		}
 
@@ -479,21 +484,17 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		}
 
 		circleState.activeTransfersMtx.Lock()
-		if circleState.activeTransfers[localPath] == nil {
-			t, err := transfer.NewLocalFile(remotePath, localPath, h, circ.Name)
-			if err != nil {
-				log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
-				circleState.activeTransfersMtx.Unlock()
-				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
-				continue
-			}
-			if err := t.SwitchToOrchestratedMode(0); err != nil {
-				log.Printf("Error while joining active download: error while switching to orchestrated mode: %v", err)
-				t.Close()
-				circleState.activeTransfersMtx.Unlock()
-				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
-				continue
-			}
+		t, err := transfer.NewLocalFile(remotePath, localPath, h, circ.Name)
+		if err != nil {
+			log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
+			circleState.activeTransfersMtx.Unlock()
+			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
+		} else if err := t.SwitchToOrchestratedMode(0); err != nil {
+			log.Printf("Error while joining active download: error while switching to orchestrated mode: %v", err)
+			t.Close()
+			circleState.activeTransfersMtx.Unlock()
+			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
+		} else {
 			circleState.activeTransfers[localPath] = t
 			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
 		}
