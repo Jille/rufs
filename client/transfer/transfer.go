@@ -147,6 +147,7 @@ type Transfer struct {
 	pending      intervals.Intervals
 	quitFetchers bool
 	orchestream  *orchestream.Stream
+	oInitiator   bool
 	passive      *passive.Transfer
 }
 
@@ -303,6 +304,7 @@ func (t *Transfer) receivedBytes(start, end int64) {
 }
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
+	initiator := downloadId == 0
 	ctx := context.Background()
 	pt := passive.New(ctx, t.storage, downloadId, passiveCallbacks{t})
 	s, err := orchestream.New(ctx, t.circle, &pb.OrchestrateRequest_StartOrchestrationRequest{
@@ -315,6 +317,7 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	}
 	t.mtx.Lock()
 	t.orchestream = s
+	t.oInitiator = initiator
 	t.passive = pt
 	t.quitFetchers = true
 	t.killFetchers()
@@ -382,8 +385,12 @@ func (t *Transfer) GetHash() string {
 
 func (t *Transfer) SetHash(hash string) {
 	t.mtx.Lock()
+	if t.hash != "" && t.hash != hash {
+		log.Fatalf("File hash changed for remote file %s", t.GetFilename())
+	}
+	newHash := t.hash == ""
 	t.hash = hash
-	if t.orchestream != nil {
+	if t.orchestream != nil && t.oInitiator && newHash {
 		t.orchestream.SetHash(hash)
 	}
 	t.mtx.Unlock()

@@ -36,9 +36,9 @@ var (
 )
 
 type hashRequest struct {
-	local      string
-	remote     string
-	downloadId int64
+	local    string
+	remote   string
+	download *pb.ConnectResponse_ActiveDownload
 }
 
 type cachedHash struct {
@@ -473,9 +473,9 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		if h == "" {
 			select {
 			case hashQueue <- hashRequest{
-				local:      localPath,
-				remote:     remotePath,
-				downloadId: activeDownload.GetDownloadId(),
+				local:    localPath,
+				remote:   remotePath,
+				download: activeDownload,
 			}:
 			default:
 				log.Println("Error while joining active download: hash queue overflow")
@@ -518,27 +518,19 @@ func (c *content) hashWorker() {
 			if t != nil {
 				if t.GetHash() == "" {
 					t.SetHash(hash)
-				} else if t.GetHash() != hash {
-					log.Printf("Leaving orchestration mode for %q: Hash mismatch (%s vs %s)", req.local, t.GetHash(), hash)
+				} else if t.DownloadId() != 0 && t.GetHash() != hash {
+					log.Fatalf("Orchestration mode collision for %q: Hash mismatch (%s vs %s)", req.local, t.GetHash(), hash)
 				}
-			} else if req.downloadId != 0 {
-				// TODO: This introduces a race condition.
-				// - A content server starts an orchestration but doesn't hash its file.
-				// - Our content server has a smaller file at the same location, and hears about this orchestration.
-				// - Both content servers start hashing the file, but we are done earlier.
-				// - We now join this orchestration, set its hash to ours, and start serving.
-				// - Clients start receiving data from our file instead of the original, leading to corrupted files.
-				// - The original content server finishes hashing, and leaves the orchestration because of a hash mismatch.
+			} else if req.download != nil && hash == req.download.GetHash() {
 				t, err = transfer.OpenLocalFile(req.remote, req.local, hash, name)
 				if err != nil {
 					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
 					log.Printf("Failed to join orchestration after hashing %q: %v", req.local, err)
-				} else if err := t.SwitchToOrchestratedMode(req.downloadId); err != nil {
+				} else if err := t.SwitchToOrchestratedMode(req.download.GetDownloadId()); err != nil {
 					t.Close()
 					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
 					log.Printf("Failed to switch to orchestrated mode after hashing %q: %v", req.local, err)
 				} else {
-					t.SetHash(hash)
 					metrics.AddContentOrchestrationJoined([]string{name}, "hashed", 1)
 				}
 			}
