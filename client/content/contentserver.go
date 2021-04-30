@@ -433,7 +433,9 @@ func (c *content) handleActiveDownloadList(ctx context.Context, req *pb.ConnectR
 	}
 }
 
-func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) error {
+func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) (retErr error) {
+	d := dfr.D{}
+	defer d.Run(&retErr)
 	circ, ok := config.GetCircle(circle)
 	if !ok {
 		return status.Error(codes.NotFound, "no shares configured for this circle")
@@ -500,21 +502,20 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		}
 
 		circleState.activeTransfersMtx.Lock()
+		dropLock := d.Add(circleState.activeTransfersMtx.Unlock)
 		t, err := transfer.NewLocalFile(remotePath, localPath, h, circ.Name)
 		if err != nil {
 			log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
-			circleState.activeTransfersMtx.Unlock()
 			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 		} else if err := t.SwitchToOrchestratedMode(0); err != nil {
 			log.Printf("Error while joining active download: error while switching to orchestrated mode: %v", err)
 			t.Close()
-			circleState.activeTransfersMtx.Unlock()
 			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 		} else {
 			circleState.activeTransfers[localPath] = t
 			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
 		}
-		circleState.activeTransfersMtx.Unlock()
+		dropLock(true)
 	}
 	return nil
 }
