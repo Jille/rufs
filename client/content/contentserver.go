@@ -522,6 +522,13 @@ func (c *content) hashWorker() {
 					log.Printf("Leaving orchestration mode for %q: Hash mismatch (%s vs %s)", req.local, t.GetHash(), hash)
 				}
 			} else if req.downloadId != 0 {
+				// TODO: This introduces a race condition.
+				// - A content server starts an orchestration but doesn't hash its file.
+				// - Our content server has a smaller file at the same location, and hears about this orchestration.
+				// - Both content servers start hashing the file, but we are done earlier.
+				// - We now join this orchestration, set its hash to ours, and start serving.
+				// - Clients start receiving data from our file instead of the original, leading to corrupted files.
+				// - The original content server finishes hashing, and leaves the orchestration because of a hash mismatch.
 				t, err = transfer.OpenLocalFile(req.remote, req.local, hash, name)
 				if err != nil {
 					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
