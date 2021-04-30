@@ -277,7 +277,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		if err != nil {
 			h = ""
 		}
-		t, err = transfer.NewLocalFile(path, h, circle.Name)
+		t, err = transfer.NewLocalFile(reqpath, path, h, circle.Name)
 		if err != nil {
 			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 			return err
@@ -427,11 +427,13 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 	circleState := c.circles[circ.Name]
 
 	for _, activeDownload := range req.GetActiveDownloads() {
-		localpath := ""
+		remotePath := ""
+		localPath := ""
 		for _, path := range activeDownload.GetFilenames() {
 			l, err := c.getLocalPath(shares, path)
 			if err != nil {
-				localpath = l
+				remotePath = path
+				localPath = l
 
 				if activeDownload.GetHash() == "" {
 					if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
@@ -442,46 +444,46 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 				}
 			}
 		}
-		if localpath == "" {
+		if localPath == "" {
 			continue
 		}
 
-		h, err := c.getFileHashWithStat(localpath)
+		h, err := c.getFileHashWithStat(localPath)
 		if err != nil {
-			log.Printf("Error while handling ActiveDownloads: couldn't determine hash for %q: %v", localpath, err)
+			log.Printf("Error while joining active download: couldn't determine hash for %q: %v", localPath, err)
 			continue
 		}
 		if h == "" {
 			select {
-			case hashQueue <- localpath:
+			case hashQueue <- localPath:
 			default:
-				log.Println("Error while handling ActiveDownloads: hash queue overflow")
+				log.Println("Error while joining active download: hash queue overflow")
 			}
 			continue
 		}
 
 		if h != activeDownload.GetHash() {
-			log.Printf("Error while handling ActiveDownloads: hash mismatch for %q (%s vs %s)", localpath, h, activeDownload.GetHash())
+			log.Printf("Won't join active download: hash mismatch for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
 			continue
 		}
 
 		circleState.activeTransfersMtx.Lock()
-		if circleState.activeTransfers[localpath] == nil {
-			t, err := transfer.NewLocalFile(localpath, h, circ.Name)
+		if circleState.activeTransfers[localPath] == nil {
+			t, err := transfer.NewLocalFile(remotePath, localPath, h, circ.Name)
 			if err != nil {
-				log.Printf("Error while handling ActiveDownloads: error while creating *transfer.Transfer: %v", err)
+				log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
 				circleState.activeTransfersMtx.Unlock()
 				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 				continue
 			}
 			if err := t.SwitchToOrchestratedMode(0); err != nil {
-				log.Printf("Error while handling ActiveDownloads: error while switching to orchestrated mode: %v", err)
+				log.Printf("Error while joining active download: error while switching to orchestrated mode: %v", err)
 				t.Close()
 				circleState.activeTransfersMtx.Unlock()
 				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 				continue
 			}
-			circleState.activeTransfers[localpath] = t
+			circleState.activeTransfers[localPath] = t
 			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
 		}
 		circleState.activeTransfersMtx.Unlock()

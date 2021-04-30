@@ -28,7 +28,7 @@ var (
 	activeReadCounter int64
 )
 
-func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
+func NewRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
 	defer func() {
 		metrics.AddTransferOpens(connectivity.CirclesFromPeers(peers), status.Code(retErr).String(), 1)
 	}()
@@ -39,7 +39,7 @@ func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, 
 	t := &Transfer{
 		circle:   common.CircleFromPeer(peers[0].Name),
 		storage:  c,
-		filename: filename,
+		filename: remoteFilename,
 		hash:     maybeHash,
 		size:     size,
 		peers:    peers,
@@ -53,8 +53,8 @@ func NewRemoteFile(ctx context.Context, filename, maybeHash string, size int64, 
 	return t, nil
 }
 
-func NewLocalFile(filename, maybeHash, circle string) (*Transfer, error) {
-	f, err := os.Open(filename)
+func NewLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Transfer, error) {
+	f, err := os.Open(localFilename)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func NewLocalFile(filename, maybeHash, circle string) (*Transfer, error) {
 	t := &Transfer{
 		circle:   circle,
 		storage:  f,
-		filename: filename,
+		filename: remoteFilename,
 		hash:     maybeHash,
 		size:     st.Size(),
 	}
