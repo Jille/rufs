@@ -87,7 +87,7 @@ func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 	}
 	t := &Transfer{
 		circle:   common.CircleFromPeer(peers[0].Name),
-		storage:  c,
+		storage:  &replaceableBackend{storage: c},
 		filename: remoteFilename,
 		hash:     maybeHash,
 		size:     size,
@@ -114,7 +114,7 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 	}
 	t := &Transfer{
 		circle:   circle,
-		storage:  f,
+		storage:  &replaceableBackend{storage: f},
 		filename: remoteFilename,
 		hash:     maybeHash,
 		size:     st.Size(),
@@ -134,8 +134,8 @@ func (t *Transfer) SetLocalFile(localFilename, maybeHash string) error {
 		return err
 	}
 	t.mtx.Lock()
-	t.storage.Close()
-	t.storage = f
+	old := t.storage.replace(f)
+	old.Close()
 	t.have.Add(0, st.Size())
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
@@ -162,7 +162,7 @@ type backend interface {
 
 type Transfer struct {
 	circle       string
-	storage      backend
+	storage      *replaceableBackend
 	filename     string
 	hash         string
 	size         int64
@@ -194,12 +194,6 @@ func (t *Transfer) init() {
 			t.mtx.Unlock()
 		}
 	}()
-}
-
-func (t *Transfer) getStorageUnlocked() backend {
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
-	return t.storage
 }
 
 func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
@@ -250,7 +244,7 @@ func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte
 	}
 	t.mtx.Unlock()
 	buf := make([]byte, size)
-	_, err := t.getStorageUnlocked().ReadAt(buf, offset)
+	_, err := t.storage.ReadAt(buf, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +303,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				break
 			}
 			if len(res.Data) > 0 {
-				if _, err := t.getStorageUnlocked().WriteAt(res.Data, offset); err != nil {
+				if _, err := t.storage.WriteAt(res.Data, offset); err != nil {
 					t.mtx.Lock()
 					log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
 					t.want.Remove(offset, iv.End)
@@ -344,7 +338,7 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	initiator := downloadId == 0
 	ctx := context.Background()
-	pt := passive.New(ctx, t.getStorageUnlocked(), downloadId, passiveCallbacks{t})
+	pt := passive.New(ctx, t.storage, downloadId, passiveCallbacks{t})
 	s, err := orchestream.New(ctx, t.circle, &pb.OrchestrateRequest_StartOrchestrationRequest{
 		DownloadId: downloadId,
 		Filename:   t.filename,
@@ -454,4 +448,38 @@ func (t *Transfer) CloseImmediately() error {
 		t.passive.Close()
 	}
 	return t.storage.Close()
+}
+
+type replaceableBackend struct {
+	mtx     sync.Mutex
+	storage backend
+}
+
+func (r *replaceableBackend) WriteAt(p []byte, off int64) (n int, err error) {
+	r.mtx.Lock()
+	s := r.storage
+	r.mtx.Unlock()
+	return s.WriteAt(p, off)
+}
+
+func (r *replaceableBackend) ReadAt(p []byte, off int64) (n int, err error) {
+	r.mtx.Lock()
+	s := r.storage
+	r.mtx.Unlock()
+	return s.ReadAt(p, off)
+}
+
+func (r *replaceableBackend) Close() error {
+	r.mtx.Lock()
+	s := r.storage
+	r.mtx.Unlock()
+	return s.Close()
+}
+
+func (r *replaceableBackend) replace(s backend) backend {
+	r.mtx.Lock()
+	old := r.storage
+	r.storage = s
+	r.mtx.Unlock()
+	return old
 }
