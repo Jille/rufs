@@ -30,10 +30,16 @@ import (
 )
 
 var (
-	hashQueue    = make(chan string, 1000)
+	hashQueue    = make(chan hashRequest, 1000)
 	hashCacheMtx sync.Mutex
 	hashCache    = map[string]cachedHash{}
 )
+
+type hashRequest struct {
+	local      string
+	remote     string
+	downloadId int64
+}
 
 type cachedHash struct {
 	hash  string
@@ -97,6 +103,17 @@ type circleState struct {
 	activeTransfersMtx sync.Mutex
 	activeReads        map[string]int
 	activeTransfers    map[string]*transfer.Transfer
+}
+
+func (c *circleState) getTransferForDownloadId(downloadId int64) *transfer.Transfer {
+	c.activeTransfersMtx.Lock()
+	defer c.activeTransfersMtx.Unlock()
+	for _, t := range c.activeTransfers {
+		if t.DownloadId() == downloadId {
+			return t
+		}
+	}
+	return nil
 }
 
 func (c *content) Run() {
@@ -281,7 +298,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		if err != nil {
 			h = ""
 		}
-		t, err = transfer.NewLocalFile(path, h, circle.Name)
+		t, err = transfer.NewLocalFile(reqpath, path, h, circle.Name)
 		if err != nil {
 			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 			return err
@@ -363,15 +380,10 @@ func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer
 	}
 
 	circleState := c.circles[circle.Name]
-	circleState.activeTransfersMtx.Lock()
-	var at *transfer.Transfer
-	for _, t := range circleState.activeTransfers {
-		if d == t.DownloadId() {
-			at = t
-			break
-		}
+	at := circleState.getTransferForDownloadId(d)
+	if at == nil {
+		return errors.New("that download_id is not known (yet?) at this side, please ring later")
 	}
-	circleState.activeTransfersMtx.Unlock()
 	return at.HandleIncomingPassiveTransfer(stream)
 }
 
@@ -408,7 +420,7 @@ func (c *content) handleResolveConflictRequestImpl(ctx context.Context, req *pb.
 	}
 
 	select {
-	case hashQueue <- path:
+	case hashQueue <- hashRequest{local: path, remote: reqpath}:
 		return nil
 	default:
 		return errors.New("hash queue overflow")
@@ -431,61 +443,74 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 	circleState := c.circles[circ.Name]
 
 	for _, activeDownload := range req.GetActiveDownloads() {
-		localpath := ""
-		for _, path := range activeDownload.GetFilenames() {
-			l, err := c.getLocalPath(shares, path)
-			if err != nil {
-				localpath = l
-
-				if activeDownload.GetHash() == "" {
-					if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
-						Filename: path,
-					}); err != nil {
-						log.Printf("Failed to start conflict resolution for %q: %v", path, err)
-					}
-				}
-			}
-		}
-		if localpath == "" {
+		if t := circleState.getTransferForDownloadId(activeDownload.GetDownloadId()); t != nil {
+			// This active-download isn't new to us
 			continue
 		}
 
-		h, err := c.getFileHashWithStat(localpath)
+		remotePath := ""
+		localPath := ""
+		for _, path := range activeDownload.GetFilenames() {
+			l, err := c.getLocalPath(shares, path)
+			if err == nil {
+				remotePath = path
+				localPath = l
+				break
+			}
+		}
+
+		if localPath == "" {
+			continue
+		}
+
+		// Ensure that if a content server is already in this orchestration, they start hashing
+		if activeDownload.GetHash() == "" {
+			if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
+				Filename: remotePath,
+			}); err != nil {
+				log.Printf("Failed to start conflict resolution for %q: %v", remotePath, err)
+			}
+		}
+
+		// We will hash the file as well, in case we have the same one
+		h, err := c.getFileHashWithStat(localPath)
 		if err != nil {
-			log.Printf("Error while handling ActiveDownloads: couldn't determine hash for %q: %v", localpath, err)
+			log.Printf("Error while joining active download: couldn't determine hash for %q: %v", localPath, err)
 			continue
 		}
 		if h == "" {
 			select {
-			case hashQueue <- localpath:
+			case hashQueue <- hashRequest{
+				local:      localPath,
+				remote:     remotePath,
+				downloadId: activeDownload.GetDownloadId(),
+			}:
 			default:
-				log.Println("Error while handling ActiveDownloads: hash queue overflow")
+				log.Println("Error while joining active download: hash queue overflow")
 			}
 			continue
 		}
 
-		if h != activeDownload.GetHash() {
-			log.Printf("Error while handling ActiveDownloads: hash mismatch for %q (%s vs %s)", localpath, h, activeDownload.GetHash())
+		if h == "" || activeDownload.GetHash() == "" {
+			log.Printf("Won't join active download: hash unknown on either side for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
+		} else if h != activeDownload.GetHash() {
+			log.Printf("Won't join active download: hash mismatch for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
 			continue
 		}
 
 		circleState.activeTransfersMtx.Lock()
-		if circleState.activeTransfers[localpath] == nil {
-			t, err := transfer.NewLocalFile(localpath, h, circ.Name)
-			if err != nil {
-				log.Printf("Error while handling ActiveDownloads: error while creating *transfer.Transfer: %v", err)
-				circleState.activeTransfersMtx.Unlock()
-				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
-				continue
-			}
-			if err := t.SwitchToOrchestratedMode(0); err != nil {
-				log.Printf("Error while handling ActiveDownloads: error while switching to orchestrated mode: %v", err)
-				t.Close()
-				circleState.activeTransfersMtx.Unlock()
-				metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
-				continue
-			}
-			circleState.activeTransfers[localpath] = t
+		t, err := transfer.NewLocalFile(remotePath, localPath, h, circ.Name)
+		if err != nil {
+			log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
+			circleState.activeTransfersMtx.Unlock()
+			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
+		} else if err := t.SwitchToOrchestratedMode(0); err != nil {
+			log.Printf("Error while joining active download: error while switching to orchestrated mode: %v", err)
+			t.Close()
+			circleState.activeTransfersMtx.Unlock()
+			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
+		} else {
+			circleState.activeTransfers[localPath] = t
 			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
 		}
 		circleState.activeTransfersMtx.Unlock()
@@ -494,11 +519,41 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 }
 
 func (c *content) hashWorker() {
-	for fn := range hashQueue {
-		if err := c.hashFile(fn); err != nil {
-			log.Printf("Failed to hash %q: %v", fn, err)
+	for req := range hashQueue {
+		hash, err := c.hashFile(req.local)
+		if err != nil {
+			log.Printf("Failed to hash %q: %v", req.local, err)
+			continue
 		}
-		// TODO: if any orchestrations exist for this file, update the hash in those orchestrations
+
+		for name, circ := range c.circles {
+			circ.activeTransfersMtx.Lock()
+			if t, ok := circ.activeTransfers[req.local]; ok {
+				if t.GetHash() == "" {
+					t.SetHash(hash)
+				} else if t.GetHash() != hash {
+					log.Printf("Leaving orchestration mode for %q: Hash mismatch (%s vs %s)", req.local, t.GetHash(), hash)
+					t.Close()
+					circ.activeTransfers[req.local] = nil
+				}
+			} else if req.downloadId != 0 {
+				t, err = transfer.NewLocalFile(req.remote, req.local, hash, name)
+				if err != nil {
+					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
+					log.Printf("Failed to join orchestration after hashing %q: %v", req.local, err)
+				} else if err := t.SwitchToOrchestratedMode(req.downloadId); err != nil {
+					t.Close()
+					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
+					log.Printf("Failed to switch to orchestrated mode after hashing %q: %v", req.local, err)
+				} else {
+					t.SetHash(hash)
+					circ.activeTransfers[req.local] = t
+					metrics.AddContentOrchestrationJoined([]string{name}, "hashed", 1)
+				}
+			}
+			circ.activeTransfersMtx.Unlock()
+			metrics.AddContentHashes([]string{name}, 1)
+		}
 	}
 }
 
@@ -524,23 +579,23 @@ func (c *content) getFileHash(fn string, st os.FileInfo) string {
 	return ""
 }
 
-func (c *content) hashFile(fn string) error {
+func (c *content) hashFile(fn string) (string, error) {
 	fh, err := os.Open(fn)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer fh.Close()
 	st, err := fh.Stat()
 	if err != nil {
-		return err
+		return "", err
 	}
-	if c.getFileHash(fn, st) != "" {
+	if h := c.getFileHash(fn, st); h != "" {
 		// We already have the latest hash.
-		return nil
+		return h, nil
 	}
 	h := sha256.New()
 	if _, err := io.Copy(h, fh); err != nil {
-		return err
+		return "", err
 	}
 	hash := fmt.Sprintf("%x", h.Sum(nil))
 	hashCacheMtx.Lock()
@@ -550,13 +605,5 @@ func (c *content) hashFile(fn string) error {
 		size:  st.Size(),
 	}
 	hashCacheMtx.Unlock()
-	for name, circ := range c.circles {
-		circ.activeTransfersMtx.Lock()
-		if t, ok := circ.activeTransfers[fn]; ok {
-			t.SetHash(hash)
-		}
-		circ.activeTransfersMtx.Unlock()
-		metrics.AddContentHashes([]string{name}, 1)
-	}
-	return nil
+	return hash, nil
 }
