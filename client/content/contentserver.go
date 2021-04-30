@@ -298,7 +298,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		if err != nil {
 			h = ""
 		}
-		t, err = transfer.NewLocalFile(reqpath, path, h, circle.Name)
+		t, err = transfer.OpenLocalFile(reqpath, path, h, circle.Name)
 		if err != nil {
 			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 			return err
@@ -503,7 +503,7 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 
 		circleState.activeTransfersMtx.Lock()
 		dropLock := d.Add(circleState.activeTransfersMtx.Unlock)
-		t, err := transfer.NewLocalFile(remotePath, localPath, h, circ.Name)
+		t, err := transfer.OpenLocalFile(remotePath, localPath, h, circ.Name)
 		if err != nil {
 			log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
 			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
@@ -539,7 +539,7 @@ func (c *content) hashWorker() {
 					circ.activeTransfers[req.local] = nil
 				}
 			} else if req.downloadId != 0 {
-				t, err = transfer.NewLocalFile(req.remote, req.local, hash, name)
+				t, err = transfer.OpenLocalFile(req.remote, req.local, hash, name)
 				if err != nil {
 					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
 					log.Printf("Failed to join orchestration after hashing %q: %v", req.local, err)
