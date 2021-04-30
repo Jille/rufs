@@ -177,6 +177,9 @@ func (c *orchestrationClient) writer() error {
 			} else {
 				peers := make([]string, 0, len(c.o.connections))
 				for p := range c.o.connections {
+					if p == c.peer {
+						continue
+					}
 					peers = append(peers, p)
 				}
 				msg.Msg = &pb.OrchestrateResponse_PeerList_{
