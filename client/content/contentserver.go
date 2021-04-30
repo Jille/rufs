@@ -282,19 +282,28 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 
 	t := transfer.GetActiveTransfer(circle.Name, reqpath)
 
-	if upgrade && t == nil {
+	if upgrade || (t != nil && t.DownloadId() != 0) {
 		h, err := c.getFileHashWithStat(path)
 		if err != nil {
 			h = ""
 		}
-		t, err = transfer.OpenLocalFile(reqpath, path, h, circle.Name)
-		if err != nil {
-			metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
-			return err
-		}
-	}
 
-	if t != nil {
+		if t == nil {
+			t, err = transfer.OpenLocalFile(reqpath, path, h, circle.Name)
+			if err != nil {
+				metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
+				return err
+			}
+		} else if t.GetHash() != "" && h != "" && t.GetHash() != h {
+			goto fallbackToActive
+		} else if t.TransferIsRemote() {
+			err := t.SetLocalFile(path, h)
+			if err != nil {
+				metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
+				return err
+			}
+		}
+
 		if t.DownloadId() == 0 {
 			if err := t.SwitchToOrchestratedMode(0); err != nil {
 				t.Close()
@@ -324,6 +333,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		return nil
 	}
 
+fallbackToActive:
 	fh, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

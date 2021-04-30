@@ -196,6 +196,10 @@ func (t *Transfer) init() {
 	}()
 }
 
+func (t *Transfer) TransferIsRemote() bool {
+	return len(t.peers) > 0
+}
+
 func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
 	startTime := time.Now()
 	var recvBytes int64
@@ -336,6 +340,10 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 }
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
+	if downloadId == t.DownloadId() {
+		return nil
+	}
+
 	initiator := downloadId == 0
 	ctx := context.Background()
 	pt := passive.New(ctx, t.storage, downloadId, passiveCallbacks{t})
