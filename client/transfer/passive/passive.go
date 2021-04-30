@@ -3,7 +3,6 @@ package passive
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -31,12 +30,12 @@ type TransferClient interface {
 func New(ctx context.Context, storage backend, downloadId int64, callbacks TransferClient) *Transfer {
 	ctx, cancel := context.WithCancel(ctx)
 	return &Transfer{
-		ctx:            ctx,
-		cancel:         cancel,
-		storage:        storage,
-		downloadId:     downloadId,
-		callbacks:      callbacks,
-		connectedPeers: map[string]*peer{},
+		ctx:        ctx,
+		cancel:     cancel,
+		storage:    storage,
+		downloadId: downloadId,
+		callbacks:  callbacks,
+		peers:      map[string]*peer{},
 	}
 }
 
@@ -47,8 +46,8 @@ type Transfer struct {
 	downloadId int64
 	callbacks  TransferClient
 
-	mtx            sync.Mutex
-	connectedPeers map[string]*peer
+	mtx   sync.Mutex
+	peers map[string]*peer
 }
 
 type peer struct {
@@ -59,6 +58,22 @@ type peer struct {
 	cond                 *sync.Cond
 	pendingTransmissions []*pb.Range
 	activeSenders        int
+	connectedStreams     int
+}
+
+func (t *Transfer) setConnectedPeers() {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+
+	var peers []string
+	for name, p := range t.peers {
+		p.mtx.Lock()
+		if p.connectedStreams > 0 {
+			peers = append(peers, name)
+		}
+		p.mtx.Unlock()
+	}
+	t.callbacks.SetConnectedPeers(peers)
 }
 
 func (t *Transfer) Welcome(downloadId int64) {
@@ -69,23 +84,29 @@ func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	for _, p := range peers {
-		if _, found := t.connectedPeers[p]; found {
+		if _, found := t.peers[p]; found {
 			continue
 		}
-		pe := &peer{
-			transfer: t,
-			name:     p,
-		}
-		pe.cond = sync.NewCond(&pe.mtx)
-		t.connectedPeers[p] = pe
-		go pe.connectLoop()
+		t.addPeer(p)
 	}
+}
+
+func (t *Transfer) addPeer(name string) *peer {
+	// t.mtx must be held
+	pe := &peer{
+		transfer: t,
+		name:     name,
+	}
+	pe.cond = sync.NewCond(&pe.mtx)
+	t.peers[name] = pe
+	go pe.connectLoop()
+	return pe
 }
 
 func (p *peer) connectLoop() {
 	for {
-		err := p.connect()
-		log.Printf("PassiveTransfer(%s) error: %v", p.name, err)
+		err := p.connectAndHandle()
+		log.Printf("PassiveTransfer(%s) reconnecting: %v", p.name, err)
 		select {
 		case <-p.transfer.ctx.Done():
 			return
@@ -94,7 +115,7 @@ func (p *peer) connectLoop() {
 	}
 }
 
-func (p *peer) connect() error {
+func (p *peer) connectAndHandle() error {
 	ctx, cancel := context.WithCancel(p.transfer.ctx)
 	defer cancel()
 	peer := connectivity.GetPeer(p.name)
@@ -122,11 +143,22 @@ func (p *peer) handleStream(stream PassiveStream) error {
 	go func() {
 		errCh <- p.transfer.handleInboundData(stream)
 	}()
+	p.mtx.Lock()
+	p.connectedStreams++
+	p.mtx.Unlock()
+
+	p.transfer.setConnectedPeers()
+
 	err := <-errCh
 	close(quit)
+
 	p.mtx.Lock()
+	p.connectedStreams--
 	p.cond.Broadcast()
 	p.mtx.Unlock()
+
+	p.transfer.setConnectedPeers()
+
 	return err
 }
 
@@ -213,25 +245,25 @@ func (p *peer) upload(stream PassiveStream, task *pb.Range) (remainingOffset int
 }
 
 func (t *Transfer) HandleIncomingPassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
-	peer, _, err := security.PeerFromContext(stream.Context())
+	name, _, err := security.PeerFromContext(stream.Context())
 	if err != nil {
 		return err
 	}
 	t.mtx.Lock()
-	p, ok := t.connectedPeers[peer]
-	t.mtx.Unlock()
+	p, ok := t.peers[name]
 	if !ok {
-		// TODO: might as well just add them as a connected peer; we'll get them from the PeerList soon enough.
-		return errors.New("you're not in this orchestration")
+		p = t.addPeer(name)
 	}
+	t.mtx.Unlock()
 	return p.handleStream(stream)
 }
 
 func (t *Transfer) Upload(ctx context.Context, peer string, byteRange *pb.Range) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
-	p, ok := t.connectedPeers[peer]
-	if !ok {
+	p, ok := t.peers[peer]
+	if !ok || p.connectedStreams == 0 {
+		log.Printf("Requested upload failed: peer not known or not connected")
 		t.callbacks.UploadFailed(peer)
 		return
 	}
