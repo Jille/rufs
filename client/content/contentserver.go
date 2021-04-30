@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jille/dfr"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfer"
@@ -244,7 +245,9 @@ func readdir(name string) ([]os.FileInfo, error) {
 	return dh.Readdir(0)
 }
 
-func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) error {
+func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) (retErr error) {
+	d := dfr.D{}
+	defer d.Run(&retErr)
 	circle, err := c.getCircleForPeer(stream.Context())
 	if err != nil {
 		return err
@@ -264,6 +267,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	circleState := c.circles[circle.Name]
 
 	circleState.activeTransfersMtx.Lock()
+	dropLock := d.Add(circleState.activeTransfersMtx.Unlock)
 	circleState.activeReads[path]++
 	upgrade := circleState.activeReads[path] > 1
 	t := circleState.activeTransfers[path]
@@ -290,7 +294,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 		circleState.activeTransfers[path] = t
 		metrics.AddContentOrchestrationJoined([]string{circle.Name}, "busy-file", 1)
 	}
-	circleState.activeTransfersMtx.Unlock()
+	dropLock(true)
 	if t != nil {
 		if err := stream.Send(&pb.ReadFileResponse{
 			RedirectToOrchestratedDownload: t.DownloadId(),

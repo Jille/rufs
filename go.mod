@@ -4,6 +4,8 @@ go 1.13
 
 require (
 	bazil.org/fuse v0.0.0-20200407214033-5883e5a4b512
+	github.com/Jille/dfr v1.0.0
+	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
 	github.com/Jille/grpc-multi-resolver v1.0.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
