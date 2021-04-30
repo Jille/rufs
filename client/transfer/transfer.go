@@ -390,6 +390,11 @@ func (t *Transfer) SetHash(hash string) {
 }
 
 func (t *Transfer) Close() error {
+	// TODO: close if no more clients have this file open
+	return nil
+}
+
+func (t *Transfer) CloseImmediately() error {
 	t.mtx.Lock()
 	t.quitFetchers = true
 	t.killFetchers()
