@@ -98,6 +98,17 @@ type circleState struct {
 	activeTransfers    map[string]*transfer.Transfer
 }
 
+func (c *circleState) getTransferForDownloadId(downloadId int64) *transfer.Transfer {
+	c.activeTransfersMtx.Lock()
+	defer c.activeTransfersMtx.Unlock()
+	for _, t := range c.activeTransfers {
+		if t.DownloadId() == downloadId {
+			return t
+		}
+	}
+	return nil
+}
+
 func (c *content) Run() {
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(c.keyPairs))), grpc.ChainUnaryInterceptor(c.unaryInterceptor), grpc.ChainStreamInterceptor(c.streamInterceptor))
 	pb.RegisterContentServiceServer(s, c)
@@ -359,15 +370,10 @@ func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer
 	}
 
 	circleState := c.circles[circle.Name]
-	circleState.activeTransfersMtx.Lock()
-	var at *transfer.Transfer
-	for _, t := range circleState.activeTransfers {
-		if d == t.DownloadId() {
-			at = t
-			break
-		}
+	at := circleState.getTransferForDownloadId(d)
+	if at == nil {
+		return errors.New("that download_id is not known (yet?) at this side, please ring later")
 	}
-	circleState.activeTransfersMtx.Unlock()
 	return at.HandleIncomingPassiveTransfer(stream)
 }
 
@@ -427,6 +433,11 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 	circleState := c.circles[circ.Name]
 
 	for _, activeDownload := range req.GetActiveDownloads() {
+		if t := circleState.getTransferForDownloadId(activeDownload.GetDownloadId()); t != nil {
+			// This active-download isn't new to us
+			continue
+		}
+
 		remotePath := ""
 		localPath := ""
 		for _, path := range activeDownload.GetFilenames() {
