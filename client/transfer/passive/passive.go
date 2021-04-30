@@ -179,23 +179,24 @@ func (p *peer) transmitDataLoopManager(stream PassiveStream, quit chan struct{})
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.activeSenders++
-	retryTask, internalError, err := p.transmitDataLoop(stream, quit)
+	internalError, err := p.transmitDataLoop(stream, quit)
 	p.activeSenders--
-	if p.activeSenders == 0 || internalError {
+	if len(p.pendingTransmissions) != 0 && (p.activeSenders == 0 || internalError) {
+		// We can't send to this peer anymore, or an internal (cache) error occurred; don't
+		// send pending transmissions anymore and signal to orchestrator that the remaining
+		// ones failed
 		p.transfer.callbacks.UploadFailed(p.name)
 		p.pendingTransmissions = nil
-	} else if retryTask != nil {
-		p.pendingTransmissions = append([]*pb.Range{retryTask}, p.pendingTransmissions...)
 	}
 	return err
 }
 
-func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (retryTask *pb.Range, internalError bool, err error) {
+func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (internalError bool, err error) {
 	for {
 		for len(p.pendingTransmissions) > 0 {
 			select {
 			case <-quit:
-				return nil, false, nil
+				return false, nil
 			default:
 			}
 			task := p.pendingTransmissions[0]
@@ -204,15 +205,13 @@ func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (retry
 			offset, internalError, err := p.upload(stream, task)
 			p.mtx.Lock()
 			if err != nil {
-				if internalError {
-					return nil, true, err
-				}
-				return &pb.Range{Start: offset, End: task.End}, false, err
+				p.pendingTransmissions = append([]*pb.Range{{Start: offset, End: task.End}}, p.pendingTransmissions...)
+				return internalError, err
 			}
 		}
 		select {
 		case <-quit:
-			return nil, false, nil
+			return false, nil
 		default:
 		}
 		p.cond.Wait()
