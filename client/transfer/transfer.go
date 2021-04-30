@@ -250,6 +250,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 			t.mtx.Lock()
 			log.Printf("ReadFile(%q) from %s failed: %v", t.filename, t.peers[pno].Name, err)
 			t.want.Remove(iv.Start, iv.End)
+			t.readahead.Remove(iv.Start, iv.End)
 			t.serveCond.Broadcast()
 			continue
 		}
@@ -264,34 +265,26 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				}
 				log.Printf("ReadFile(%q).Recv() from %s failed: %v", t.filename, t.peers[pno].Name, err)
 				t.want.Remove(offset, iv.End)
+				t.readahead.Remove(offset, iv.End)
 				t.byteRangesUpdated()
 				t.serveCond.Broadcast()
 				break
 			}
-			if len(res.Data) == 0 {
-				t.mtx.Lock()
-				if res.GetRedirectToOrchestratedDownload() != 0 {
-					if err := t.SwitchToOrchestratedMode(res.GetRedirectToOrchestratedDownload()); err != nil {
-						log.Printf("Failed to switch to orchestrated mode: %v", err)
-						t.want.Remove(offset, iv.End)
-						t.byteRangesUpdated()
-						t.serveCond.Broadcast()
-					}
+			if len(res.Data) > 0 {
+				if _, err := t.storage.WriteAt(res.Data, offset); err != nil {
+					t.mtx.Lock()
+					log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
+					t.want.Remove(offset, iv.End)
+					t.readahead.Remove(offset, iv.End)
+					t.byteRangesUpdated()
+					t.serveCond.Broadcast()
+					break
 				}
-				break
+				t.receivedBytes(offset, offset+int64(len(res.Data)))
+				offset += int64(len(res.Data))
 			}
-			if _, err := t.storage.WriteAt(res.Data, offset); err != nil {
-				t.mtx.Lock()
-				log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
-				t.want.Remove(offset, iv.End)
-				t.byteRangesUpdated()
-				t.serveCond.Broadcast()
-				break
-			}
-			t.receivedBytes(offset, offset+int64(len(res.Data)))
-			offset += int64(len(res.Data))
-			if res.GetRedirectToOrchestratedDownload() != 0 {
-				if err := t.SwitchToOrchestratedMode(res.GetRedirectToOrchestratedDownload()); err != nil {
+			if downloadId := res.GetRedirectToOrchestratedDownload(); downloadId != 0 {
+				if err := t.SwitchToOrchestratedMode(downloadId); err != nil {
 					log.Printf("Failed to switch to orchestrated mode (continuing in simple mode): %v", err)
 				}
 			}
@@ -303,6 +296,7 @@ func (t *Transfer) receivedBytes(start, end int64) {
 	t.mtx.Lock()
 	t.have.Add(start, end)
 	t.want.Remove(start, end)
+	t.readahead.Remove(start, end)
 	t.byteRangesUpdated()
 	t.serveCond.Broadcast()
 	t.mtx.Unlock()
