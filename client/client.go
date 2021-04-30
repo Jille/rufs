@@ -25,6 +25,7 @@ var (
 )
 
 func main() {
+	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	flag.Parse()
 	ctx := context.Background()
 
