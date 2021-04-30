@@ -325,6 +325,9 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 }
 
 func (t *Transfer) DownloadId() int64 {
+	if t.orchestream == nil {
+		return 0
+	}
 	return t.orchestream.DownloadId
 }
 
