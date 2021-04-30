@@ -360,6 +360,8 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 }
 
 func (t *Transfer) DownloadId() int64 {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
 	if t.orchestream == nil {
 		return 0
 	}
