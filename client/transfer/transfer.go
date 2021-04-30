@@ -386,7 +386,7 @@ func (t *Transfer) GetHash() string {
 func (t *Transfer) SetHash(hash string) {
 	t.mtx.Lock()
 	if t.hash != "" && t.hash != hash {
-		log.Fatalf("File hash changed for remote file %s", t.GetFilename())
+		log.Fatalf("File hash changed for remote file %s", t.filename)
 	}
 	newHash := t.hash == ""
 	t.hash = hash
