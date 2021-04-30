@@ -328,6 +328,12 @@ func (pc passiveCallbacks) SetConnectedPeers(peers []string) {
 	pc.t.orchestream.SetConnectedPeers(peers)
 }
 
+func (t *Transfer) GetHash() string {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	return t.hash
+}
+
 func (t *Transfer) SetHash(hash string) {
 	t.mtx.Lock()
 	t.hash = hash
