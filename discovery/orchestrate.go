@@ -96,6 +96,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		return err
 	}
 	c := &orchestrationClient{
+		peer:   peer,
 		o:      o,
 		stream: stream,
 	}
