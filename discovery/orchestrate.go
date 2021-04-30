@@ -120,6 +120,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 	err = <-errCh
 	o.mtx.Lock()
 	c.disconnecting = true
+	o.scheduler.Disappeered(peer)
 	c.cond.Broadcast()
 	if o.connections[peer] == c {
 		delete(o.connections, peer)
@@ -226,9 +227,21 @@ func (o *orchestration) schedulerThread() {
 		o.schedCond.Wait()
 		transfers := o.scheduler.ComputeNewTransfers()
 		for p, uploads := range transfers {
-			c := o.connections[p]
-			c.uploadCommands = append(c.uploadCommands, uploads...)
-			c.cond.Broadcast()
+			if c, ok := o.connections[p]; ok {
+				c.uploadCommands = append(c.uploadCommands, uploads...)
+				c.cond.Broadcast()
+			} else {
+				log.Printf("Scheduler wanted %q to upload, but they're disconnected", p)
+				var targets []string
+				for _, t := range uploads {
+					targets = append(targets, t.GetPeer())
+				}
+				targets = stringslice.Unique(targets)
+				o.scheduler.UploadFailed(p, &pb.OrchestrateRequest_UploadFailed{
+					TargetPeers: targets,
+				})
+			}
 		}
+		log.Printf("New orchestate: %#v", o.scheduler)
 	}
 }

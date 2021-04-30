@@ -95,6 +95,21 @@ func (o *Orchestrator) UploadFailed(sender string, uf *pb.OrchestrateRequest_Upl
 	o.transfers[sender] = newTransfers
 }
 
+func (o *Orchestrator) Disappeered(peer string) {
+	delete(o.ranges, peer)
+	delete(o.connections, peer)
+	delete(o.transfers, peer)
+	for sender, transfers := range o.transfers {
+		var newTransfers []*pb.OrchestrateResponse_UploadCommand
+		for _, transfer := range transfers {
+			if transfer.Peer != peer {
+				newTransfers = append(newTransfers, transfer)
+			}
+		}
+		o.transfers[sender] = newTransfers
+	}
+}
+
 func (o *Orchestrator) computeRangeInformation() range_infos {
 	rs := range_infos{}
 	for _, transfers := range o.transfers {
