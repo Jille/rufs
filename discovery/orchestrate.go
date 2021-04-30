@@ -180,6 +180,7 @@ func (c *orchestrationClient) writer() error {
 						Peers: peers,
 					},
 				}
+				c.updatePeerList = false
 			}
 			c.o.mtx.Unlock()
 			if err := c.stream.Send(msg); err != nil {
