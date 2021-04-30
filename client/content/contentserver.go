@@ -302,6 +302,18 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 				return err
 			}
 			metrics.AddContentOrchestrationJoined([]string{circle.Name}, "busy-file", 1)
+
+			select {
+			case hashQueue <- hashRequest{
+				local:  path,
+				remote: reqpath,
+				download: &pb.ConnectResponse_ActiveDownload{
+					DownloadId: t.DownloadId(),
+				},
+			}:
+			default:
+				log.Println("Error while starting orchestration: hash queue overflow")
+			}
 		}
 
 		if err := stream.Send(&pb.ReadFileResponse{
@@ -373,7 +385,7 @@ func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer
 
 	at := transfer.GetTransferForDownloadId(circle.Name, d)
 	if at == nil {
-		return errors.New("that download_id is not known (yet?) at this side, please ring later")
+		return fmt.Errorf("download_id %d is not known (yet?) at this side, please ring later", d)
 	}
 	return at.HandleIncomingPassiveTransfer(stream)
 }
@@ -495,9 +507,8 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 		if err != nil {
 			log.Printf("Error while joining active download: error while creating *transfer.Transfer: %v", err)
 			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
-		} else if err := t.SwitchToOrchestratedMode(0); err != nil {
+		} else if err := t.SwitchToOrchestratedMode(activeDownload.GetDownloadId()); err != nil {
 			log.Printf("Error while joining active download: error while switching to orchestrated mode: %v", err)
-			t.Close()
 			metrics.AddContentOrchestrationJoinFailed([]string{circ.Name}, "active", 1)
 		} else {
 			metrics.AddContentOrchestrationJoined([]string{circ.Name}, "active", 1)
