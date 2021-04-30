@@ -93,5 +93,15 @@ var (
 			Name: "content_orchestration_join_failed",
 			Help: "TODO",
 		}, []string{"why"}),
+		pb.PushMetricsRequest_TRANSFER_RECV_BYTES: newCounter(prometheus.CounterOpts{
+			Namespace: "rufs",
+			Name: "transfer_recv_bytes",
+			Help: "Number of bytes received from other peers",
+		}, []string{"peer", "transfer_type"}),
+		pb.PushMetricsRequest_TRANSFER_SEND_BYTES: newCounter(prometheus.CounterOpts{
+			Namespace: "rufs",
+			Name: "transfer_send_bytes",
+			Help: "Number of bytes received from other peers",
+		}, []string{"peer", "transfer_type"}),
 	}
 )
