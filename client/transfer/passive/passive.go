@@ -53,6 +53,7 @@ type Transfer struct {
 type peer struct {
 	transfer *Transfer
 	name     string
+	quit     chan (struct{})
 
 	mtx                  sync.Mutex
 	cond                 *sync.Cond
@@ -83,11 +84,20 @@ func (t *Transfer) Welcome(downloadId int64) {
 func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	keep := map[string]bool{}
 	for _, p := range peers {
+		keep[p] = true
 		if _, found := t.peers[p]; found {
 			continue
 		}
 		t.addPeer(p)
+	}
+	for p, pe := range t.peers {
+		if !keep[p] {
+			continue
+		}
+		close(pe.quit)
+		delete(t.peers, p)
 	}
 }
 
@@ -96,6 +106,7 @@ func (t *Transfer) addPeer(name string) *peer {
 	pe := &peer{
 		transfer: t,
 		name:     name,
+		quit:     make(chan struct{}),
 	}
 	pe.cond = sync.NewCond(&pe.mtx)
 	t.peers[name] = pe
@@ -109,6 +120,8 @@ func (p *peer) connectLoop() {
 		log.Printf("PassiveTransfer(%s) reconnecting: %v", p.name, err)
 		select {
 		case <-p.transfer.ctx.Done():
+			return
+		case <-p.quit:
 			return
 		case <-time.After(time.Second):
 		}
@@ -136,9 +149,8 @@ func (p *peer) connectAndHandle() error {
 
 func (p *peer) handleStream(stream PassiveStream) error {
 	errCh := make(chan error, 2)
-	quit := make(chan struct{})
 	go func() {
-		errCh <- p.transmitDataLoopManager(stream, quit)
+		errCh <- p.transmitDataLoopManager(stream)
 	}()
 	go func() {
 		errCh <- p.transfer.handleInboundData(stream)
@@ -149,10 +161,18 @@ func (p *peer) handleStream(stream PassiveStream) error {
 
 	p.transfer.setConnectedPeers()
 
-	err := <-errCh
-	close(quit)
+	var err error
+	select {
+	case err = <-errCh:
+	case <-p.quit:
+	}
 
 	p.mtx.Lock()
+	select {
+	case <-p.quit:
+	default:
+		close(p.quit)
+	}
 	p.connectedStreams--
 	p.cond.Broadcast()
 	p.mtx.Unlock()
@@ -175,11 +195,11 @@ func (t *Transfer) handleInboundData(stream PassiveStream) error {
 	}
 }
 
-func (p *peer) transmitDataLoopManager(stream PassiveStream, quit chan struct{}) error {
+func (p *peer) transmitDataLoopManager(stream PassiveStream) error {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.activeSenders++
-	internalError, err := p.transmitDataLoop(stream, quit)
+	internalError, err := p.transmitDataLoop(stream)
 	p.activeSenders--
 	if len(p.pendingTransmissions) != 0 && (p.activeSenders == 0 || internalError) {
 		// We can't send to this peer anymore, or an internal (cache) error occurred; don't
@@ -191,11 +211,11 @@ func (p *peer) transmitDataLoopManager(stream PassiveStream, quit chan struct{})
 	return err
 }
 
-func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (internalError bool, err error) {
+func (p *peer) transmitDataLoop(stream PassiveStream) (internalError bool, err error) {
 	for {
 		for len(p.pendingTransmissions) > 0 {
 			select {
-			case <-quit:
+			case <-p.quit:
 				return false, nil
 			default:
 			}
@@ -210,7 +230,7 @@ func (p *peer) transmitDataLoop(stream PassiveStream, quit chan struct{}) (inter
 			}
 		}
 		select {
-		case <-quit:
+		case <-p.quit:
 			return false, nil
 		default:
 		}
