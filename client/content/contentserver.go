@@ -491,8 +491,9 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			continue
 		}
 
-		if h == "" || activeDownload.GetHash() == "" {
-			log.Printf("Won't join active download: hash unknown on either side for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
+		if activeDownload.GetHash() == "" {
+			log.Printf("Won't join active download: transfer hash unknown for %q", remotePath)
+			continue
 		} else if h != activeDownload.GetHash() {
 			log.Printf("Won't join active download: hash mismatch for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
 			continue
