@@ -31,6 +31,7 @@ type orchestration struct {
 type orchestrationClient struct {
 	peer           string
 	o              *orchestration
+	initiator      bool
 	stream         pb.DiscoveryService_OrchestrateServer
 	cond           *sync.Cond
 	updatePeerList bool
@@ -95,9 +96,10 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		return err
 	}
 	c := &orchestrationClient{
-		peer:   peer,
-		o:      o,
-		stream: stream,
+		initiator: msg.GetStartOrchestration().GetDownloadId() == 0,
+		peer:      peer,
+		o:         o,
+		stream:    stream,
 	}
 	c.cond = sync.NewCond(&o.mtx)
 	o.mtx.Lock()
@@ -146,9 +148,13 @@ func (c *orchestrationClient) reader() error {
 			c.o.scheduler.UploadFailed(c.peer, msg.GetUploadFailed())
 		}
 		if msg.GetSetHash() != nil {
-			if c.o.activeDownload.Hash != "" {
+			if !c.initiator {
 				c.o.mtx.Unlock()
-				return errors.New("hash is already known for this orchestration")
+				return errors.New("you are not the initiator of this orchestration so can't set the hash")
+			}
+			if c.o.activeDownload.Hash != "" && c.o.activeDownload.Hash != msg.GetSetHash().GetHash() {
+				c.o.mtx.Unlock()
+				return fmt.Errorf("refusing attempt to change hash from %q to %q", c.o.activeDownload.Hash, msg.GetSetHash().GetHash())
 			}
 			// Clone before changing as we might be stream.Send()ing the old proto concurrently.
 			nad := proto.Clone(c.o.activeDownload).(*pb.ConnectResponse_ActiveDownload)
