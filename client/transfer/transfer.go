@@ -109,6 +109,7 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 	}
 	st, err := f.Stat()
 	if err != nil {
+		f.Close()
 		return nil, err
 	}
 	t := &Transfer{
