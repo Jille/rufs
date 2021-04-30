@@ -459,17 +459,16 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			continue
 		}
 
+		// Ensure that if a content server is already in this orchestration, they start hashing
 		if activeDownload.GetHash() == "" {
 			if _, err := connectivity.DiscoveryClient(circle).ResolveConflict(ctx, &pb.ResolveConflictRequest{
 				Filename: remotePath,
 			}); err != nil {
 				log.Printf("Failed to start conflict resolution for %q: %v", remotePath, err)
 			}
-			// Can't join this orchestration until the hash is known; once it is in the orchestration, we'll get
-			// another activeDownloadList and rejoin
-			continue
 		}
 
+		// We will hash the file as well, in case we have the same one
 		h, err := c.getFileHashWithStat(localPath)
 		if err != nil {
 			log.Printf("Error while joining active download: couldn't determine hash for %q: %v", localPath, err)
@@ -488,7 +487,9 @@ func (c *content) handleActiveDownloadListImpl(ctx context.Context, req *pb.Conn
 			continue
 		}
 
-		if h != activeDownload.GetHash() {
+		if h == "" || activeDownload.GetHash() == "" {
+			log.Printf("Won't join active download: hash unknown on either side for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
+		} else if h != activeDownload.GetHash() {
 			log.Printf("Won't join active download: hash mismatch for %q (%s vs %s)", remotePath, h, activeDownload.GetHash())
 			continue
 		}
