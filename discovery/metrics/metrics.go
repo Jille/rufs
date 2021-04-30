@@ -12,14 +12,14 @@ import (
 )
 
 var (
- defaultBuckets = prometheus.ExponentialBuckets(0.004, 2, 17)
- // TODO(quis): Make this a conscious decision.
- bucketsForVfsOpenLatency = defaultBuckets
- bucketsForTransferReadSizes = defaultBuckets
- bucketsForTransferReadLatency = defaultBuckets
- bucketsForVfsReaddirLatency = defaultBuckets
- bucketsForVfsPeerReaddirLatency = defaultBuckets
- bucketsForContentRpcsRecvLatency = defaultBuckets
+	defaultBuckets = prometheus.ExponentialBuckets(0.004, 2, 17)
+	// TODO(quis): Make this a conscious decision.
+	bucketsForVfsOpenLatency         = defaultBuckets
+	bucketsForTransferReadSizes      = defaultBuckets
+	bucketsForTransferReadLatency    = defaultBuckets
+	bucketsForVfsReaddirLatency      = defaultBuckets
+	bucketsForVfsPeerReaddirLatency  = defaultBuckets
+	bucketsForContentRpcsRecvLatency = defaultBuckets
 )
 
 type processMetric func(peer string, m *pb.PushMetricsRequest_Metric)
