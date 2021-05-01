@@ -424,7 +424,7 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 }
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
-	if downloadId == t.DownloadId() {
+	if downloadId == t.DownloadId() && downloadId != 0 {
 		return nil
 	}
 
