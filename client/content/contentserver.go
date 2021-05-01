@@ -306,7 +306,6 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 
 		if t.DownloadId() == 0 {
 			if err := t.SwitchToOrchestratedMode(0); err != nil {
-				t.Close()
 				metrics.AddContentOrchestrationJoinFailed([]string{circle.Name}, "busy-file", 1)
 				return err
 			}
@@ -549,7 +548,6 @@ func (c *content) hashWorker() {
 					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
 					log.Printf("Failed to join orchestration after hashing %q: %v", req.local, err)
 				} else if err := t.SwitchToOrchestratedMode(req.download.GetDownloadId()); err != nil {
-					t.Close()
 					metrics.AddContentOrchestrationJoinFailed([]string{name}, "hashed", 1)
 					log.Printf("Failed to switch to orchestrated mode after hashing %q: %v", req.local, err)
 				} else {

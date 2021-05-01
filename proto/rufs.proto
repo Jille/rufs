@@ -98,6 +98,9 @@ message OrchestrateRequest {
 	message SetHash {
 		string hash = 1;
 	}
+	message HaveOpenHandles {
+		bool haveOpenHandles = 1;
+	}
 
 	oneof msg {
 		StartOrchestrationRequest start_orchestration = 1;
@@ -105,6 +108,7 @@ message OrchestrateRequest {
 		ConnectedPeers connected_peers = 3;
 		UploadFailed upload_failed = 4;
 		SetHash set_hash = 5;
+		HaveOpenHandles have_open_handles = 6;
 	}
 }
 

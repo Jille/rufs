@@ -75,7 +75,11 @@ func Open(ctx context.Context, path string) (Handle, error) {
 			content: file.FixedContent,
 		}, nil
 	}
-	return transfer.OpenRemoteFile(ctx, path, file.Hash, file.Size, file.Peers)
+	t, err := transfer.OpenRemoteFile(ctx, path, file.Hash, file.Size, file.Peers)
+	if err != nil {
+		return nil, err
+	}
+	return t.GetHandle(), err
 }
 
 func Readdir(ctx context.Context, path string) *Directory {

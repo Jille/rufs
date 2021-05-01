@@ -38,10 +38,12 @@ func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartO
 		return nil, err
 	}
 	s := &Stream{
-		DownloadId: msg.GetWelcome().GetDownloadId(),
-		stream:     stream,
-		callbacks:  callbacks,
-		cancel:     cancel,
+		DownloadId:     msg.GetWelcome().GetDownloadId(),
+		stream:         stream,
+		callbacks:      callbacks,
+		cancel:         cancel,
+		haveHandles:    false,
+		setHaveHandles: true,
 	}
 	callbacks.Welcome(s.DownloadId)
 	s.cond = sync.NewCond(&s.mtx)
@@ -64,6 +66,8 @@ type Stream struct {
 	updateConnectedPeers bool
 	connectedPeers       []string
 	failedUploads        []string
+	haveHandles          bool
+	setHaveHandles       bool
 }
 
 func (s *Stream) reader(ctx context.Context) {
@@ -87,7 +91,7 @@ func (s *Stream) writer(ctx context.Context) {
 	defer s.mtx.Unlock()
 	for {
 		msg := &pb.OrchestrateRequest{}
-		for s.updateByteRanges || s.updateConnectedPeers || s.setHash != "" || len(s.failedUploads) > 0 {
+		for s.updateByteRanges || s.updateConnectedPeers || s.setHash != "" || len(s.failedUploads) > 0 || s.setHaveHandles {
 			if s.updateByteRanges {
 				msg.Msg = &pb.OrchestrateRequest_UpdateByteRanges_{
 					UpdateByteRanges: s.ranges,
@@ -107,6 +111,13 @@ func (s *Stream) writer(ctx context.Context) {
 					},
 				}
 				s.setHash = ""
+			} else if s.setHaveHandles {
+				msg.Msg = &pb.OrchestrateRequest_HaveOpenHandles_{
+					HaveOpenHandles: &pb.OrchestrateRequest_HaveOpenHandles{
+						HaveOpenHandles: s.haveHandles,
+					},
+				}
+				s.setHaveHandles = false
 			} else {
 				msg.Msg = &pb.OrchestrateRequest_UploadFailed_{
 					UploadFailed: &pb.OrchestrateRequest_UploadFailed{
@@ -155,6 +166,15 @@ func (s *Stream) SetHash(hash string) {
 	defer s.mtx.Unlock()
 	s.setHash = hash
 	s.cond.Broadcast()
+}
+
+func (s *Stream) SetHaveHandles(h bool) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	if s.haveHandles != h {
+		s.haveHandles = h
+		s.setHaveHandles = true
+	}
 }
 
 func (s *Stream) Close() error {

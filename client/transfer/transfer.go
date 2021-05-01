@@ -86,12 +86,13 @@ func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 		return nil, err
 	}
 	t := &Transfer{
-		circle:   common.CircleFromPeer(peers[0].Name),
-		storage:  &replaceableBackend{storage: c, wg: &sync.WaitGroup{}},
-		filename: remoteFilename,
-		hash:     maybeHash,
-		size:     size,
-		peers:    peers,
+		circle:      common.CircleFromPeer(peers[0].Name),
+		storage:     &replaceableBackend{storage: c, wg: &sync.WaitGroup{}},
+		filename:    remoteFilename,
+		hash:        maybeHash,
+		size:        size,
+		peers:       peers,
+		handlesChan: make(chan int),
 	}
 	t.readahead.Add(0, 1024)
 	t.init()
@@ -113,11 +114,12 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 		return nil, err
 	}
 	t := &Transfer{
-		circle:   circle,
-		storage:  &replaceableBackend{storage: f, wg: &sync.WaitGroup{}},
-		filename: remoteFilename,
-		hash:     maybeHash,
-		size:     st.Size(),
+		circle:      circle,
+		storage:     &replaceableBackend{storage: f, wg: &sync.WaitGroup{}},
+		filename:    remoteFilename,
+		hash:        maybeHash,
+		size:        st.Size(),
+		handlesChan: make(chan int),
 	}
 	t.have.Add(0, st.Size())
 	t.init()
@@ -167,8 +169,11 @@ type Transfer struct {
 	size         int64
 	peers        []*connectivity.Peer
 	killFetchers func()
+	handlesChan  chan int
 
 	mtx          sync.Mutex
+	handles      int
+	closed       bool
 	serveCond    *sync.Cond
 	fetchCond    *sync.Cond
 	have         intervals.Intervals
@@ -181,25 +186,105 @@ type Transfer struct {
 	passive      *passive.Transfer
 }
 
+type TransferHandle struct {
+	transfer *Transfer
+}
+
 func (t *Transfer) init() {
 	t.serveCond = sync.NewCond(&t.mtx)
 	t.fetchCond = sync.NewCond(&t.mtx)
 	t.killFetchers = func() {}
+
+	go t.openHandlesWatcher()
 	go func() {
-		for {
+		t.mtx.Lock()
+		for !t.closed {
+			t.mtx.Unlock()
 			time.Sleep(time.Second)
 			t.mtx.Lock()
 			log.Printf("Klikspaan: want: %v; have: %v", t.want.Export(), t.have.Export())
-			t.mtx.Unlock()
 		}
+		t.mtx.Unlock()
 	}()
+}
+
+func (t *Transfer) openHandlesWatcher() {
+	// Watch open handles. Keep the orchestrator informed whether this peer
+	// has handles open. Once there are no open handles and no orchestrator, close
+	// the transfer after a minute.
+
+	// Assume we start without any handles or an orchestration, since we are started
+	// in init()
+	for {
+		for {
+			handles := <-t.handlesChan
+			if handles > 0 {
+				t.mtx.Lock()
+				if t.orchestream != nil {
+					t.orchestream.SetHaveHandles(true)
+				}
+				t.mtx.Unlock()
+			} else if handles == 0 {
+				break
+			}
+		}
+		t.mtx.Lock()
+		if t.orchestream != nil {
+			t.orchestream.SetHaveHandles(false)
+			t.mtx.Unlock()
+			continue
+		}
+		t.mtx.Unlock()
+		// If nobody opens this transfer for a minute, and no orchestration is started on it,
+		// close it; otherwise, update the orchestration (if any) and restart
+		select {
+		case handles := <-t.handlesChan:
+			t.mtx.Lock()
+			if t.orchestream != nil {
+				t.orchestream.SetHaveHandles(handles > 0)
+			}
+			t.mtx.Unlock()
+		case <-time.After(60 * time.Second):
+			t.close()
+			return
+		}
+	}
 }
 
 func (t *Transfer) TransferIsRemote() bool {
 	return len(t.peers) > 0
 }
 
-func (t *Transfer) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+func (t *Transfer) GetHandle() *TransferHandle {
+	t.mtx.Lock()
+	if t.closed {
+		log.Panicf("GetHandle on a closed Transfer")
+	}
+	defer t.mtx.Unlock()
+	t.handles += 1
+	t.handlesChan <- t.handles
+	return &TransferHandle{t}
+}
+
+func (h *TransferHandle) Close() error {
+	t := h.transfer
+	if t == nil {
+		log.Panicf("close on a closed TransferHandle")
+	}
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	t.handles -= 1
+	t.handlesChan <- h.transfer.handles
+	t = nil
+	return nil
+}
+
+func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+	t := h.transfer
+	if t == nil {
+		log.Panicf("read on a closed TransferHandle")
+	}
+
 	startTime := time.Now()
 	var recvBytes int64
 	metrics.SetTransferReadsActive(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, 1))
@@ -356,12 +441,14 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	}
 	t.mtx.Lock()
 	t.orchestream = s
+	t.handlesChan <- t.handles
 	t.oInitiator = initiator
 	t.passive = pt
 	t.quitFetchers = true
 	t.killFetchers()
 	t.fetchCond.Broadcast()
 	t.byteRangesUpdated()
+	s.SetHaveHandles(t.handles > 0)
 	t.mtx.Unlock()
 	return nil
 }
@@ -437,14 +524,17 @@ func (t *Transfer) SetHash(hash string) {
 	t.mtx.Unlock()
 }
 
-func (t *Transfer) Close() error {
-	// TODO: close if no more clients have this file open
-	return nil
-}
+func (t *Transfer) close() error {
+	activeMtx.Lock()
+	delete(activeTransfers[t.circle], t.filename)
+	activeMtx.Unlock()
 
-func (t *Transfer) CloseImmediately() error {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
+	if t.handles > 0 {
+		panic("Closing Transfer while handles are still open")
+	}
+	t.closed = true
 	t.quitFetchers = true
 	t.killFetchers()
 	t.want = intervals.Intervals{}
