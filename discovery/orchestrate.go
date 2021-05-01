@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 
@@ -51,6 +52,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 	if msg.GetStartOrchestration() == nil {
 		return errors.New("expected start_orchestration to be set")
 	}
+	log.Printf("Orchestrate [%s] StartOrchestration: %s", peer, msg.GetStartOrchestration())
 	activeOrchestrationMtx.Lock()
 	o, ok := activeOrchestration[msg.GetStartOrchestration().GetDownloadId()]
 	if !ok {
@@ -118,6 +120,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		errCh <- c.writer()
 	}()
 	err = <-errCh
+	log.Printf("Orchestrate [%s] reader or writer thread died: %s", c.peer, err)
 	o.mtx.Lock()
 	c.disconnecting = true
 	o.scheduler.Disappeered(peer)
@@ -133,6 +136,7 @@ func (c *orchestrationClient) reader() error {
 	for {
 		msg, err := c.stream.Recv()
 		if err != nil {
+			log.Printf("Orchestrate [%s] reader died: %s", c.peer, err)
 			return err
 		}
 		c.o.mtx.Lock()
@@ -141,18 +145,22 @@ func (c *orchestrationClient) reader() error {
 			return errors.New("second Orchestrate call cancelled this one")
 		}
 		if msg.GetUpdateByteRanges() != nil {
+			log.Printf("Orchestrate [%s] UpdateByteRanges: %s", c.peer, msg.GetUpdateByteRanges())
 			c.o.scheduler.UpdateByteRanges(c.peer, msg.GetUpdateByteRanges())
 			c.o.schedCond.Broadcast()
 		}
 		if msg.GetConnectedPeers() != nil {
+			log.Printf("Orchestrate [%s] SetConnectedPeers: %s", c.peer, msg.GetConnectedPeers())
 			c.o.scheduler.SetConnectedPeers(c.peer, msg.GetConnectedPeers())
 			c.o.schedCond.Broadcast()
 		}
 		if msg.GetUploadFailed() != nil {
+			log.Printf("Orchestrate [%s] UploadFailed: %s", c.peer, msg.GetUploadFailed())
 			c.o.scheduler.UploadFailed(c.peer, msg.GetUploadFailed())
 			c.o.schedCond.Broadcast()
 		}
 		if msg.GetSetHash() != nil {
+			log.Printf("Orchestrate [%s] SetHash: %s", c.peer, msg.GetSetHash())
 			if !c.initiator {
 				c.o.mtx.Unlock()
 				return errors.New("you are not the initiator of this orchestration so can't set the hash")
@@ -201,6 +209,7 @@ func (c *orchestrationClient) writer() error {
 				c.updatePeerList = false
 			}
 			c.o.mtx.Unlock()
+			log.Printf("Orchestrate [%s] Sending: %s", c.peer, msg)
 			if err := c.stream.Send(msg); err != nil {
 				c.o.mtx.Lock()
 				return err
