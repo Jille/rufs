@@ -87,7 +87,7 @@ func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 	}
 	t := &Transfer{
 		circle:   common.CircleFromPeer(peers[0].Name),
-		storage:  &replaceableBackend{storage: c},
+		storage:  &replaceableBackend{storage: c, wg: &sync.WaitGroup{}},
 		filename: remoteFilename,
 		hash:     maybeHash,
 		size:     size,
@@ -114,7 +114,7 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 	}
 	t := &Transfer{
 		circle:   circle,
-		storage:  &replaceableBackend{storage: f},
+		storage:  &replaceableBackend{storage: f, wg: &sync.WaitGroup{}},
 		filename: remoteFilename,
 		hash:     maybeHash,
 		size:     st.Size(),
@@ -134,8 +134,7 @@ func (t *Transfer) SetLocalFile(localFilename, maybeHash string) error {
 		return err
 	}
 	t.mtx.Lock()
-	old := t.storage.replace(f)
-	old.Close()
+	t.storage.replace(f)
 	t.have.Add(0, st.Size())
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
@@ -462,12 +461,16 @@ func (t *Transfer) CloseImmediately() error {
 
 type replaceableBackend struct {
 	mtx     sync.Mutex
+	wg      *sync.WaitGroup
 	storage backend
 }
 
 func (r *replaceableBackend) WriteAt(p []byte, off int64) (n int, err error) {
 	r.mtx.Lock()
 	s := r.storage
+	wg := r.wg
+	wg.Add(1)
+	defer wg.Done()
 	r.mtx.Unlock()
 	return s.WriteAt(p, off)
 }
@@ -475,6 +478,9 @@ func (r *replaceableBackend) WriteAt(p []byte, off int64) (n int, err error) {
 func (r *replaceableBackend) ReadAt(p []byte, off int64) (n int, err error) {
 	r.mtx.Lock()
 	s := r.storage
+	wg := r.wg
+	wg.Add(1)
+	defer wg.Done()
 	r.mtx.Unlock()
 	return s.ReadAt(p, off)
 }
@@ -486,10 +492,17 @@ func (r *replaceableBackend) Close() error {
 	return s.Close()
 }
 
-func (r *replaceableBackend) replace(s backend) backend {
+func (r *replaceableBackend) replace(s backend) {
 	r.mtx.Lock()
 	old := r.storage
 	r.storage = s
+	wg := r.wg
+	r.wg = &sync.WaitGroup{}
 	r.mtx.Unlock()
-	return old
+	go func() {
+		wg.Wait()
+		if err := old.Close(); err != nil {
+			log.Printf("Failed to close old replaceableBackend: %v", err)
+		}
+	}()
 }
