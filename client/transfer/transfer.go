@@ -94,7 +94,11 @@ func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 		peers:       peers,
 		handlesChan: make(chan int, 10),
 	}
-	t.readahead.Add(0, 1024)
+	rhSize := int64(1024)
+	if rhSize > size {
+		rhSize = size
+	}
+	t.readahead.Add(0, rhSize)
 	t.init()
 	fctx, cancel := context.WithCancel(context.Background())
 	t.killFetchers = cancel
