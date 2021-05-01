@@ -201,8 +201,9 @@ func (t *Transfer) init() {
 		for !t.closed {
 			t.mtx.Unlock()
 			time.Sleep(time.Second)
+			downloadId := t.DownloadId()
 			t.mtx.Lock()
-			log.Printf("Klikspaan: want: %v; have: %v", t.want.Export(), t.have.Export())
+			log.Printf("Klikspaan{%d}: want: %v; have: %v", downloadId, t.want.Export(), t.have.Export())
 		}
 		t.mtx.Unlock()
 	}()
@@ -438,6 +439,23 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	return nil
 }
 
+func (t *Transfer) switchFromOrchestratedMode() {
+	t.mtx.Lock()
+	t.orchestream.Close()
+	t.orchestream = nil
+	t.handlesChan <- t.handles
+	t.passive.Close()
+	t.passive = nil
+	t.quitFetchers = false
+	if t.TransferIsRemote() {
+		fctx, cancel := context.WithCancel(context.Background())
+		t.killFetchers = cancel
+		go t.simpleFetcher(fctx)
+		go t.simpleFetcher(fctx)
+	}
+	t.mtx.Unlock()
+}
+
 func (t *Transfer) DownloadId() int64 {
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
@@ -483,11 +501,19 @@ func (pc passiveCallbacks) ReceivedBytes(start, end int64, peer string) {
 }
 
 func (pc passiveCallbacks) UploadFailed(peer string) {
+	pc.t.mtx.Lock()
 	pc.t.orchestream.UploadFailed(peer)
+	pc.t.mtx.Unlock()
 }
 
 func (pc passiveCallbacks) SetConnectedPeers(peers []string) {
+	pc.t.mtx.Lock()
 	pc.t.orchestream.SetConnectedPeers(peers)
+	pc.t.mtx.Unlock()
+}
+
+func (pc passiveCallbacks) OrchestrationClosed() {
+	pc.t.switchFromOrchestratedMode()
 }
 
 func (t *Transfer) GetHash() string {

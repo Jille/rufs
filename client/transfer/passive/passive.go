@@ -20,13 +20,13 @@ import (
 type backend interface {
 	io.ReaderAt
 	io.WriterAt
-	io.Closer
 }
 
 type TransferClient interface {
 	ReceivedBytes(start, end int64, peer string)
 	SetConnectedPeers(peers []string)
 	UploadFailed(peer string)
+	OrchestrationClosed()
 }
 
 func New(ctx context.Context, storage backend, downloadId int64, callbacks TransferClient) *Transfer {
@@ -291,6 +291,10 @@ func (t *Transfer) Upload(ctx context.Context, peer string, byteRange *pb.Range)
 	}
 	p.pendingTransmissions = append(p.pendingTransmissions, byteRange)
 	p.cond.Broadcast()
+}
+
+func (t *Transfer) OrchestrationClosed() {
+	t.callbacks.OrchestrationClosed()
 }
 
 func (t *Transfer) Close() error {
