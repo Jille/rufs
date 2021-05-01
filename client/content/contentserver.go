@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"os"
@@ -183,7 +184,11 @@ func (c *content) getLocalPath(shares []*config.Share, path string) (string, err
 	if err != nil {
 		// try not to return the original path
 		if pe, ok := err.(*os.PathError); ok {
-			return "", pe.Unwrap()
+			if errors.Is(pe, fs.ErrNotExist) || errors.Is(pe.Unwrap(), fs.ErrNotExist) {
+				return "", status.Error(codes.NotFound, pe.Unwrap().Error())
+			} else {
+				return "", pe.Unwrap()
+			}
 		} else {
 			return "", err
 		}
