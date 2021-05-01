@@ -144,7 +144,7 @@ func (t *Transfer) SetLocalFile(localFilename, maybeHash string) error {
 	t.have.Add(0, st.Size())
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
-	t.pending = intervals.Intervals{}
+	t.downloading = intervals.Intervals{}
 	if maybeHash != "" {
 		t.hash = maybeHash
 	}
@@ -183,7 +183,7 @@ type Transfer struct {
 	have         intervals.Intervals
 	want         intervals.Intervals
 	readahead    intervals.Intervals
-	pending      intervals.Intervals
+	downloading  intervals.Intervals
 	quitFetchers bool
 	orchestream  *orchestream.Stream
 	oInitiator   bool
@@ -304,7 +304,6 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 			recvBytes += m.End - m.Start
 		}
 		t.want.AddRange(missing)
-		t.pending.AddRange(missing)
 		t.byteRangesUpdated()
 		t.fetchCond.Broadcast()
 		for {
@@ -330,6 +329,7 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 }
 
 func (t *Transfer) simpleFetcher(ctx context.Context) {
+	const MAX_DOWNLOAD_SIZE = 1024 * 128
 	t.mtx.Lock()
 	pno := rand.Intn(len(t.peers))
 	for {
@@ -340,14 +340,17 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				t.mtx.Unlock()
 				return
 			}
-			p := t.pending.Export()
-			if len(p) > 0 {
-				iv = p[0]
-				t.pending.Remove(iv.Start, iv.End)
+			needsDownload := t.downloading.FindUncoveredRange(t.want)
+			if !needsDownload.IsEmpty() {
+				iv = needsDownload.Export()[0]
+				if iv.Size() > MAX_DOWNLOAD_SIZE {
+					iv.End = iv.Start + MAX_DOWNLOAD_SIZE
+				}
 				break
 			}
 			t.fetchCond.Wait()
 		}
+		t.downloading.Add(iv.Start, iv.End)
 		t.mtx.Unlock()
 		pno = (pno + 1) % len(t.peers)
 		stream, err := t.peers[pno].ContentServiceClient().ReadFile(ctx, &pb.ReadFileRequest{
@@ -361,6 +364,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 			log.Printf("ReadFile(%q) from %s failed: %v", t.filename, t.peers[pno].Name, err)
 			t.want.Remove(iv.Start, iv.End)
 			t.readahead.Remove(iv.Start, iv.End)
+			t.downloading.Remove(iv.Start, iv.End)
 			t.serveCond.Broadcast()
 			continue
 		}
@@ -370,12 +374,14 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 			res, err := stream.Recv()
 			if err != nil {
 				t.mtx.Lock()
-				if err == io.EOF || t.quitFetchers {
-					break
+				if offset < iv.End {
+					t.downloading.Remove(offset, iv.End)
 				}
-				log.Printf("ReadFile(%q).Recv() from %s failed: %v", t.filename, t.peers[pno].Name, err)
-				t.want.Remove(offset, iv.End)
-				t.readahead.Remove(offset, iv.End)
+				if err != io.EOF && !t.quitFetchers {
+					t.want.Remove(offset, iv.End)
+					t.readahead.Remove(offset, iv.End)
+					log.Printf("ReadFile(%q).Recv() from %s failed: %v", t.filename, t.peers[pno].Name, err)
+				}
 				t.byteRangesUpdated()
 				t.serveCond.Broadcast()
 				break
@@ -386,6 +392,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 					log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
 					t.want.Remove(offset, iv.End)
 					t.readahead.Remove(offset, iv.End)
+					t.downloading.Remove(iv.Start, iv.End)
 					t.byteRangesUpdated()
 					t.serveCond.Broadcast()
 					break
@@ -407,6 +414,7 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 	t.have.Add(start, end)
 	t.want.Remove(start, end)
 	t.readahead.Remove(start, end)
+	t.downloading.Remove(start, end)
 	t.byteRangesUpdated()
 	t.serveCond.Broadcast()
 	t.mtx.Unlock()
@@ -553,7 +561,7 @@ func (t *Transfer) close() error {
 	t.killFetchers()
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
-	t.pending = intervals.Intervals{}
+	t.downloading = intervals.Intervals{}
 	t.fetchCond.Broadcast()
 	t.serveCond.Broadcast()
 	if t.orchestream != nil {

@@ -12,6 +12,10 @@ type Interval struct {
 	Start, End int64
 }
 
+func (i *Interval) Size() int64 {
+	return i.End - i.Start
+}
+
 type Intervals struct {
 	ranges []Interval
 }
