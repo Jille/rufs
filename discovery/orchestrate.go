@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/ory/go-convenience/stringslice"
@@ -22,8 +23,10 @@ var (
 type orchestration struct {
 	discovery      *discovery
 	activeDownload *pb.ConnectResponse_ActiveDownload
+	handlesChan    chan struct{}
 
 	mtx         sync.Mutex
+	closing     bool
 	schedCond   *sync.Cond
 	connections map[string]*orchestrationClient
 	scheduler   *orchestrate.Orchestrator
@@ -38,6 +41,7 @@ type orchestrationClient struct {
 	updatePeerList bool
 	uploadCommands []*pb.OrchestrateResponse_UploadCommand
 	disconnecting  bool
+	hasOpenHandles bool
 }
 
 func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) error {
@@ -70,6 +74,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 			},
 			connections: map[string]*orchestrationClient{},
 			scheduler:   orchestrate.New(),
+			handlesChan: make(chan struct{}, 10),
 		}
 		o.schedCond = sync.NewCond(&o.mtx)
 		if msg.GetStartOrchestration().GetFilename() != "" {
@@ -82,6 +87,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		activeOrchestration[o.activeDownload.GetDownloadId()] = o
 		d.broadcastNewActiveDownloads()
 		go o.schedulerThread()
+		go o.cleanupThread()
 	} else if msg.GetStartOrchestration().GetFilename() != "" && !stringslice.Has(o.activeDownload.Filenames, msg.GetStartOrchestration().GetFilename()) {
 		nad := proto.Clone(o.activeDownload).(*pb.ConnectResponse_ActiveDownload)
 		nad.Filenames = append(nad.Filenames, msg.GetStartOrchestration().GetFilename())
@@ -107,6 +113,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 	c.cond = sync.NewCond(&o.mtx)
 	o.mtx.Lock()
 	o.connections[peer] = c
+	c.o.handlesChan <- struct{}{}
 	for _, conn := range o.connections {
 		conn.updatePeerList = true
 		conn.cond.Broadcast()
@@ -127,6 +134,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 	c.cond.Broadcast()
 	if o.connections[peer] == c {
 		delete(o.connections, peer)
+		c.o.handlesChan <- struct{}{}
 	}
 	o.mtx.Unlock()
 	return err
@@ -174,6 +182,11 @@ func (c *orchestrationClient) reader() error {
 			nad.Hash = msg.GetSetHash().GetHash()
 			c.o.activeDownload = nad
 			c.o.discovery.broadcastNewActiveDownloads()
+		}
+		if msg.GetHaveOpenHandles() != nil {
+			log.Printf("Orchestrate [%s] HaveOpenHandles: %t", c.peer, msg.GetHaveOpenHandles().GetHaveOpenHandles())
+			c.hasOpenHandles = msg.GetHaveOpenHandles().GetHaveOpenHandles()
+			c.o.handlesChan <- struct{}{}
 		}
 		c.o.mtx.Unlock()
 	}
@@ -232,8 +245,11 @@ func (c *orchestrationClient) writer() error {
 func (o *orchestration) schedulerThread() {
 	o.mtx.Lock()
 	defer o.mtx.Unlock()
-	for {
+	for !o.closing {
 		o.schedCond.Wait()
+		if o.closing {
+			break
+		}
 		transfers := o.scheduler.ComputeNewTransfers()
 		for p, uploads := range transfers {
 			if c, ok := o.connections[p]; ok {
@@ -252,5 +268,52 @@ func (o *orchestration) schedulerThread() {
 			}
 		}
 		log.Printf("New orchestate: %#v", o.scheduler)
+	}
+}
+
+func (o *orchestration) hasOpenHandles() bool {
+	// mtx is held
+	for _, client := range o.connections {
+		if client.hasOpenHandles {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *orchestration) cleanupThread() {
+	// Watch orchestration clients with open handles. Once there are no open
+	// handles, close the orchestration after a minute.
+	var deadline <-chan time.Time
+	o.mtx.Lock()
+	o.handlesChan <- struct{}{}
+	defer o.mtx.Unlock()
+	for !o.closing {
+		o.mtx.Unlock()
+		select {
+		case <-o.handlesChan:
+			o.mtx.Lock()
+			if o.hasOpenHandles() {
+				deadline = nil
+			} else {
+				deadline = time.After(60 * time.Second)
+			}
+		case <-deadline:
+			o.mtx.Lock()
+			o.close()
+		}
+	}
+}
+
+func (o *orchestration) close() {
+	activeOrchestrationMtx.Lock()
+	delete(activeOrchestration, o.activeDownload.DownloadId)
+	activeOrchestrationMtx.Unlock()
+
+	o.closing = true
+	o.schedCond.Broadcast()
+	for _, connection := range o.connections {
+		connection.disconnecting = true
+		connection.cond.Broadcast()
 	}
 }
