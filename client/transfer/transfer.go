@@ -92,7 +92,7 @@ func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 		hash:        maybeHash,
 		size:        size,
 		peers:       peers,
-		handlesChan: make(chan int),
+		handlesChan: make(chan int, 10),
 	}
 	t.readahead.Add(0, 1024)
 	t.init()
@@ -119,7 +119,7 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 		filename:    remoteFilename,
 		hash:        maybeHash,
 		size:        st.Size(),
-		handlesChan: make(chan int),
+		handlesChan: make(chan int, 10),
 	}
 	t.have.Add(0, st.Size())
 	t.init()
@@ -212,41 +212,26 @@ func (t *Transfer) openHandlesWatcher() {
 	// Watch open handles. Keep the orchestrator informed whether this peer
 	// has handles open. Once there are no open handles and no orchestrator, close
 	// the transfer after a minute.
-
-	// Assume we start without any handles or an orchestration, since we are started
-	// in init()
-	for {
-		for {
-			handles := <-t.handlesChan
-			if handles > 0 {
-				t.mtx.Lock()
-				if t.orchestream != nil {
-					t.orchestream.SetHaveHandles(true)
-				}
-				t.mtx.Unlock()
-			} else if handles == 0 {
-				break
-			}
-		}
-		t.mtx.Lock()
-		if t.orchestream != nil {
-			t.orchestream.SetHaveHandles(false)
-			t.mtx.Unlock()
-			continue
-		}
+	var deadline <-chan time.Time
+	t.mtx.Lock()
+	t.handlesChan <- t.handles
+	defer t.mtx.Unlock()
+	for !t.closed {
 		t.mtx.Unlock()
-		// If nobody opens this transfer for a minute, and no orchestration is started on it,
-		// close it; otherwise, update the orchestration (if any) and restart
 		select {
 		case handles := <-t.handlesChan:
 			t.mtx.Lock()
+			if handles == 0 && t.orchestream == nil {
+				deadline = time.After(60 * time.Second)
+			} else {
+				deadline = nil
+			}
 			if t.orchestream != nil {
 				t.orchestream.SetHaveHandles(handles > 0)
 			}
-			t.mtx.Unlock()
-		case <-time.After(60 * time.Second):
+		case <-deadline:
+			t.mtx.Lock()
 			t.close()
-			return
 		}
 	}
 }
@@ -525,12 +510,11 @@ func (t *Transfer) SetHash(hash string) {
 }
 
 func (t *Transfer) close() error {
+	// t.mtx is held
 	activeMtx.Lock()
 	delete(activeTransfers[t.circle], t.filename)
 	activeMtx.Unlock()
 
-	t.mtx.Lock()
-	defer t.mtx.Unlock()
 	if t.handles > 0 {
 		panic("Closing Transfer while handles are still open")
 	}
