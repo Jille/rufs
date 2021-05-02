@@ -19,6 +19,7 @@ func handleResolveConflictRequest(ctx context.Context, req *pb.ResolveConflictRe
 }
 
 func handleResolveConflictRequestImpl(ctx context.Context, req *pb.ResolveConflictRequest, circle string) error {
+	// TODO: Replace this all with a call to StartHash()?
 	localPath, err := resolveRemotePath(circle, req.GetFilename())
 	if err != nil {
 		return err

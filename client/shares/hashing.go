@@ -8,23 +8,25 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	pb "github.com/sgielen/rufs/proto"
 )
 
-type hashListener func(circle, remotePath, hash string)
+type hashListener func(circle, remoteFilename, hash string)
+
+type callbackInfo struct {
+	circle, remoteFilename, hash string
+}
 
 var (
 	hashQueue    = make(chan hashRequest, 1000)
 	hashCacheMtx sync.Mutex
 	hashCache    = map[string]cachedHash{}
-	listeners    []hashListener
+	listeners    []chan callbackInfo
 )
 
 type hashRequest struct {
-	local    string
-	remote   string
-	download *pb.ConnectResponse_ActiveDownload
+	circle string
+	local  string
+	remote string
 }
 
 type cachedHash struct {
@@ -33,21 +35,51 @@ type cachedHash struct {
 	size  int64
 }
 
-func StartHash(circle, remotePath string) {
+func StartHash(circle, remoteFilename string) {
+	local, err := resolveRemotePath(circle, remoteFilename)
+	if err != nil {
+		log.Printf("StartHash(%q, %q): resolveRemotePath(): %v", circle, remoteFilename, err)
+		return
+	}
+	select {
+	case hashQueue <- hashRequest{
+		circle: circle,
+		local:  local,
+		remote: remoteFilename,
+	}:
+	default:
+		log.Printf("StartHash(%q, %q): hash queue overflow", circle, remoteFilename)
+	}
 }
 
 func RegisterHashListener(callback hashListener) {
+	ch := make(chan callbackInfo, 1000)
+	go func() {
+		for ci := range ch {
+			callback(ci.circle, ci.remoteFilename, ci.hash)
+		}
+	}()
 	hashCacheMtx.Lock()
+	listeners = append(listeners, ch)
 	hashCacheMtx.Unlock()
-	listeners = append(listeners, callback)
 }
 
 func hashWorker() {
 	for req := range hashQueue {
-		_, err := hashFile(req.local)
+		hash, err := hashFile(req.local)
 		if err != nil {
 			log.Printf("Failed to hash %q: %v", req.local, err)
 			continue
+		}
+		hashCacheMtx.Lock()
+		li := listeners
+		hashCacheMtx.Unlock()
+		for _, l := range li {
+			l <- callbackInfo{
+				circle:         req.circle,
+				remoteFilename: req.remote,
+				hash:           hash,
+			}
 		}
 	}
 }
