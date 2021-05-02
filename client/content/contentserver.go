@@ -329,8 +329,12 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 			}
 		}
 
+		id := t.DownloadId()
+		if id == 0 {
+			panic("Wanted to redirect to download_id 0")
+		}
 		if err := stream.Send(&pb.ReadFileResponse{
-			RedirectToOrchestratedDownload: t.DownloadId(),
+			RedirectToOrchestratedDownload: id,
 		}); err != nil {
 			return err
 		}
