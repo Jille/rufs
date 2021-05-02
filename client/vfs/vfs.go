@@ -13,7 +13,7 @@ import (
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
-	"github.com/sgielen/rufs/client/transfer"
+	"github.com/sgielen/rufs/client/transfers"
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 	"google.golang.org/grpc/codes"
@@ -75,7 +75,7 @@ func Open(ctx context.Context, path string) (Handle, error) {
 			content: file.FixedContent,
 		}, nil
 	}
-	t, err := transfer.OpenRemoteFile(ctx, path, file.Hash, file.Size, file.Peers)
+	t, err := transfers.GetTransferForFile(ctx, path, file.Hash, file.Size, file.Peers)
 	if err != nil {
 		return nil, err
 	}

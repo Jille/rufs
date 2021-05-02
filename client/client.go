@@ -9,6 +9,7 @@ import (
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
+	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/common"
@@ -34,6 +35,7 @@ func main() {
 	}
 	config.MustLoadConfig()
 	metrics.Init()
+	shares.Init()
 
 	circles := map[string]*security.KeyPair{}
 	var kps []*security.KeyPair

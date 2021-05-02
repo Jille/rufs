@@ -27,57 +27,10 @@ import (
 var (
 	activeReadCounter int64
 
-	activeMtx       sync.Mutex
-	activeTransfers = map[string]map[string]*Transfer{}
+	ForgetCallback func(circle string, t *Transfer)
 )
 
-func GetTransferForDownloadId(circle string, downloadId int64) *Transfer {
-	activeMtx.Lock()
-	defer activeMtx.Unlock()
-	for _, t := range activeTransfers[circle] {
-		if t.DownloadId() == downloadId {
-			return t
-		}
-	}
-	return nil
-}
-
-func GetActiveTransfer(circle, remoteFilename string) *Transfer {
-	activeMtx.Lock()
-	defer activeMtx.Unlock()
-	return activeTransfers[circle][remoteFilename]
-}
-
-func getOrCreateActiveTransfer(circle, remoteFilename string, create func() (*Transfer, error)) (*Transfer, error) {
-	activeMtx.Lock()
-	defer activeMtx.Unlock()
-	if t, ok := activeTransfers[circle][remoteFilename]; ok {
-		return t, nil
-	}
-	if _, found := activeTransfers[circle]; !found {
-		activeTransfers[circle] = map[string]*Transfer{}
-	}
-	t, err := create()
-	if err != nil {
-		return nil, err
-	}
-	activeTransfers[circle][remoteFilename] = t
-	return t, nil
-}
-
-func OpenRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
-	return getOrCreateActiveTransfer(common.CircleFromPeer(peers[0].Name), remoteFilename, func() (*Transfer, error) {
-		return newRemoteFile(ctx, remoteFilename, maybeHash, size, peers)
-	})
-}
-
-func OpenLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Transfer, error) {
-	return getOrCreateActiveTransfer(circle, remoteFilename, func() (*Transfer, error) {
-		return newLocalFile(remoteFilename, localFilename, maybeHash, circle)
-	})
-}
-
-func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
+func NewRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
 	defer func() {
 		metrics.AddTransferOpens(connectivity.CirclesFromPeers(peers), status.Code(retErr).String(), 1)
 	}()
@@ -103,11 +56,7 @@ func newRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 	return t, nil
 }
 
-func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Transfer, error) {
-	f, err := os.Open(localFilename)
-	if err != nil {
-		return nil, err
-	}
+func NewLocalFile(remoteFilename string, f *os.File, maybeHash, circle string) (*Transfer, error) {
 	st, err := f.Stat()
 	if err != nil {
 		f.Close()
@@ -126,11 +75,7 @@ func newLocalFile(remoteFilename, localFilename, maybeHash, circle string) (*Tra
 	return t, nil
 }
 
-func (t *Transfer) SetLocalFile(localFilename, maybeHash string) error {
-	f, err := os.Open(localFilename)
-	if err != nil {
-		return err
-	}
+func (t *Transfer) SetLocalFile(f *os.File, maybeHash string) error {
 	st, err := f.Stat()
 	if err != nil {
 		return err
@@ -511,9 +456,7 @@ func (t *Transfer) SetHash(hash string) {
 
 func (t *Transfer) close() error {
 	// t.mtx is held
-	activeMtx.Lock()
-	delete(activeTransfers[t.circle], t.filename)
-	activeMtx.Unlock()
+	ForgetCallback(t.circle, t)
 
 	if t.handles > 0 {
 		panic("Closing Transfer while handles are still open")
