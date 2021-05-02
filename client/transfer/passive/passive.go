@@ -98,7 +98,13 @@ func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 		if !keep[p] {
 			continue
 		}
-		close(pe.quit)
+		pe.mtx.Lock()
+		select {
+		case <-pe.quit:
+		default:
+			close(pe.quit)
+		}
+		pe.mtx.Unlock()
 		delete(t.peers, p)
 	}
 }
