@@ -95,7 +95,7 @@ func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 		t.addPeer(p)
 	}
 	for p, pe := range t.peers {
-		if !keep[p] {
+		if keep[p] {
 			continue
 		}
 		pe.mtx.Lock()
