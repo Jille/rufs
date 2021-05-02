@@ -122,12 +122,10 @@ func HandleActiveDownloadList(ctx context.Context, req *pb.ConnectResponse_Activ
 
 func (c *circle) findPathForActiveDownload(ad *pb.ConnectResponse_ActiveDownload) (string, bool) {
 	for _, remoteFilename := range ad.GetFilenames() {
-		// TODO: Add shares.Exists or something.
-		fh, err := shares.Open(c.name, remoteFilename)
+		_, err := shares.Stat(c.name, remoteFilename)
 		if err != nil {
 			continue
 		}
-		fh.Close()
 		return remoteFilename, true
 	}
 	return "", false

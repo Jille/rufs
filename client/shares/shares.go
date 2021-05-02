@@ -104,6 +104,14 @@ func Open(circle, remotePath string) (*os.File, error) {
 	return fh, nil
 }
 
+func Stat(circle, remotePath string) (os.FileInfo, error) {
+	localPath, err := resolveRemotePath(circle, remotePath)
+	if err != nil {
+		return nil, err
+	}
+	return os.Stat(localPath)
+}
+
 func Readdir(circle, remotePath string) ([]*pb.File, error) {
 	var ret []*pb.File
 	if remotePath == "" {
