@@ -82,6 +82,7 @@ func IsLocalFileOrchestrated(circle, remoteFilename string) (int64, bool) {
 func SwitchToOrchestratedMode(circle, remoteFilename string) (int64, error) {
 	mtx.Lock()
 	defer mtx.Unlock()
+	shares.StartHash(circle, remoteFilename)
 	c := getCircle(circle)
 	t, err := c.makeTransferWithLocalfile(c.byRemoteFilename[remoteFilename], remoteFilename, "")
 	if err != nil {
@@ -152,6 +153,10 @@ func (c *circle) hashListener(circle, remoteFilename, hash string) {
 	}
 	mtx.Lock()
 	defer mtx.Unlock()
+	if t, ok := c.byRemoteFilename[remoteFilename]; ok {
+		t.SetHash(hash)
+	}
+
 	ad, ok := c.interestingActiveDownloads[remoteFilename]
 	if !ok {
 		return
