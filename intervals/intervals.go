@@ -12,6 +12,10 @@ type Interval struct {
 	Start, End int64
 }
 
+func (i *Interval) Size() int64 {
+	return i.End - i.Start
+}
+
 type Intervals struct {
 	ranges []Interval
 }
@@ -64,6 +68,12 @@ func (is *Intervals) Remove(s, e int64) {
 	is.ranges = newRanges
 }
 
+func (is *Intervals) RemoveRange(other Intervals) {
+	for _, i := range other.ranges {
+		is.Remove(i.Start, i.End)
+	}
+}
+
 func (is *Intervals) Has(s, e int64) bool {
 	if s >= e {
 		log.Panicf("Invalid call to Intervals.Has(%d, %d)", s, e)
@@ -77,8 +87,10 @@ func (is *Intervals) Has(s, e int64) bool {
 }
 
 func (is *Intervals) FindUncovered(s, e int64) Intervals {
-	if s >= e {
+	if s > e {
 		log.Panicf("Invalid call to Intervals.FindUncovered(%d, %d)", s, e)
+	} else if s == e {
+		return Intervals{}
 	}
 
 	res := Intervals{}

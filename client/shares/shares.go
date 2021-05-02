@@ -1,7 +1,6 @@
 package shares
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ func Open(circle, remotePath string) (*os.File, error) {
 	}
 	fh, err := os.Open(localPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return nil, status.Errorf(codes.NotFound, "file %q not found", remotePath)
 		}
 		return nil, status.Errorf(codes.ResourceExhausted, "failed to open %q: %v", remotePath, err)

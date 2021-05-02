@@ -3,6 +3,7 @@ package orchestream
 
 import (
 	"context"
+	"io"
 	"sync"
 
 	"github.com/sgielen/rufs/client/connectivity"
@@ -13,6 +14,7 @@ type StreamClient interface {
 	Welcome(downloadId int64)
 	SetPeers(ctx context.Context, peers []string)
 	Upload(ctx context.Context, peer string, byteRange *pb.Range)
+	OrchestrationClosed()
 }
 
 func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartOrchestrationRequest, callbacks StreamClient) (*Stream, error) {
@@ -73,6 +75,11 @@ type Stream struct {
 func (s *Stream) reader(ctx context.Context) {
 	for {
 		msg, err := s.stream.Recv()
+		if err == io.EOF {
+			s.stream.CloseSend()
+			s.callbacks.OrchestrationClosed()
+			return
+		}
 		if err != nil {
 			// TODO: reconnect
 			panic(err)
@@ -128,9 +135,12 @@ func (s *Stream) writer(ctx context.Context) {
 			}
 			s.mtx.Unlock()
 			if err := s.stream.Send(msg); err != nil {
-				s.mtx.Lock()
-				// TODO: reconnect?
-				panic(err)
+				if err == io.EOF {
+					// ignore, reader will find it soon
+				} else {
+					// TODO: reconnect?
+					panic(err)
+				}
 			}
 			s.mtx.Lock()
 		}
@@ -174,6 +184,7 @@ func (s *Stream) SetHaveHandles(h bool) {
 	if s.haveHandles != h {
 		s.haveHandles = h
 		s.setHaveHandles = true
+		s.cond.Broadcast()
 	}
 }
 

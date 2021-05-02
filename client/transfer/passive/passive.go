@@ -20,13 +20,13 @@ import (
 type backend interface {
 	io.ReaderAt
 	io.WriterAt
-	io.Closer
 }
 
 type TransferClient interface {
 	ReceivedBytes(start, end int64, peer string)
 	SetConnectedPeers(peers []string)
 	UploadFailed(peer string)
+	OrchestrationClosed()
 }
 
 func New(ctx context.Context, storage backend, downloadId int64, callbacks TransferClient) *Transfer {
@@ -95,10 +95,16 @@ func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 		t.addPeer(p)
 	}
 	for p, pe := range t.peers {
-		if !keep[p] {
+		if keep[p] {
 			continue
 		}
-		close(pe.quit)
+		pe.mtx.Lock()
+		select {
+		case <-pe.quit:
+		default:
+			close(pe.quit)
+		}
+		pe.mtx.Unlock()
 		delete(t.peers, p)
 	}
 }
@@ -284,13 +290,24 @@ func (t *Transfer) Upload(ctx context.Context, peer string, byteRange *pb.Range)
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	p, ok := t.peers[peer]
-	if !ok || p.connectedStreams == 0 {
-		log.Printf("Requested upload failed: peer not known or not connected")
+	if !ok {
+		log.Printf("Requested upload failed: peer not known")
+		t.callbacks.UploadFailed(peer)
+		return
+	}
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	if p.connectedStreams == 0 {
+		log.Printf("Requested upload failed: peer not connected")
 		t.callbacks.UploadFailed(peer)
 		return
 	}
 	p.pendingTransmissions = append(p.pendingTransmissions, byteRange)
 	p.cond.Broadcast()
+}
+
+func (t *Transfer) OrchestrationClosed() {
+	t.callbacks.OrchestrationClosed()
 }
 
 func (t *Transfer) Close() error {

@@ -47,7 +47,11 @@ func NewRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size i
 		peers:       peers,
 		handlesChan: make(chan int, 10),
 	}
-	t.readahead.Add(0, 1024)
+	rhSize := int64(1024)
+	if rhSize > size {
+		rhSize = size
+	}
+	t.readahead.Add(0, rhSize)
 	t.init()
 	fctx, cancel := context.WithCancel(context.Background())
 	t.killFetchers = cancel
@@ -85,7 +89,7 @@ func (t *Transfer) SetLocalFile(f *os.File, maybeHash string) error {
 	t.have.Add(0, st.Size())
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
-	t.pending = intervals.Intervals{}
+	t.downloading = intervals.Intervals{}
 	if maybeHash != "" {
 		t.hash = maybeHash
 	}
@@ -124,7 +128,7 @@ type Transfer struct {
 	have         intervals.Intervals
 	want         intervals.Intervals
 	readahead    intervals.Intervals
-	pending      intervals.Intervals
+	downloading  intervals.Intervals
 	quitFetchers bool
 	orchestream  *orchestream.Stream
 	oInitiator   bool
@@ -146,8 +150,9 @@ func (t *Transfer) init() {
 		for !t.closed {
 			t.mtx.Unlock()
 			time.Sleep(time.Second)
+			downloadId := t.DownloadId()
 			t.mtx.Lock()
-			log.Printf("Klikspaan: want: %v; have: %v", t.want.Export(), t.have.Export())
+			log.Printf("Klikspaan{%d}: have: %v; want: %v; ahead: %v; downloading: %v", downloadId, t.have.Export(), t.want.Export(), t.readahead.Export(), t.downloading.Export())
 		}
 		t.mtx.Unlock()
 	}()
@@ -210,6 +215,7 @@ func (h *TransferHandle) Close() error {
 }
 
 func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+	const MIN_READAHEAD_SIZE = 1024 * 32
 	t := h.transfer
 	if t == nil {
 		log.Panicf("read on a closed TransferHandle")
@@ -234,25 +240,38 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 	if offset+size > t.size {
 		size = t.size - offset
 	}
-	if size == 0 {
+	// sizeAhead is the read-ahead size after offset+size. By default, we set it
+	// to the same size as the requested block, assuming the next Read call will
+	// ask for an equal-sized block. Readahead blocks are sent to clients with a
+	// lower priority than readnow blocks.
+	sizeAhead := size
+	if sizeAhead < MIN_READAHEAD_SIZE {
+		// If the size is very small, read ahead a little further, since the client
+		// may ask for it sooner
+		sizeAhead = MIN_READAHEAD_SIZE
+	}
+	if offset+size+sizeAhead > t.size {
+		sizeAhead = t.size - (offset + size)
+	}
+	if size == 0 && sizeAhead == 0 {
 		return nil, nil
 	}
 	t.mtx.Lock()
 	missing := t.have.FindUncovered(offset, offset+size)
-	if !missing.IsEmpty() {
+	missingAhead := t.have.FindUncovered(offset+size, offset+size+sizeAhead)
+	if !missing.IsEmpty() || !missingAhead.IsEmpty() {
 		for _, m := range missing.Export() {
 			recvBytes += m.End - m.Start
 		}
 		t.want.AddRange(missing)
-		t.pending.AddRange(missing)
+		t.readahead.AddRange(missingAhead)
+		// Prevent overlap between want & readahead
+		t.readahead.RemoveRange(t.want)
 		t.byteRangesUpdated()
 		t.fetchCond.Broadcast()
-		for {
+		for !missing.IsEmpty() {
 			t.serveCond.Wait()
 			missing = t.have.FindUncovered(offset, offset+size)
-			if missing.IsEmpty() {
-				break
-			}
 			missingWant := t.want.FindUncoveredRange(missing)
 			if !missingWant.IsEmpty() {
 				t.mtx.Unlock()
@@ -270,6 +289,7 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 }
 
 func (t *Transfer) simpleFetcher(ctx context.Context) {
+	const MAX_DOWNLOAD_SIZE = 1024 * 128
 	t.mtx.Lock()
 	pno := rand.Intn(len(t.peers))
 	for {
@@ -280,14 +300,20 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				t.mtx.Unlock()
 				return
 			}
-			p := t.pending.Export()
-			if len(p) > 0 {
-				iv = p[0]
-				t.pending.Remove(iv.Start, iv.End)
+			needsDownload := t.downloading.FindUncoveredRange(t.want)
+			if needsDownload.IsEmpty() {
+				needsDownload = t.downloading.FindUncoveredRange(t.readahead)
+			}
+			if !needsDownload.IsEmpty() {
+				iv = needsDownload.Export()[0]
+				if iv.Size() > MAX_DOWNLOAD_SIZE {
+					iv.End = iv.Start + MAX_DOWNLOAD_SIZE
+				}
 				break
 			}
 			t.fetchCond.Wait()
 		}
+		t.downloading.Add(iv.Start, iv.End)
 		t.mtx.Unlock()
 		pno = (pno + 1) % len(t.peers)
 		stream, err := t.peers[pno].ContentServiceClient().ReadFile(ctx, &pb.ReadFileRequest{
@@ -301,6 +327,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 			log.Printf("ReadFile(%q) from %s failed: %v", t.filename, t.peers[pno].Name, err)
 			t.want.Remove(iv.Start, iv.End)
 			t.readahead.Remove(iv.Start, iv.End)
+			t.downloading.Remove(iv.Start, iv.End)
 			t.serveCond.Broadcast()
 			continue
 		}
@@ -310,12 +337,14 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 			res, err := stream.Recv()
 			if err != nil {
 				t.mtx.Lock()
-				if err == io.EOF || t.quitFetchers {
-					break
+				if offset < iv.End {
+					t.downloading.Remove(offset, iv.End)
 				}
-				log.Printf("ReadFile(%q).Recv() from %s failed: %v", t.filename, t.peers[pno].Name, err)
-				t.want.Remove(offset, iv.End)
-				t.readahead.Remove(offset, iv.End)
+				if err != io.EOF && !t.quitFetchers {
+					t.want.Remove(offset, iv.End)
+					t.readahead.Remove(offset, iv.End)
+					log.Printf("ReadFile(%q).Recv() from %s failed: %v", t.filename, t.peers[pno].Name, err)
+				}
 				t.byteRangesUpdated()
 				t.serveCond.Broadcast()
 				break
@@ -326,6 +355,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 					log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
 					t.want.Remove(offset, iv.End)
 					t.readahead.Remove(offset, iv.End)
+					t.downloading.Remove(iv.Start, iv.End)
 					t.byteRangesUpdated()
 					t.serveCond.Broadcast()
 					break
@@ -347,6 +377,7 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 	t.have.Add(start, end)
 	t.want.Remove(start, end)
 	t.readahead.Remove(start, end)
+	t.downloading.Remove(start, end)
 	t.byteRangesUpdated()
 	t.serveCond.Broadcast()
 	t.mtx.Unlock()
@@ -354,7 +385,9 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 }
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
-	if downloadId == t.DownloadId() && downloadId != 0 {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	if t.orchestream != nil && t.orchestream.DownloadId == downloadId {
 		return nil
 	}
 
@@ -369,7 +402,6 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	if err != nil {
 		return err
 	}
-	t.mtx.Lock()
 	t.orchestream = s
 	t.handlesChan <- t.handles
 	t.oInitiator = initiator
@@ -379,8 +411,24 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	t.fetchCond.Broadcast()
 	t.byteRangesUpdated()
 	s.SetHaveHandles(t.handles > 0)
-	t.mtx.Unlock()
 	return nil
+}
+
+func (t *Transfer) switchFromOrchestratedMode() {
+	t.mtx.Lock()
+	t.orchestream.Close()
+	t.orchestream = nil
+	t.handlesChan <- t.handles
+	t.passive.Close()
+	t.passive = nil
+	t.quitFetchers = false
+	if t.TransferIsRemote() {
+		fctx, cancel := context.WithCancel(context.Background())
+		t.killFetchers = cancel
+		go t.simpleFetcher(fctx)
+		go t.simpleFetcher(fctx)
+	}
+	t.mtx.Unlock()
 }
 
 func (t *Transfer) DownloadId() int64 {
@@ -428,11 +476,23 @@ func (pc passiveCallbacks) ReceivedBytes(start, end int64, peer string) {
 }
 
 func (pc passiveCallbacks) UploadFailed(peer string) {
-	pc.t.orchestream.UploadFailed(peer)
+	pc.t.mtx.Lock()
+	if pc.t.orchestream != nil {
+		pc.t.orchestream.UploadFailed(peer)
+	}
+	pc.t.mtx.Unlock()
 }
 
 func (pc passiveCallbacks) SetConnectedPeers(peers []string) {
-	pc.t.orchestream.SetConnectedPeers(peers)
+	pc.t.mtx.Lock()
+	if pc.t.orchestream != nil {
+		pc.t.orchestream.SetConnectedPeers(peers)
+	}
+	pc.t.mtx.Unlock()
+}
+
+func (pc passiveCallbacks) OrchestrationClosed() {
+	pc.t.switchFromOrchestratedMode()
 }
 
 func (t *Transfer) GetHash() string {
@@ -466,7 +526,7 @@ func (t *Transfer) close() error {
 	t.killFetchers()
 	t.want = intervals.Intervals{}
 	t.readahead = intervals.Intervals{}
-	t.pending = intervals.Intervals{}
+	t.downloading = intervals.Intervals{}
 	t.fetchCond.Broadcast()
 	t.serveCond.Broadcast()
 	if t.orchestream != nil {
