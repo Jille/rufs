@@ -352,7 +352,11 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 			if len(res.Data) > 0 {
 				if _, err := t.storage.WriteAt(res.Data, offset); err != nil {
 					t.mtx.Lock()
-					log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
+					if !strings.Contains(err.Error(), "bad file descriptor") {
+						// This happens after SetLocalFile() was called, at which point t.storage becomes readonly.
+						// This is harmless.
+						log.Printf("ReadFile(%q): Write to cache failed: %v", t.filename, err)
+					}
 					t.want.Remove(offset, iv.End)
 					t.readahead.Remove(offset, iv.End)
 					t.downloading.Remove(iv.Start, iv.End)
