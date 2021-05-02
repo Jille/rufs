@@ -207,7 +207,7 @@ func (t *Transfer) init() {
 			time.Sleep(time.Second)
 			downloadId := t.DownloadId()
 			t.mtx.Lock()
-			log.Printf("Klikspaan{%d}: want: %v; have: %v", downloadId, t.want.Export(), t.have.Export())
+			log.Printf("Klikspaan{%d}: have: %v; want: %v; ahead: %v; downloading: %v", downloadId, t.have.Export(), t.want.Export(), t.readahead.Export(), t.downloading.Export())
 		}
 		t.mtx.Unlock()
 	}()
