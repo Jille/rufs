@@ -101,7 +101,7 @@ func SwitchToOrchestratedMode(circle, remoteFilename string) (int64, error) {
 	if id == 0 {
 		panic("Just joined a download and now its id is 0?")
 	}
-	log.Printf("Have joined %d on request of our contentserver", id)
+	log.Printf("Have created %d on request of our contentserver", id)
 	c.byId[id] = t
 	c.byRemoteFilename[remoteFilename] = t
 	return id, nil
