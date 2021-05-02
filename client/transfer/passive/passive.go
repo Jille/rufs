@@ -290,8 +290,15 @@ func (t *Transfer) Upload(ctx context.Context, peer string, byteRange *pb.Range)
 	t.mtx.Lock()
 	defer t.mtx.Unlock()
 	p, ok := t.peers[peer]
-	if !ok || p.connectedStreams == 0 {
-		log.Printf("Requested upload failed: peer not known or not connected")
+	if !ok {
+		log.Printf("Requested upload failed: peer not known")
+		t.callbacks.UploadFailed(peer)
+		return
+	}
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+	if p.connectedStreams == 0 {
+		log.Printf("Requested upload failed: peer not connected")
 		t.callbacks.UploadFailed(peer)
 		return
 	}
