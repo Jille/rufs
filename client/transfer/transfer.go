@@ -422,7 +422,9 @@ func (t *Transfer) receivedBytes(start, end int64, transferType string, peer str
 }
 
 func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
-	if downloadId == t.DownloadId() && downloadId != 0 {
+	t.mtx.Lock()
+	defer t.mtx.Unlock()
+	if t.orchestream != nil && t.orchestream.DownloadId == downloadId {
 		return nil
 	}
 
@@ -437,7 +439,6 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	if err != nil {
 		return err
 	}
-	t.mtx.Lock()
 	t.orchestream = s
 	t.handlesChan <- t.handles
 	t.oInitiator = initiator
@@ -447,7 +448,6 @@ func (t *Transfer) SwitchToOrchestratedMode(downloadId int64) error {
 	t.fetchCond.Broadcast()
 	t.byteRangesUpdated()
 	s.SetHaveHandles(t.handles > 0)
-	t.mtx.Unlock()
 	return nil
 }
 
