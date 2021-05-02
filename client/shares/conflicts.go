@@ -32,7 +32,7 @@ func handleResolveConflictRequestImpl(ctx context.Context, req *pb.ResolveConfli
 	}
 
 	select {
-	case hashQueue <- hashRequest{local: localPath, remote: req.GetFilename()}:
+	case hashQueue <- hashRequest{localFilename: localPath, remote: req.GetFilename()}:
 		return nil
 	default:
 		return errors.New("hash queue overflow")

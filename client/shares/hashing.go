@@ -24,9 +24,9 @@ var (
 )
 
 type hashRequest struct {
-	circle string
-	local  string
-	remote string
+	circle        string
+	localFilename string
+	remote        string
 }
 
 type cachedHash struct {
@@ -36,16 +36,16 @@ type cachedHash struct {
 }
 
 func StartHash(circle, remoteFilename string) {
-	local, err := resolveRemotePath(circle, remoteFilename)
+	localFilename, err := resolveRemotePath(circle, remoteFilename)
 	if err != nil {
 		log.Printf("StartHash(%q, %q): resolveRemotePath(): %v", circle, remoteFilename, err)
 		return
 	}
 	select {
 	case hashQueue <- hashRequest{
-		circle: circle,
-		local:  local,
-		remote: remoteFilename,
+		circle:        circle,
+		localFilename: localFilename,
+		remote:        remoteFilename,
 	}:
 	default:
 		log.Printf("StartHash(%q, %q): hash queue overflow", circle, remoteFilename)
@@ -66,9 +66,9 @@ func RegisterHashListener(callback hashListener) {
 
 func hashWorker() {
 	for req := range hashQueue {
-		hash, err := hashFile(req.local)
+		hash, err := hashFile(req.localFilename)
 		if err != nil {
-			log.Printf("Failed to hash %q: %v", req.local, err)
+			log.Printf("Failed to hash %q: %v", req.localFilename, err)
 			continue
 		}
 		hashCacheMtx.Lock()
@@ -84,30 +84,30 @@ func hashWorker() {
 	}
 }
 
-func getFileHashWithStat(fn string) (string, error) {
+func getFileHashWithStat(localFilename string) (string, error) {
 	var err error
-	st, err := os.Stat(fn)
+	st, err := os.Stat(localFilename)
 	if err != nil {
 		return "", err
 	}
-	return getFileHash(fn, st), nil
+	return getFileHash(localFilename, st), nil
 }
 
-func getFileHash(fn string, st os.FileInfo) string {
+func getFileHash(localFilename string, st os.FileInfo) string {
 	hashCacheMtx.Lock()
 	defer hashCacheMtx.Unlock()
-	h, ok := hashCache[fn]
+	h, ok := hashCache[localFilename]
 	if ok && h.mtime == st.ModTime() && h.size == st.Size() {
 		return h.hash
 	}
 	if ok {
-		delete(hashCache, fn)
+		delete(hashCache, localFilename)
 	}
 	return ""
 }
 
-func hashFile(fn string) (string, error) {
-	fh, err := os.Open(fn)
+func hashFile(localFilename string) (string, error) {
+	fh, err := os.Open(localFilename)
 	if err != nil {
 		return "", err
 	}
@@ -116,7 +116,7 @@ func hashFile(fn string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if h := getFileHash(fn, st); h != "" {
+	if h := getFileHash(localFilename, st); h != "" {
 		// We already have the latest hash.
 		return h, nil
 	}
@@ -126,7 +126,7 @@ func hashFile(fn string) (string, error) {
 	}
 	hash := fmt.Sprintf("%x", h.Sum(nil))
 	hashCacheMtx.Lock()
-	hashCache[fn] = cachedHash{
+	hashCache[localFilename] = cachedHash{
 		hash:  hash,
 		mtime: st.ModTime(),
 		size:  st.Size(),
