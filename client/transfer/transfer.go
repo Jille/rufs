@@ -532,13 +532,17 @@ func (pc passiveCallbacks) ReceivedBytes(start, end int64, peer string) {
 
 func (pc passiveCallbacks) UploadFailed(peer string) {
 	pc.t.mtx.Lock()
-	pc.t.orchestream.UploadFailed(peer)
+	if pc.t.orchestream != nil {
+		pc.t.orchestream.UploadFailed(peer)
+	}
 	pc.t.mtx.Unlock()
 }
 
 func (pc passiveCallbacks) SetConnectedPeers(peers []string) {
 	pc.t.mtx.Lock()
-	pc.t.orchestream.SetConnectedPeers(peers)
+	if pc.t.orchestream != nil {
+		pc.t.orchestream.SetConnectedPeers(peers)
+	}
 	pc.t.mtx.Unlock()
 }
 
