@@ -270,6 +270,7 @@ func (h *TransferHandle) Close() error {
 }
 
 func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+	const MIN_READAHEAD_SIZE = 1024 * 32
 	t := h.transfer
 	if t == nil {
 		log.Panicf("read on a closed TransferHandle")
@@ -294,24 +295,38 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 	if offset+size > t.size {
 		size = t.size - offset
 	}
-	if size == 0 {
+	// sizeAhead is the read-ahead size after offset+size. By default, we set it
+	// to the same size as the requested block, assuming the next Read call will
+	// ask for an equal-sized block. Readahead blocks are sent to clients with a
+	// lower priority than readnow blocks.
+	sizeAhead := size
+	if sizeAhead < MIN_READAHEAD_SIZE {
+		// If the size is very small, read ahead a little further, since the client
+		// may ask for it sooner
+		sizeAhead = MIN_READAHEAD_SIZE
+	}
+	if offset+size+sizeAhead > t.size {
+		sizeAhead = t.size - (offset + size)
+	}
+	if size == 0 && sizeAhead == 0 {
 		return nil, nil
 	}
 	t.mtx.Lock()
 	missing := t.have.FindUncovered(offset, offset+size)
-	if !missing.IsEmpty() {
+	missingAhead := t.have.FindUncovered(offset+size, offset+size+sizeAhead)
+	if !missing.IsEmpty() || !missingAhead.IsEmpty() {
 		for _, m := range missing.Export() {
 			recvBytes += m.End - m.Start
 		}
 		t.want.AddRange(missing)
+		t.readahead.AddRange(missingAhead)
+		// Prevent overlap between want & readahead
+		t.readahead.RemoveRange(t.want)
 		t.byteRangesUpdated()
 		t.fetchCond.Broadcast()
-		for {
+		for !missing.IsEmpty() {
 			t.serveCond.Wait()
 			missing = t.have.FindUncovered(offset, offset+size)
-			if missing.IsEmpty() {
-				break
-			}
 			missingWant := t.want.FindUncoveredRange(missing)
 			if !missingWant.IsEmpty() {
 				t.mtx.Unlock()
@@ -341,6 +356,9 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				return
 			}
 			needsDownload := t.downloading.FindUncoveredRange(t.want)
+			if needsDownload.IsEmpty() {
+				needsDownload = t.downloading.FindUncoveredRange(t.readahead)
+			}
 			if !needsDownload.IsEmpty() {
 				iv = needsDownload.Export()[0]
 				if iv.Size() > MAX_DOWNLOAD_SIZE {
