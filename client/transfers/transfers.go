@@ -95,7 +95,14 @@ func SwitchToOrchestratedMode(circle, remoteFilename string) (int64, error) {
 		return 0, err
 	}
 	metrics.AddContentOrchestrationJoined([]string{c.name}, "busy-file", 1)
-	return t.DownloadId(), nil
+	id := t.DownloadId()
+	if id == 0 {
+		panic("Just joined a download and now its id is 0?")
+	}
+	log.Printf("Have joined %d on request of our contentserver", id)
+	c.byId[id] = t
+	c.byRemoteFilename[remoteFilename] = t
+	return id, nil
 }
 
 func HandleActiveDownloadList(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {
@@ -165,6 +172,9 @@ func (c *circle) hashListener(circle, remoteFilename, hash string) {
 		return
 	}
 	metrics.AddContentOrchestrationJoined([]string{c.name}, "busy-file", 1)
+	log.Printf("hashListener(%q, %q, %q): joined %s", circle, remoteFilename, hash, ad)
+	c.byId[ad.GetDownloadId()] = t
+	c.byRemoteFilename[remoteFilename] = t
 }
 
 func (c *circle) makeTransferWithLocalfile(t *transfer.Transfer, remoteFilename, maybeHash string) (*transfer.Transfer, error) {
@@ -207,6 +217,7 @@ func HandleIncomingPassiveTransfer(stream pb.ContentService_PassiveTransferServe
 	t, ok := c.byId[d]
 	mtx.Unlock()
 	if !ok {
+		log.Printf("HandleIncomingPassiveTransfer: Refusing because we don't know %d yet", d)
 		return fmt.Errorf("download_id %d is not known (yet?) at this side, please ring later", d)
 	}
 	return t.HandleIncomingPassiveTransfer(stream)
