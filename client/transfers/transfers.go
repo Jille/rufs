@@ -31,6 +31,7 @@ type circle struct {
 func init() {
 	connectivity.HandleActiveDownloadList = HandleActiveDownloadList
 	transfer.ForgetCallback = Forget
+	transfer.RedirectToOrchestrationCallback = RedirectToOrchestration
 }
 
 func getCircle(name string) *circle {
@@ -200,6 +201,19 @@ func (c *circle) makeTransferWithLocalfile(t *transfer.Transfer, remoteFilename,
 		}
 	}
 	return t, nil
+}
+
+func RedirectToOrchestration(circle string, t *transfer.Transfer, downloadId int64) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+	c := getCircle(circle)
+	log.Printf("Transfer got redirected to orchestration %d", t.DownloadId())
+	if err := t.SwitchToOrchestratedMode(downloadId); err != nil {
+		metrics.AddContentOrchestrationJoinFailed([]string{c.name}, "redirected", 1)
+		return err
+	}
+	c.byId[downloadId] = t
+	return nil
 }
 
 func HandleIncomingPassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {

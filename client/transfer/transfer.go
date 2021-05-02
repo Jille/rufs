@@ -28,7 +28,8 @@ import (
 var (
 	activeReadCounter int64
 
-	ForgetCallback func(circle string, t *Transfer)
+	ForgetCallback                  func(circle string, t *Transfer)
+	RedirectToOrchestrationCallback func(circle string, t *Transfer, downloadId int64) error
 )
 
 func NewRemoteFile(ctx context.Context, remoteFilename, maybeHash string, size int64, peers []*connectivity.Peer) (_ *Transfer, retErr error) {
@@ -369,7 +370,7 @@ func (t *Transfer) simpleFetcher(ctx context.Context) {
 				offset += int64(len(res.Data))
 			}
 			if downloadId := res.GetRedirectToOrchestratedDownload(); downloadId != 0 {
-				if err := t.SwitchToOrchestratedMode(downloadId); err != nil {
+				if err := RedirectToOrchestrationCallback(t.circle, t, downloadId); err != nil {
 					log.Printf("Failed to switch to orchestrated mode (continuing in simple mode): %v", err)
 				}
 			}
