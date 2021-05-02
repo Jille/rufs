@@ -101,13 +101,7 @@ func SwitchToOrchestratedMode(circle, remoteFilename string) (int64, error) {
 func HandleActiveDownloadList(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {
 	mtx.Lock()
 	defer mtx.Unlock()
-	if err := getCircle(circle).handleActiveDownloadList(ctx, req); err != nil {
-		log.Printf("handleActiveDownloadList() failed: %v", err)
-	}
-}
-
-// TODO(quis): Remove error return type.
-func (c *circle) handleActiveDownloadList(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList) error {
+	c := getCircle(circle)
 	for _, ad := range req.GetActiveDownloads() {
 		if _, found := c.byId[ad.GetDownloadId()]; found {
 			continue
@@ -124,7 +118,6 @@ func (c *circle) handleActiveDownloadList(ctx context.Context, req *pb.ConnectRe
 		}
 		shares.StartHash(c.name, remoteFilename)
 	}
-	return nil
 }
 
 func (c *circle) findPathForActiveDownload(ad *pb.ConnectResponse_ActiveDownload) (string, bool) {
