@@ -129,6 +129,7 @@ func (c *circle) handleActiveDownloadList(ctx context.Context, req *pb.ConnectRe
 
 func (c *circle) findPathForActiveDownload(ad *pb.ConnectResponse_ActiveDownload) (string, bool) {
 	for _, remoteFilename := range ad.GetFilenames() {
+		// TODO: Add shares.Exists or something.
 		fh, err := shares.Open(c.name, remoteFilename)
 		if err != nil {
 			continue
@@ -147,7 +148,6 @@ func (c *circle) calculateRemoteActiveDownloadHash(ctx context.Context, ad *pb.C
 	}
 }
 
-// TODO(quis): Choose a better signature?
 func (c *circle) hashListener(circle, remoteFilename, hash string) {
 	if circle != c.name {
 		return
