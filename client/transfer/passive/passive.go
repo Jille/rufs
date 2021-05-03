@@ -125,7 +125,20 @@ func (t *Transfer) addPeer(name string) *peer {
 func (p *peer) connectLoop() {
 	for {
 		err := p.connectAndHandle()
-		log.Printf("PassiveTransfer(%s) reconnecting: %v", p.name, err)
+		log.Printf("PassiveTransfer(%s) failed: %v", p.name, err)
+		select {
+		case <-p.quit:
+			// p.quit can be closed whenever the reader/writer fails, or when the peer is removed from the PeerList.
+			// If it's the former, "reopen" the channel so we can retry.
+			p.transfer.mtx.Lock()
+			p.mtx.Lock()
+			if p.transfer.peers[p.name] == p {
+				p.quit = make(chan struct{})
+			}
+			p.mtx.Unlock()
+			p.transfer.mtx.Unlock()
+		default:
+		}
 		select {
 		case <-p.transfer.ctx.Done():
 			return
