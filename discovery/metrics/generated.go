@@ -76,13 +76,13 @@ var (
 			Namespace: "rufs",
 			Name: "content_rpcs_recv",
 			Help: "TODO",
-		}, []string{"rpc", "peer", "code"}),
+		}, []string{"rpc", "caller", "code"}),
 		pb.PushMetricsRequest_CONTENT_RPCS_RECV_LATENCY: newHistogram(prometheus.HistogramOpts{
 			Namespace: "rufs",
 			Name: "content_rpcs_recv_latency",
 			Help: "TODO",
 			Buckets: bucketsForContentRpcsRecvLatency,
-		}, []string{"rpc", "peer", "code"}),
+		}, []string{"rpc", "caller", "code"}),
 		pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name: "content_orchestration_joined",

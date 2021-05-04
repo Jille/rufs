@@ -55,12 +55,12 @@ func AddContentHashes(circles []string, v int64) {
 	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_HASHES, []string{}, float64(v))
 }
 
-func AddContentRpcsRecv(circles []string, rpc, peer, code string, v int64) {
-	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_RPCS_RECV, []string{rpc, peer, code}, float64(v))
+func AddContentRpcsRecv(circles []string, rpc, caller, code string, v int64) {
+	increaseCounter(circles, pb.PushMetricsRequest_CONTENT_RPCS_RECV, []string{rpc, caller, code}, float64(v))
 }
 
-func AppendContentRpcsRecvLatency(circles []string, rpc, peer, code string, v float64) {
-	appendDistribution(circles, pb.PushMetricsRequest_CONTENT_RPCS_RECV_LATENCY, []string{rpc, peer, code}, v)
+func AppendContentRpcsRecvLatency(circles []string, rpc, caller, code string, v float64) {
+	appendDistribution(circles, pb.PushMetricsRequest_CONTENT_RPCS_RECV_LATENCY, []string{rpc, caller, code}, v)
 }
 
 func AddContentOrchestrationJoined(circles []string, why string, v int64) {

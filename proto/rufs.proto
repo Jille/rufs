@@ -163,8 +163,8 @@ message PushMetricsRequest {
 		VFS_PEER_READDIRS = 11 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
 		VFS_PEER_READDIR_LATENCY = 12 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
 		CONTENT_HASHES = 13 [(metric_type) = COUNTER, (metric_description) = "TODO"];
-		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
-		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
+		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "TODO"];
+		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "TODO"];
 		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
 		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
 		TRANSFER_RECV_BYTES = 18 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "transfer_type", (metric_description) = "Number of bytes received from other peers"];
