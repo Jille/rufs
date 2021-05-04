@@ -138,6 +138,7 @@ func (s *Stream) writer(ctx context.Context) {
 				if err == io.EOF {
 					// ignore, reader will find it soon
 				} else {
+					s.mtx.Lock()
 					// TODO: reconnect?
 					panic(err)
 				}
