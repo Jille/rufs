@@ -84,12 +84,14 @@ func (o *Orchestrator) SetConnectedPeers(peer string, connections *pb.Orchestrat
 }
 
 func (o *Orchestrator) UploadFailed(sender string, uf *pb.OrchestrateRequest_UploadFailed) {
-	var newTransfers []*pb.OrchestrateResponse_UploadCommand
+	remove := map[string]bool{}
 	for _, receiver := range uf.GetTargetPeers() {
-		for _, transfer := range o.transfers[sender] {
-			if transfer.Peer != receiver {
-				newTransfers = append(newTransfers, transfer)
-			}
+		remove[receiver] = true
+	}
+	var newTransfers []*pb.OrchestrateResponse_UploadCommand
+	for _, transfer := range o.transfers[sender] {
+		if !remove[transfer.Peer] {
+			newTransfers = append(newTransfers, transfer)
 		}
 	}
 	o.transfers[sender] = newTransfers
