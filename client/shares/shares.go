@@ -62,6 +62,20 @@ func resolveSharePath(s *config.Share) (string, error) {
 	return local, nil
 }
 
+func makeRemoteError(remotePath string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if os.IsNotExist(err) {
+		return status.Errorf(codes.NotFound, "file %q not found", remotePath)
+	}
+	if pe, ok := err.(*os.PathError); ok {
+		// Remove local path from the error
+		err = pe.Unwrap()
+	}
+	return status.Errorf(codes.ResourceExhausted, "failed to open %q: %v", remotePath, err)
+}
+
 func resolveRemotePath(circle, remotePath string) (string, error) {
 	c := circles[circle]
 	sp := strings.SplitN(remotePath, "/", 2)
@@ -80,7 +94,7 @@ func resolveRemotePath(circle, remotePath string) (string, error) {
 	localPath := filepath.Join(shareRoot, remainder)
 	realLocalPath, err := realpath.Realpath(localPath)
 	if err != nil {
-		return "", err
+		return "", makeRemoteError(remotePath, err)
 	}
 	if !strings.HasPrefix(strings.TrimSuffix(realLocalPath, "/"), shareRoot) {
 		return "", status.Errorf(codes.InvalidArgument, "share %s not found", remote)
@@ -95,10 +109,7 @@ func Open(circle, remotePath string) (*os.File, error) {
 	}
 	fh, err := os.Open(localPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, status.Errorf(codes.NotFound, "file %q not found", remotePath)
-		}
-		return nil, status.Errorf(codes.ResourceExhausted, "failed to open %q: %v", remotePath, err)
+		return nil, makeRemoteError(remotePath, err)
 	}
 	return fh, nil
 }
@@ -108,7 +119,11 @@ func Stat(circle, remotePath string) (os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.Stat(localPath)
+	info, err := os.Stat(localPath)
+	if err != nil {
+		return nil, makeRemoteError(remotePath, err)
+	}
+	return info, nil
 }
 
 func Readdir(circle, remotePath string) ([]*pb.File, error) {
