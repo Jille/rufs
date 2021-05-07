@@ -3,6 +3,7 @@ package passive
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -53,9 +54,9 @@ type Transfer struct {
 }
 
 type peer struct {
-	transfer *Transfer
-	name     string
-	quit     chan (struct{})
+	transfer     *Transfer
+	name         string
+	peerDelisted chan (struct{})
 
 	mtx                  sync.Mutex
 	cond                 *sync.Cond
@@ -99,11 +100,7 @@ func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 			continue
 		}
 		pe.mtx.Lock()
-		select {
-		case <-pe.quit:
-		default:
-			close(pe.quit)
-		}
+		close(pe.peerDelisted)
 		pe.mtx.Unlock()
 		delete(t.peers, p)
 	}
@@ -112,9 +109,9 @@ func (t *Transfer) SetPeers(ctx context.Context, peers []string) {
 func (t *Transfer) addPeer(name string) *peer {
 	// t.mtx must be held
 	pe := &peer{
-		transfer: t,
-		name:     name,
-		quit:     make(chan struct{}),
+		transfer:     t,
+		name:         name,
+		peerDelisted: make(chan struct{}),
 	}
 	pe.cond = sync.NewCond(&pe.mtx)
 	t.peers[name] = pe
@@ -127,22 +124,9 @@ func (p *peer) connectLoop() {
 		err := p.connectAndHandle()
 		log.Printf("PassiveTransfer(%s) failed: %v", p.name, err)
 		select {
-		case <-p.quit:
-			// p.quit can be closed whenever the reader/writer fails, or when the peer is removed from the PeerList.
-			// If it's the former, "reopen" the channel so we can retry.
-			p.transfer.mtx.Lock()
-			p.mtx.Lock()
-			if p.transfer.peers[p.name] == p {
-				p.quit = make(chan struct{})
-			}
-			p.mtx.Unlock()
-			p.transfer.mtx.Unlock()
-		default:
-		}
-		select {
 		case <-p.transfer.ctx.Done():
 			return
-		case <-p.quit:
+		case <-p.peerDelisted:
 			return
 		case <-time.After(time.Second):
 		}
@@ -170,8 +154,9 @@ func (p *peer) connectAndHandle() error {
 
 func (p *peer) handleStream(stream PassiveStream) error {
 	errCh := make(chan error, 2)
+	quit := make(chan struct{})
 	go func() {
-		errCh <- p.transmitDataLoopManager(stream)
+		errCh <- p.transmitDataLoopManager(stream, quit)
 	}()
 	go func() {
 		errCh <- p.handleInboundData(stream)
@@ -185,15 +170,12 @@ func (p *peer) handleStream(stream PassiveStream) error {
 	var err error
 	select {
 	case err = <-errCh:
-	case <-p.quit:
+	case <-p.peerDelisted:
+		err = errors.New("peer was unlisted")
 	}
 
 	p.mtx.Lock()
-	select {
-	case <-p.quit:
-	default:
-		close(p.quit)
-	}
+	close(quit)
 	p.connectedStreams--
 	p.cond.Broadcast()
 	p.mtx.Unlock()
@@ -216,11 +198,11 @@ func (p *peer) handleInboundData(stream PassiveStream) error {
 	}
 }
 
-func (p *peer) transmitDataLoopManager(stream PassiveStream) error {
+func (p *peer) transmitDataLoopManager(stream PassiveStream, quit <-chan struct{}) error {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 	p.activeSenders++
-	internalError, err := p.transmitDataLoop(stream)
+	internalError, err := p.transmitDataLoop(stream, quit)
 	p.activeSenders--
 	if len(p.pendingTransmissions) != 0 && (p.activeSenders == 0 || internalError) {
 		// We can't send to this peer anymore, or an internal (cache) error occurred; don't
@@ -232,11 +214,11 @@ func (p *peer) transmitDataLoopManager(stream PassiveStream) error {
 	return err
 }
 
-func (p *peer) transmitDataLoop(stream PassiveStream) (internalError bool, err error) {
+func (p *peer) transmitDataLoop(stream PassiveStream, quit <-chan struct{}) (internalError bool, err error) {
 	for {
 		for len(p.pendingTransmissions) > 0 {
 			select {
-			case <-p.quit:
+			case <-quit:
 				return false, nil
 			default:
 			}
@@ -251,7 +233,7 @@ func (p *peer) transmitDataLoop(stream PassiveStream) (internalError bool, err e
 			}
 		}
 		select {
-		case <-p.quit:
+		case <-quit:
 			return false, nil
 		default:
 		}
