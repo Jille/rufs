@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
@@ -16,6 +17,7 @@ import (
 func Init(port int) {
 	m := http.NewServeMux()
 	m.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
+	m.Handle("/", convreq.Wrap(renderStatic))
 	http.HandleFunc("/", authMiddleWare(m))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 		log.Fatalf("Failed to start HTTP server on port %d: %v", port, err)
@@ -72,4 +74,22 @@ func renderConfig(ctx context.Context, req *http.Request) convreq.HttpResponse {
 		Circles: config.GetCircles(),
 	}
 	return respondJSON(ret)
+}
+
+func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
+	path := req.URL.Path
+	if path == "/" {
+		path = "/index.html"
+	}
+	if body, ok := staticFiles[path]; ok {
+		t := "application/octet-stream"
+		if strings.HasSuffix(path, ".html") {
+			t = "text/html"
+		} else if strings.HasSuffix(path, ".js") {
+			t = "application/javascript"
+		}
+		return respond.WithHeader(respond.String(body), "Content-Type", t)
+	} else {
+		return respond.NotFound("File not found")
+	}
 }

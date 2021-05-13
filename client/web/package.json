@@ -9,7 +9,8 @@
   },
   "scripts": {
     "start": "vue-cli-service serve",
-    "build": "vue-cli-service build"
+    "build": "vue-cli-service build",
+    "generate": "./generate-dist-go.sh >dist.go"
   },
   "dependencies": {
     "vue": "^2.6.12",
