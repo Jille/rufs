@@ -4,6 +4,7 @@ package fuse
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -16,6 +17,10 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	"github.com/sgielen/rufs/client/vfs"
+)
+
+var (
+	enableFuseDebug = flag.Bool("enable_fuse_debug", false, "Enable fuse debug logging")
 )
 
 func NewMount(mountpoint string, allowUsers string) (*Mount, error) {
@@ -45,7 +50,7 @@ type Mount struct {
 }
 
 func (f *Mount) Run(ctx context.Context) (retErr error) {
-	if false {
+	if *enableFuseDebug {
 		fuse.Debug = func(msg interface{}) { fmt.Println(msg) }
 	}
 	options := []fuse.MountOption{
