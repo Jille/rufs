@@ -21,11 +21,22 @@ export class RufsConfig {
   {}
 }
 
+async function rqToError(rq: Response): Promise<string> {
+  let error = rq.statusText;
+  try {
+    const body = await rq.json();
+    if (body.error) {
+      error = body.error;
+    }
+  } catch {}
+  return error
+}
+
 export class RufsService {
   public static async getConfig(): Promise<RufsConfig> {
     const rq = await fetch('/api/config');
     if (!rq.ok) {
-      throw new Error('Failed retrieving config: ' + rq.statusText);
+      throw new Error('Failed retrieving config: ' + await rqToError(rq));
     }
     const body = await rq.json();
     const circles: RufsCircle[] = [];
@@ -37,5 +48,16 @@ export class RufsService {
       circles.push(new RufsCircle(circle.Name, shares));
     });
     return new RufsConfig(circles);
+  }
+
+  public static async addCircle(circle: string, user: string, token: string, ca: string): Promise<void> {
+    const rq = await fetch('/api/add_circle?' + new URLSearchParams({
+      circle, user, token, ca
+    }));
+    console.log(rq.url);
+    console.log(rq);
+    if (!rq.ok) {
+      throw new Error('Failed to add circle: ' + await rqToError(rq));
+    }
   }
 }

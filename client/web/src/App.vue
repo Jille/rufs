@@ -1,16 +1,31 @@
 <template>
-  <div>
-    <p v-if="error">{{ error }}</p>
-    <p>Currently active configuration:</p>
-    <pre>{{ JSON.stringify(config, null, true) }}</pre>
+  <div id="app">
+    <Box v-if="error" title="Error">
+      {{ error }}
+    </Box>
+
+    <Box v-else-if="!config" title="Loading..."/>
+
+    <AddCircleWizard v-else-if="config.circles.length == 0" v-bind:config="config"/>
+
+    <Box v-else title="You're all set up!">
+      You can close this tab now.
+    </Box>
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import { RufsConfig, RufsService } from './rufs-service';
+import Box from './Box.vue';
+import AddCircleWizard from './AddCircleWizard.vue';
 
-@Component
+@Component({
+  components: {
+    Box,
+    AddCircleWizard,
+  }
+})
 export default class App extends Vue {
   private config: RufsConfig | null = null;
   private error = "";
@@ -26,4 +41,8 @@ export default class App extends Vue {
 </script>
 
 <style lang="scss">
+body {
+  background-color: var(--bs-light) !important;
+  padding-top: 4em;
+}
 </style>

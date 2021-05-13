@@ -118,15 +118,21 @@ func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
 	if path == "/" {
 		path = "/index.html"
 	}
-	if body, ok := staticFiles[path]; ok {
-		t := "application/octet-stream"
-		if strings.HasSuffix(path, ".html") {
-			t = "text/html"
-		} else if strings.HasSuffix(path, ".js") {
-			t = "application/javascript"
-		}
-		return respond.WithHeader(respond.String(body), "Content-Type", t)
-	} else {
+
+	body, ok := staticFiles[path]
+	if !ok {
 		return respond.NotFound("File not found")
 	}
+
+	t := "application/octet-stream"
+	if strings.HasSuffix(path, ".html") {
+		t = "text/html"
+	} else if strings.HasSuffix(path, ".css") {
+		t = "text/css"
+	} else if strings.HasSuffix(path, ".js") {
+		t = "application/javascript"
+	} else if strings.HasSuffix(path, ".svg") {
+		t = "image/svg+xml"
+	}
+	return respond.WithHeader(respond.String(body), "Content-Type", t)
 }
