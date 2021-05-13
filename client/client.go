@@ -9,9 +9,10 @@ import (
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
-	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/client/metrics"
+	"github.com/sgielen/rufs/client/shares"
+	"github.com/sgielen/rufs/client/web"
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/security"
@@ -21,6 +22,7 @@ var (
 	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
 	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
 	port          = flag.Int("port", 12010, "content server listen port")
+	httpPort      = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
 	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
 	mountpoint    = flag.String("mountpoint", "", "Where to mount everyone's stuff")
 )
@@ -53,6 +55,11 @@ func main() {
 		log.Fatalf("failed to create content server: %v", err)
 	}
 	go content.Run()
+
+	if *httpPort == -1 {
+		*httpPort = *port + 1
+	}
+	go web.Init(*httpPort)
 
 	for circle, kp := range circles {
 		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
