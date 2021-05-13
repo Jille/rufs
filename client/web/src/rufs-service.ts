@@ -50,12 +50,10 @@ export class RufsService {
     return new RufsConfig(circles);
   }
 
-  public static async addCircle(circle: string, user: string, token: string, ca: string): Promise<void> {
-    const rq = await fetch('/api/add_circle?' + new URLSearchParams({
+  public static async register(circle: string, user: string, token: string, ca: string): Promise<void> {
+    const rq = await fetch('/api/register?' + new URLSearchParams({
       circle, user, token, ca
     }));
-    console.log(rq.url);
-    console.log(rq);
     if (!rq.ok) {
       throw new Error('Failed to add circle: ' + await rqToError(rq));
     }

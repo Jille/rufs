@@ -6,7 +6,7 @@
 
     <Box v-else-if="!config" title="Loading..."/>
 
-    <AddCircleWizard v-else-if="config.circles.length == 0" v-bind:config="config"/>
+    <AddCircleWizard v-else-if="addingCircle" v-bind:config="config"/>
 
     <Box v-else title="You're all set up!">
       You can close this tab now.
@@ -28,11 +28,13 @@ import AddCircleWizard from './AddCircleWizard.vue';
 })
 export default class App extends Vue {
   private config: RufsConfig | null = null;
+  private addingCircle = false;
   private error = "";
 
   private async mounted(): Promise<void> {
     try {
       this.config = await RufsService.getConfig();
+      this.addingCircle = true; // TODO: this.config.circles.length == 0;
     } catch(e) {
       this.error = 'error' in e ? e.error : e.message;
     }

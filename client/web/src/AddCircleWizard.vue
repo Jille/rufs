@@ -45,7 +45,7 @@ export default class AddCircleWizard extends Vue {
 
     this.stage = 1;
     try {
-      await RufsService.addCircle(circle, user, token, ca);
+      await RufsService.register(circle, user, token, ca);
       this.stage = 2;
     } catch(e) {
       this.error = e.message;

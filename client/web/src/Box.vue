@@ -1,7 +1,9 @@
 <template>
   <div class="box">
     <h1 v-if="title">{{title}}</h1>
-    <slot/>
+    <div class="box-contents">
+      <slot/>
+    </div>
   </div>
 </template>
 
@@ -31,6 +33,10 @@ export default class Box extends Vue {
     text-align: center;
     padding: 10px;
     margin: -10px;
+  }
+
+  .box-contents {
+    margin-top: 20px;
   }
 }
 </style>
