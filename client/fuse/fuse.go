@@ -1,20 +1,17 @@
-// +build !windows,!netbsd,!openbsd,!nofuse
-
 package fuse
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"io"
 	"log"
-	"os"
 	osUser "os/user"
-	"path/filepath"
+	filepath "path"
 	"strconv"
 	"strings"
-	"time"
+	"sync"
 
-	"bazil.org/fuse"
-	"bazil.org/fuse/fs"
+	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/sgielen/rufs/client/vfs"
 )
 
@@ -35,204 +32,152 @@ func NewMount(mountpoint string, allowUsers string) (*Mount, error) {
 	res := &Mount{
 		mountpoint:   mountpoint,
 		allowedUsers: allowedUsers,
+		handles:      map[uint64]vfs.Handle{},
 	}
 	return res, nil
 }
 
 type Mount struct {
+	fuse.FileSystemBase
+	mtx          sync.Mutex
 	mountpoint   string
 	allowedUsers map[uint32]bool
+	handles      map[uint64]vfs.Handle
+	lastHandle   uint64
 }
 
 func (f *Mount) Run(ctx context.Context) (retErr error) {
-	if false {
-		fuse.Debug = func(msg interface{}) { fmt.Println(msg) }
-	}
-	options := []fuse.MountOption{
-		fuse.FSName("rufs"),
-		fuse.Subtype("rufs"),
-		fuse.VolumeName("rufs"),
-		fuse.ReadOnly(),
-		fuse.MaxReadahead(1024 * 1024),
-	}
-	if len(f.allowedUsers) != 0 {
-		options = append(options, fuse.AllowOther())
-	}
-	conn, err := fuse.Mount(f.mountpoint, options...)
-	if err != nil {
-		return err
-	}
-	go func() {
-		<-ctx.Done()
-		select {
-		case <-conn.Ready:
-			if conn.MountError != nil {
-				return
-			}
-			if err := fuse.Unmount(f.mountpoint); err != nil {
-				log.Printf("Failed to unmount %q: %v", f.mountpoint, err)
-			}
-		case <-time.After(5 * time.Second):
-			conn.Close()
-		}
-	}()
-	fsDone := make(chan struct{})
-	defer close(fsDone)
-	defer func() {
-		if err := conn.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
-	if err := fs.Serve(conn, f); err != nil {
-		return err
-	}
-	<-conn.Ready
-	return conn.MountError
-}
-
-func (fs *Mount) Root() (fs.Node, error) {
-	return &dir{node{fs, ""}}, nil
-}
-
-type node struct {
-	fs   *Mount
-	path string
-}
-
-func (n *node) checkAccess(uid uint32) error {
-	if n.fs.allowedUsers == nil {
-		return nil
-	}
-	if !n.fs.allowedUsers[uid] {
-		return fuse.EPERM
+	host := fuse.NewFileSystemHost(f)
+	host.SetCapCaseInsensitive(false)
+	host.SetCapReaddirPlus(true)
+	// TODO: small readahead, allow others if len(f.allowedUsers) != 0
+	if !host.Mount(f.mountpoint, []string{"-o", "ro" /*"-o", "debug",*/, "-o", "volname=RUFS", "-o", "uid=-1", "-o", "gid=-1"}) {
+		return errors.New("failed to initialize cgofuse mount")
 	}
 	return nil
 }
 
-func (n *node) Access(ctx context.Context, req *fuse.AccessRequest) (retErr error) {
-	return n.checkAccess(req.Header.Uid)
+func (f *Mount) checkAccess() int {
+	if f.allowedUsers == nil {
+		return 0
+	}
+	uid, _, _ := fuse.Getcontext()
+	if f.allowedUsers[uid] {
+		return -fuse.EPERM
+	}
+	return 0
 }
 
-func (n *node) Attr(ctx context.Context, attr *fuse.Attr) (retErr error) {
-	if n.path == "" {
-		attr.Mode = 0755 | os.ModeDir
-		return nil
+func stripPath(path string) string {
+	return strings.TrimPrefix(path, "/")
+}
+
+func (f *Mount) Access(_ string, mask uint32) int {
+	log.Printf("Access called")
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+	return f.checkAccess()
+}
+
+func (f *Mount) Getattr(path string, attr *fuse.Stat_t, fh uint64) int {
+	path = stripPath(path)
+	if path == "" || path == "/" {
+		attr.Mode = 0555 | fuse.S_IFDIR
+		return 0
 	}
-	dn, fn := filepath.Split(n.path)
-	ret := vfs.Readdir(ctx, dn)
+	dn, fn := filepath.Split(path)
+	ret := vfs.Readdir(context.Background(), dn)
 	if f, found := ret.Files[fn]; found {
-		attr.Size = uint64(f.Size)
+		attr.Size = f.Size
 		if f.IsDirectory {
-			attr.Mode = 0755 | os.ModeDir
+			attr.Mode = 0555 | fuse.S_IFDIR
+		} else {
+			attr.Mode = 0444 | fuse.S_IFREG
+		}
+		attr.Mtim.Sec = f.Mtime.Unix()
+		attr.Mtim.Nsec = f.Mtime.UnixNano()
+		return 0
+	}
+	return -fuse.ENOENT
+}
+
+func (f *Mount) Readdir(path string, fill func(name string, stat *fuse.Stat_t, ofst int64) bool, ofst int64, fh uint64) int {
+	path = stripPath(path)
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+	ret := vfs.Readdir(context.Background(), path)
+
+	for fn, f := range ret.Files {
+		attr := fuse.Stat_t{}
+		attr.Size = f.Size
+		if f.IsDirectory {
+			attr.Mode = 0755 | fuse.S_IFDIR
 		} else {
 			attr.Mode = 0644
 		}
-		attr.Mtime = f.Mtime
-		return nil
-	}
-	return fuse.ENOENT
-}
-
-func (n *node) Setattr(ctx context.Context, request *fuse.SetattrRequest, response *fuse.SetattrResponse) (retErr error) {
-	return fuse.ENOSYS
-}
-
-func (n *node) Getxattr(ctx context.Context, req *fuse.GetxattrRequest, resp *fuse.GetxattrResponse) (retErr error) {
-	return fuse.ENOSYS
-}
-
-func (n *node) Setxattr(ctx context.Context, req *fuse.SetxattrRequest) (retErr error) {
-	return fuse.ENOSYS
-}
-
-type dir struct {
-	node
-}
-
-func (d *dir) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (_ fs.Node, _ fs.Handle, retErr error) {
-	return nil, nil, fuse.ENOSYS
-}
-
-func (d *dir) Lookup(ctx context.Context, name string) (_ fs.Node, retErr error) {
-	path := filepath.Join(d.path, name)
-	ret := vfs.Readdir(ctx, d.path)
-	if f, found := ret.Files[name]; found {
-		if f.IsDirectory {
-			return &dir{node{d.fs, path}}, nil
-		} else {
-			return &file{node{d.fs, path}}, nil
+		attr.Mtim.Sec = f.Mtime.Unix()
+		attr.Mtim.Nsec = f.Mtime.UnixNano()
+		if !fill(fn, &attr, 0) {
+			break
 		}
 	}
-	return nil, fuse.ENOENT
+	return 0
 }
 
-func (d *dir) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (_ fs.Node, retErr error) {
-	return nil, fuse.ENOSYS
-}
-
-func (d *dir) ReadDirAll(ctx context.Context) (_ []fuse.Dirent, retErr error) {
-	ret := vfs.Readdir(ctx, d.path)
-
-	dirents := make([]fuse.Dirent, 0, len(ret.Files))
-	for fn, file := range ret.Files {
-		var t fuse.DirentType
-		if file.IsDirectory {
-			t = fuse.DT_Dir
-		} else {
-			t = fuse.DT_File
-		}
-		dirents = append(dirents, fuse.Dirent{
-			Name: fn,
-			Type: t,
-		})
+func (f *Mount) Open(path string, flags int) (int, uint64) {
+	path = stripPath(path)
+	log.Printf("Open{%s} called", path)
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+	if access := f.checkAccess(); access != 0 {
+		log.Printf("access failed")
+		return access, 0
 	}
-	return dirents, nil
-}
-
-func (d *dir) Remove(ctx context.Context, request *fuse.RemoveRequest) error {
-	return fuse.ENOSYS
-}
-
-type file struct {
-	node
-}
-
-func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
-	if err := f.checkAccess(request.Header.Uid); err != nil {
-		return nil, err
-	}
-	ret, err := vfs.Open(ctx, f.path)
+	handle, err := vfs.Open(context.Background(), path)
 	if err != nil {
 		if err.Error() == "ENOENT" {
-			return nil, fuse.ENOENT
+			log.Printf("enoent")
+			return -fuse.ENOENT, 0
 		}
-		return nil, err
+		log.Printf("eio")
+		return -fuse.EIO, 0
 	}
-	return &handle{f.node, ret}, nil
+	f.lastHandle += 1
+	fh := f.lastHandle
+	f.handles[fh] = handle
+	log.Printf("handle %d", fh)
+	return 0, fh
 }
 
-type handle struct {
-	node
-	vh vfs.Handle
-}
-
-func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	response.Data, retErr = h.vh.Read(ctx, request.Offset, int64(request.Size))
-	if retErr != nil {
-		log.Printf("VFS read failed for {%s}: %v", h.path, retErr)
+func (f *Mount) Read(path string, buff []byte, offset int64, fh uint64) int {
+	path = stripPath(path)
+	f.mtx.Lock()
+	handle, ok := f.handles[fh]
+	f.mtx.Unlock()
+	if !ok {
+		log.Printf("Read with invalid handle")
+		return -fuse.EIO
 	}
-	return retErr
+	log.Printf("Read on valid handle")
+	n, err := handle.Read(context.Background(), offset, buff)
+	if err != nil && err != io.EOF {
+		log.Printf("VFS read failed for {%s}: %v", path, err)
+		return -fuse.EIO
+	}
+	log.Printf("Read on valid handle returned %d bytes", n)
+	return n
 }
 
-func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
-	return fuse.ENOSYS
-}
-
-func (h *handle) Fsync(ctx context.Context, request *fuse.FsyncRequest) error {
-	return fuse.ENOSYS
-}
-
-func (h *handle) Release(ctx context.Context, request *fuse.ReleaseRequest) error {
-	h.vh.Close()
-	return nil
+func (f *Mount) Release(_ string, fh uint64) int {
+	f.mtx.Lock()
+	defer f.mtx.Unlock()
+	handle, ok := f.handles[fh]
+	if !ok {
+		log.Printf("Release EIO")
+		return -fuse.EIO
+	}
+	handle.Close()
+	delete(f.handles, fh)
+	log.Printf("Release succeeded")
+	return 0
 }

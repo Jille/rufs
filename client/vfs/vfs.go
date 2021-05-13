@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"path/filepath"
+	filepath "path"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +35,7 @@ type File struct {
 }
 
 type Handle interface {
-	Read(ctx context.Context, offset int64, size int64) ([]byte, error)
+	Read(ctx context.Context, offset int64, buf []byte) (int, error)
 	Close() error
 }
 
@@ -43,15 +43,18 @@ type fixedContentHandle struct {
 	content []byte
 }
 
-func (handle *fixedContentHandle) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
+func (handle *fixedContentHandle) Read(ctx context.Context, offset int64, buf []byte) (int, error) {
 	length := int64(len(handle.content))
 	if offset >= length {
-		return nil, io.EOF
+		return 0, io.EOF
 	}
-	if offset+size >= length {
-		size = length - offset
+	end := offset + int64(len(buf))
+	if end >= length {
+		end = length
 	}
-	return handle.content[offset : offset+size], nil
+
+	n := copy(buf, handle.content[offset:end])
+	return n, nil
 }
 
 func (*fixedContentHandle) Close() error {
@@ -64,6 +67,10 @@ func Open(ctx context.Context, path string) (Handle, error) {
 	dir := Readdir(ctx, dirname)
 	file := dir.Files[basename]
 	if file == nil {
+		log.Printf("ENOENT because {%s} did not exist in dir {%s}", basename, dirname)
+		for fn := range dir.Files {
+			log.Printf("File did exist: {%s}", fn)
+		}
 		return nil, errors.New("ENOENT")
 	}
 	if file.IsDirectory {
@@ -77,8 +84,10 @@ func Open(ctx context.Context, path string) (Handle, error) {
 	}
 	t, err := transfers.GetTransferForFile(ctx, path, file.Hash, file.Size, file.Peers)
 	if err != nil {
+		log.Printf("GetTransferForFile %v", err)
 		return nil, err
 	}
+	log.Printf("returns error %v", err)
 	return t.GetHandle(), err
 }
 
