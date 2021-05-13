@@ -50,11 +50,9 @@ func main() {
 		kps = append(kps, kp)
 	}
 
-	content, err := content.New(fmt.Sprintf(":%d", *port), kps)
-	if err != nil {
+	if err := content.Serve(fmt.Sprintf(":%d", *port), kps); err != nil {
 		log.Fatalf("failed to create content server: %v", err)
 	}
-	go content.Run()
 
 	if *httpPort == -1 {
 		*httpPort = *port + 1

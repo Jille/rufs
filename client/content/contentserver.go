@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -23,31 +24,40 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func New(addr string, kps []*security.KeyPair) (*content, error) {
+var (
+	circles map[string]*circleState
+)
+
+func Serve(addr string, kps []*security.KeyPair) error {
 	if addr == "" {
-		return nil, errors.New("missing parameter addr")
+		return errors.New("missing parameter addr")
 	}
 
-	c := &content{
-		addr:     addr,
-		keyPairs: kps,
-		circles:  map[string]*circleState{},
-	}
-
+	circles = map[string]*circleState{}
 	for _, circle := range config.GetCircles() {
-		c.circles[circle.Name] = &circleState{
+		circles[circle.Name] = &circleState{
 			activeReads: map[string]int{},
 		}
 	}
-	return c, nil
+
+	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(kps))), grpc.ChainUnaryInterceptor(unaryInterceptor), grpc.ChainStreamInterceptor(streamInterceptor))
+	pb.RegisterContentServiceServer(s, content{})
+	reflection.Register(s)
+	sock, err := net.Listen("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("content server failed to listen on %s: %v", addr, err)
+	}
+	log.Printf("content server listening on addr %s.", addr)
+	go func() {
+		if err := s.Serve(sock); err != nil {
+			log.Fatalf("content server failed to serve on %s: %v", addr, err)
+		}
+	}()
+	return nil
 }
 
 type content struct {
 	pb.UnimplementedContentServiceServer
-
-	addr     string
-	keyPairs []*security.KeyPair
-	circles  map[string]*circleState
 }
 
 type circleState struct {
@@ -55,21 +65,7 @@ type circleState struct {
 	activeReads map[string]int
 }
 
-func (c *content) Run() {
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(c.keyPairs))), grpc.ChainUnaryInterceptor(c.unaryInterceptor), grpc.ChainStreamInterceptor(c.streamInterceptor))
-	pb.RegisterContentServiceServer(s, c)
-	reflection.Register(s)
-	sock, err := net.Listen("tcp", c.addr)
-	if err != nil {
-		log.Fatalf("content server failed to listen on %s: %v", c.addr, err)
-	}
-	log.Printf("content server listening on addr %s.", c.addr)
-	if err := s.Serve(sock); err != nil {
-		log.Fatalf("content server failed to serve on %s: %v", c.addr, err)
-	}
-}
-
-func (c *content) unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	peer, circle, err := security.PeerFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -82,7 +78,7 @@ func (c *content) unaryInterceptor(ctx context.Context, req interface{}, info *g
 	return resp, err
 }
 
-func (c *content) streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+func streamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	peer, circle, err := security.PeerFromContext(ss.Context())
 	if err != nil {
 		return err
@@ -95,7 +91,7 @@ func (c *content) streamInterceptor(srv interface{}, ss grpc.ServerStream, info 
 	return err
 }
 
-func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
+func (content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDirResponse, error) {
 	_, circle, err := security.PeerFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -109,7 +105,7 @@ func (c *content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.Read
 	return res, nil
 }
 
-func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) (retErr error) {
+func (content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) (retErr error) {
 	d := dfr.D{}
 	defer d.Run(&retErr)
 	peer, circle, err := security.PeerFromContext(stream.Context())
@@ -124,7 +120,7 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	defer fh.Close()
 	path := fh.Name()
 
-	circleState := c.circles[circle]
+	circleState := circles[circle]
 
 	circleState.mtx.Lock()
 	circleState.activeReads[path]++
@@ -191,6 +187,6 @@ func (c *content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_Rea
 	}
 }
 
-func (c *content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
+func (content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
 	return transfers.HandleIncomingPassiveTransfer(stream)
 }
