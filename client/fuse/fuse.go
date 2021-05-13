@@ -124,19 +124,18 @@ func (n *node) Attr(ctx context.Context, attr *fuse.Attr) (retErr error) {
 		attr.Mode = 0755 | os.ModeDir
 		return nil
 	}
-	dn, fn := filepath.Split(n.path)
-	ret := vfs.Readdir(ctx, dn)
-	if f, found := ret.Files[fn]; found {
-		attr.Size = uint64(f.Size)
-		if f.IsDirectory {
-			attr.Mode = 0755 | os.ModeDir
-		} else {
-			attr.Mode = 0644
-		}
-		attr.Mtime = f.Mtime
-		return nil
+	f, found := vfs.Stat(ctx, n.path)
+	if !found {
+		return fuse.ENOENT
 	}
-	return fuse.ENOENT
+	attr.Size = uint64(f.Size)
+	if f.IsDirectory {
+		attr.Mode = 0755 | os.ModeDir
+	} else {
+		attr.Mode = 0644
+	}
+	attr.Mtime = f.Mtime
+	return nil
 }
 
 func (n *node) Setattr(ctx context.Context, request *fuse.SetattrRequest, response *fuse.SetattrResponse) (retErr error) {
@@ -161,15 +160,15 @@ func (d *dir) Create(ctx context.Context, request *fuse.CreateRequest, response 
 
 func (d *dir) Lookup(ctx context.Context, name string) (_ fs.Node, retErr error) {
 	path := filepath.Join(d.path, name)
-	ret := vfs.Readdir(ctx, d.path)
-	if f, found := ret.Files[name]; found {
-		if f.IsDirectory {
-			return &dir{node{d.fs, path}}, nil
-		} else {
-			return &file{node{d.fs, path}}, nil
-		}
+	f, found := vfs.Stat(ctx, name)
+	if !found {
+		return nil, fuse.ENOENT
 	}
-	return nil, fuse.ENOENT
+	if f.IsDirectory {
+		return &dir{node{d.fs, path}}, nil
+	} else {
+		return &file{node{d.fs, path}}, nil
+	}
 }
 
 func (d *dir) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (_ fs.Node, retErr error) {
