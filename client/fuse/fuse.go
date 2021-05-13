@@ -20,6 +20,7 @@ import (
 )
 
 var (
+	allowAllUsers = flag.Bool("allow_all_users", false, "Allow all users access to the FUSE mount")
 	enableFuseDebug = flag.Bool("enable_fuse_debug", false, "Enable fuse debug logging")
 )
 
@@ -60,7 +61,7 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 		fuse.ReadOnly(),
 		fuse.MaxReadahead(1024 * 1024),
 	}
-	if len(f.allowedUsers) != 0 {
+	if len(f.allowedUsers) != 0 || *allowAllUsers {
 		options = append(options, fuse.AllowOther())
 	}
 	conn, err := fuse.Mount(f.mountpoint, options...)
