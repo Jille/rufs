@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
@@ -35,7 +36,12 @@ func main() {
 	if *mountpoint == "" {
 		log.Fatalf("--mountpoint must not be empty (see -help)")
 	}
-	config.MustLoadConfig()
+
+	if err := config.LoadConfig(); err != nil {
+		log.Printf("failed to load configuration: %v", err)
+		config.LoadEmptyConfig()
+	}
+
 	metrics.Init()
 	shares.Init()
 
@@ -57,7 +63,13 @@ func main() {
 	if *httpPort == -1 {
 		*httpPort = *port + 1
 	}
-	go web.Init(*httpPort)
+	go web.Init(fmt.Sprintf(":%d", *httpPort))
+
+	if len(circles) == 0 {
+		address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
+		browser.OpenURL(address)
+		log.Printf("no circles configured - visit %s to start rufs configuration.", address)
+	}
 
 	for circle, kp := range circles {
 		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {

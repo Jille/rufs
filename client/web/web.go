@@ -14,7 +14,7 @@ import (
 	"github.com/sgielen/rufs/config"
 )
 
-func Init(port int) {
+func Init(addr string) {
 	m := http.NewServeMux()
 	m.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
 	m.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
@@ -23,8 +23,9 @@ func Init(port int) {
 	m.Handle("/api/open_explorer", convreq.Wrap(openExplorer, convreq.WithErrorHandler(errorHandler)))
 	m.Handle("/", convreq.Wrap(renderStatic))
 	http.HandleFunc("/", authMiddleWare(m))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
-		log.Fatalf("Failed to start HTTP server on port %d: %v", port, err)
+	log.Printf("web server listening on addr %s.", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		log.Fatalf("failed to start HTTP server on address %q: %v", addr, err)
 	}
 }
 

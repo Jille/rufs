@@ -40,6 +40,9 @@ export class RufsService {
     }
     const body = await rq.json();
     const circles: RufsCircle[] = [];
+    if (body.Circles === null) {
+      body.Circles = [];
+    }
     body.Circles.forEach((circle: any) => {
       const shares: RufsShare[] = [];
       circle.Shares.forEach((share: any) => {
