@@ -3,12 +3,16 @@ module github.com/sgielen/rufs
 go 1.13
 
 require (
+	github.com/Jille/convreq v1.1.0
 	github.com/Jille/dfr v1.0.0
 	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
 	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
+	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/ory/go-convenience v0.1.0
+	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/yookoala/realpath v1.0.0

@@ -30,7 +30,7 @@ func MustResolvePath() {
 
 func resolvePath() error {
 	if !flag.Parsed() {
-		return fmt.Errorf("loadConfig() called before flag.Parse()")
+		return fmt.Errorf("LoadConfig() called before flag.Parse()")
 	}
 	path := *configFlag
 	if strings.HasPrefix(path, "~/") {
@@ -50,13 +50,7 @@ func resolvePath() error {
 	return nil
 }
 
-func MustLoadConfig() {
-	if err := loadConfig(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func loadConfig() error {
+func LoadConfig() error {
 	if err := resolvePath(); err != nil {
 		return err
 	}
@@ -71,15 +65,19 @@ func loadConfig() error {
 	return nil
 }
 
+func LoadEmptyConfig() {
+	cfg = &Config{}
+}
+
 func assertParsed() {
 	if cfg == nil {
-		panic("attempt to use config before calling config.MustLoadConfig()")
+		panic("attempt to use config before calling config.LoadConfig()")
 	}
 }
 
 func assertResolved() {
 	if configDir == "" {
-		panic("attempt to use config before calling config.MustLoadConfig() or config.MustLoadPath()")
+		panic("attempt to use config before calling config.LoadConfig() or config.MustLoadPath()")
 	}
 }
 

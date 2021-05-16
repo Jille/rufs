@@ -3,16 +3,21 @@ package fuse
 import (
 	"context"
 	"errors"
+	"flag"
 	"io"
 	"log"
 	osUser "os/user"
-	filepath "path"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/sgielen/rufs/client/vfs"
+)
+
+var (
+	allowAllUsers   = flag.Bool("allow_all_users", false, "Allow all users access to the FUSE mount")
+	enableFuseDebug = flag.Bool("enable_fuse_debug", false, "Enable fuse debug logging")
 )
 
 func NewMount(mountpoint string, allowUsers string) (*Mount, error) {
@@ -51,7 +56,11 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 	host.SetCapCaseInsensitive(false)
 	host.SetCapReaddirPlus(true)
 	// TODO: small readahead, allow others if len(f.allowedUsers) != 0
-	if !host.Mount(f.mountpoint, []string{"-o", "ro" /*"-o", "debug",*/, "-o", "volname=RUFS", "-o", "uid=-1", "-o", "gid=-1"}) {
+	options := []string{"-o", "ro", "-o", "volname=RUFS", "-o", "uid=-1", "-o", "gid=-1"}
+	if *enableFuseDebug {
+		options = append(options, "-o", "debug")
+	}
+	if !host.Mount(f.mountpoint, options) {
 		return errors.New("failed to initialize cgofuse mount")
 	}
 	return nil
@@ -85,20 +94,19 @@ func (f *Mount) Getattr(path string, attr *fuse.Stat_t, fh uint64) int {
 		attr.Mode = 0555 | fuse.S_IFDIR
 		return 0
 	}
-	dn, fn := filepath.Split(path)
-	ret := vfs.Readdir(context.Background(), dn)
-	if f, found := ret.Files[fn]; found {
-		attr.Size = f.Size
-		if f.IsDirectory {
-			attr.Mode = 0555 | fuse.S_IFDIR
-		} else {
-			attr.Mode = 0444 | fuse.S_IFREG
-		}
-		attr.Mtim.Sec = f.Mtime.Unix()
-		attr.Mtim.Nsec = f.Mtime.UnixNano()
-		return 0
+	file, found := vfs.Stat(context.Background(), path)
+	if !found {
+		return -fuse.ENOENT
 	}
-	return -fuse.ENOENT
+	attr.Size = file.Size
+	if file.IsDirectory {
+		attr.Mode = 0755 | fuse.S_IFDIR
+	} else {
+		attr.Mode = 0644 | fuse.S_IFREG
+	}
+	attr.Mtim.Sec = file.Mtime.Unix()
+	attr.Mtim.Nsec = file.Mtime.UnixNano()
+	return 0
 }
 
 func (f *Mount) Readdir(path string, fill func(name string, stat *fuse.Stat_t, ofst int64) bool, ofst int64, fh uint64) int {

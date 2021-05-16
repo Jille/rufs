@@ -7,11 +7,13 @@ import (
 	"log"
 	"time"
 
+	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
-	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/client/metrics"
+	"github.com/sgielen/rufs/client/shares"
+	"github.com/sgielen/rufs/client/web"
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/security"
@@ -21,6 +23,7 @@ var (
 	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
 	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
 	port          = flag.Int("port", 12010, "content server listen port")
+	httpPort      = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
 	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
 	mountpoint    = flag.String("mountpoint", "", "Where to mount everyone's stuff")
 )
@@ -33,7 +36,12 @@ func main() {
 	if *mountpoint == "" {
 		log.Fatalf("--mountpoint must not be empty (see -help)")
 	}
-	config.MustLoadConfig()
+
+	if err := config.LoadConfig(); err != nil {
+		log.Printf("failed to load configuration: %v", err)
+		config.LoadEmptyConfig()
+	}
+
 	metrics.Init()
 	shares.Init()
 
@@ -48,11 +56,20 @@ func main() {
 		kps = append(kps, kp)
 	}
 
-	content, err := content.New(fmt.Sprintf(":%d", *port), kps)
-	if err != nil {
+	if err := content.Serve(fmt.Sprintf(":%d", *port), kps); err != nil {
 		log.Fatalf("failed to create content server: %v", err)
 	}
-	go content.Run()
+
+	if *httpPort == -1 {
+		*httpPort = *port + 1
+	}
+	go web.Init(fmt.Sprintf(":%d", *httpPort))
+
+	if len(circles) == 0 {
+		address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
+		browser.OpenURL(address)
+		log.Printf("no circles configured - visit %s to start rufs configuration.", address)
+	}
 
 	for circle, kp := range circles {
 		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {

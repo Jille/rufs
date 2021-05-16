@@ -91,6 +91,16 @@ func Open(ctx context.Context, path string) (Handle, error) {
 	return t.GetHandle(), err
 }
 
+func Stat(ctx context.Context, path string) (*File, bool) {
+	dn, fn := filepath.Split(path)
+	ret := Readdir(ctx, dn)
+	f, found := ret.Files[fn]
+	if !found {
+		return nil, false
+	}
+	return f, true
+}
+
 func Readdir(ctx context.Context, path string) *Directory {
 	peers := connectivity.AllPeers()
 	startTime := time.Now()
