@@ -61,4 +61,28 @@ export class RufsService {
       throw new Error('Failed to add circle: ' + await rqToError(rq));
     }
   }
+
+  public static async sharesInCircle(circle: string): Promise<string[]> {
+    const rq = await fetch('/api/shares_in_circle?' + new URLSearchParams({circle}));
+    if (!rq.ok) {
+      throw new Error('Failed to retrieve shares in circle: ' + await rqToError(rq));
+    }
+    const body = await rq.json();
+    if (body.Shares === null) {
+      body.Shares = []
+    }
+    return body.Shares
+  }
+
+  public static async addShare(circle: string, share: string, local: string): Promise<void> {
+    const rq = await fetch('/api/add_share?' + new URLSearchParams({circle, share, local}));
+    if (!rq.ok) {
+      throw new Error('Failed to add share to circle: ' + await rqToError(rq));
+    }
+  }
+
+  public static async openExplorer(): Promise<boolean> {
+    const rq = await fetch('/api/open_explorer');
+    return rq.ok;
+  }
 }

@@ -97,7 +97,13 @@ type sharesInCircleGet struct {
 }
 
 func sharesInCircle(ctx context.Context, req *http.Request, get sharesInCircleGet) convreq.HttpResponse {
-	return respond.InternalServerError("not yet implemented")
+	type Res struct {
+		Shares []string
+	}
+	res := Res{
+		Shares: []string{"movies", "series", "music"},
+	}
+	return respondJSON(res)
 }
 
 type addShareGet struct {

@@ -44,7 +44,7 @@ export default class App extends Vue {
 
 <style lang="scss">
 body {
-  background-color: var(--bs-light) !important;
+  background-color: var(--bs-dark) !important;
   padding-top: 4em;
 }
 </style>
