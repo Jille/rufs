@@ -7,10 +7,12 @@ import (
 	"log"
 	"time"
 
+	"github.com/getlantern/systray"
 	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
+	"github.com/sgielen/rufs/client/icon"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/web"
@@ -78,11 +80,39 @@ func main() {
 		metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
 	}
 
-	f, err := fuse.NewMount(*mountpoint, *allowUsers)
-	if err != nil {
-		log.Fatalf("failed to mount fuse: %v", err)
-	}
-	if err := f.Run(ctx); err != nil {
-		log.Fatalf("failed to run fuse: %v", err)
-	}
+	go func() {
+		f, err := fuse.NewMount(*mountpoint, *allowUsers)
+		if err != nil {
+			log.Fatalf("failed to mount fuse: %v", err)
+		}
+		if err := f.Run(ctx); err != nil {
+			log.Fatalf("failed to run fuse: %v", err)
+		}
+	}()
+
+	systray.Run(onSystrayReady, func() {})
+}
+
+func onSystrayReady() {
+	systray.SetTemplateIcon(icon.Data, icon.Data)
+	systray.SetTitle("RUFS")
+	systray.SetTooltip("RUFS")
+
+	mOpen := systray.AddMenuItem("Open", "")
+	mSettings := systray.AddMenuItem("Settings", "")
+	systray.AddSeparator()
+	mQuit := systray.AddMenuItem("Quit", "")
+	go func() {
+		for {
+			select {
+			case <-mOpen.ClickedCh:
+				browser.OpenURL("file://" + *mountpoint)
+			case <-mSettings.ClickedCh:
+				address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
+				browser.OpenURL(address)
+			case <-mQuit.ClickedCh:
+				systray.Quit()
+			}
+		}
+	}()
 }

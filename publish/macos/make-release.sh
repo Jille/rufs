@@ -59,6 +59,12 @@ cat <<EOF >rufs.app/Contents/Info.plist
   <integer>0</integer>
   <key>IFMinorVersion</key>
   <integer>1</integer>
+  <!-- avoid having a blurry icon and text -->
+  <key>NSHighResolutionCapable</key>
+  <string>True</string>
+  <!-- avoid showing the app on the Dock -->
+  <key>LSUIElement</key>
+  <string>1</string>
 </dict>
 </plist>
 EOF

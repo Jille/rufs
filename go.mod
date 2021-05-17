@@ -7,6 +7,8 @@ require (
 	github.com/Jille/convreq v1.1.0
 	github.com/Jille/dfr v1.0.0
 	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
+	github.com/cratonica/2goarray v0.0.0-20190331194516-514510793eaa // indirect
+	github.com/getlantern/systray v1.1.0
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0 // indirect
