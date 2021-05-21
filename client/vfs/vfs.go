@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	// Paths within the VFS layer are always separated by forward slahes, e.g. "foo/bar", even on
+	// Windows. Calls into the VFS layer are assumed to follow this standard.
+	"path"
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
@@ -60,9 +63,9 @@ func (*fixedContentHandle) Close() error {
 	return nil
 }
 
-func Open(ctx context.Context, path string) (Handle, error) {
-	basename := filepath.Base(path)
-	dirname := filepath.Dir(path)
+func Open(ctx context.Context, p string) (Handle, error) {
+	basename := path.Base(p)
+	dirname := path.Dir(p)
 	dir := Readdir(ctx, dirname)
 	file := dir.Files[basename]
 	if file == nil {
@@ -77,15 +80,15 @@ func Open(ctx context.Context, path string) (Handle, error) {
 			content: file.FixedContent,
 		}, nil
 	}
-	t, err := transfers.GetTransferForFile(ctx, path, file.Hash, file.Size, file.Peers)
+	t, err := transfers.GetTransferForFile(ctx, p, file.Hash, file.Size, file.Peers)
 	if err != nil {
 		return nil, err
 	}
 	return t.GetHandle(), err
 }
 
-func Stat(ctx context.Context, path string) (*File, bool) {
-	dn, fn := filepath.Split(path)
+func Stat(ctx context.Context, p string) (*File, bool) {
+	dn, fn := path.Split(p)
 	ret := Readdir(ctx, dn)
 	f, found := ret.Files[fn]
 	if !found {
@@ -94,7 +97,7 @@ func Stat(ctx context.Context, path string) (*File, bool) {
 	return f, true
 }
 
-func Readdir(ctx context.Context, path string) *Directory {
+func Readdir(ctx context.Context, p string) *Directory {
 	peers := connectivity.AllPeers()
 	startTime := time.Now()
 	go func() {
@@ -102,7 +105,7 @@ func Readdir(ctx context.Context, path string) *Directory {
 		metrics.AddVfsReaddirs(circles, 1)
 		metrics.AppendVfsReaddirLatency(circles, time.Since(startTime).Seconds())
 	}()
-	path = strings.Trim(path, "/")
+	p = strings.Trim(p, "/")
 
 	type peerFileInstance struct {
 		peer *connectivity.Peer
@@ -116,7 +119,7 @@ func Readdir(ctx context.Context, path string) *Directory {
 	files := make(map[string]*peerFile)
 
 	resps, errs := parallelReadDir(ctx, peers, &pb.ReadDirRequest{
-		Path: path,
+		Path: p,
 	})
 	for p, err := range errs {
 		warnings = append(warnings, fmt.Sprintf("failed to readdir on peer %s, ignoring: %v", p.Name, err))
@@ -150,7 +153,7 @@ func Readdir(ctx context.Context, path string) *Directory {
 			if !isDirectoryEverywhere && (len(hashes) != 1 || hashes[""]) {
 				warnings = append(warnings, fmt.Sprintf("File %s is available on multiple peers (%s), so it was hidden.", filename, strings.Join(peers, ", ")))
 				delete(files, filename)
-				triggerResolveConflict(ctx, filepath.Join(path, filename), peers)
+				triggerResolveConflict(ctx, path.Join(p, filename), peers)
 			}
 		}
 	}
@@ -168,7 +171,7 @@ func Readdir(ctx context.Context, path string) *Directory {
 			}
 		}
 		res.Files[filename] = &File{
-			FullPath:    filepath.Join(path, filename),
+			FullPath:    path.Join(p, filename),
 			IsDirectory: file.instances[0].file.GetIsDirectory(),
 			Mtime:       time.Unix(highestMtime, 0),
 			Size:        file.instances[0].file.GetSize(),
@@ -180,7 +183,7 @@ func Readdir(ctx context.Context, path string) *Directory {
 		warning := "*** RUFS encountered some issues showing this directory: ***\n"
 		warning += strings.Join(warnings, "\n") + "\n"
 		res.Files["rufs-warnings.txt"] = &File{
-			FullPath:     path + "/rufs-warnings.txt",
+			FullPath:     p + "/rufs-warnings.txt",
 			IsDirectory:  false,
 			Mtime:        time.Now(),
 			Size:         int64(len(warning)),

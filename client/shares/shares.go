@@ -3,9 +3,12 @@ package shares
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
+
+	// While all of RUFS uses forward slash-separated paths, this file
+	// works with local paths.
+	"path/filepath"
 
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/config"
@@ -78,11 +81,11 @@ func makeRemoteError(remotePath string, err error) error {
 
 func resolveRemotePath(circle, remotePath string) (string, error) {
 	c := circles[circle]
-	sp := strings.SplitN(remotePath, "/", 2)
+	sp := strings.Split(remotePath, "/")
 	remote := sp[0]
 	remainder := ""
-	if len(sp) == 2 {
-		remainder = sp[1]
+	if len(sp) > 1 {
+		remainder = filepath.Join(sp[1:]...)
 	}
 	shareRoot, ok := c.shares[remote]
 	if !ok {
