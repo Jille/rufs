@@ -160,7 +160,7 @@ func (d *dir) Create(ctx context.Context, request *fuse.CreateRequest, response 
 
 func (d *dir) Lookup(ctx context.Context, name string) (_ fs.Node, retErr error) {
 	path := filepath.Join(d.path, name)
-	f, found := vfs.Stat(ctx, name)
+	f, found := vfs.Stat(ctx, path)
 	if !found {
 		return nil, fuse.ENOENT
 	}
