@@ -1,4 +1,4 @@
-// +build !windows,!netbsd,!openbsd,!nofuse
+// +build !windows,!cgofuse
 
 package fuse
 
