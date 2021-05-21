@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	allowAllUsers = flag.Bool("allow_all_users", false, "Allow all users access to the FUSE mount")
+	allowAllUsers   = flag.Bool("allow_all_users", false, "Allow all users access to the FUSE mount")
 	enableFuseDebug = flag.Bool("enable_fuse_debug", false, "Enable fuse debug logging")
 )
 
@@ -222,10 +222,12 @@ type handle struct {
 }
 
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	response.Data, retErr = h.vh.Read(ctx, request.Offset, int64(request.Size))
+	response.Data = make([]byte, request.Size)
+	n, retErr := h.vh.Read(ctx, request.Offset, response.Data)
 	if retErr != nil {
 		log.Printf("VFS read failed for {%s}: %v", h.path, retErr)
 	}
+	response.Data = response.Data[0:n]
 	return retErr
 }
 

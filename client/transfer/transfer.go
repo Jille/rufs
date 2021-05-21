@@ -216,13 +216,14 @@ func (h *TransferHandle) Close() error {
 	return nil
 }
 
-func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ []byte, retErr error) {
+func (h *TransferHandle) Read(ctx context.Context, offset int64, buf []byte) (n int, retErr error) {
 	const MIN_READAHEAD_SIZE = 1024 * 32
 	t := h.transfer
 	if t == nil {
 		log.Panicf("read on a closed TransferHandle")
 	}
 
+	size := int64(len(buf))
 	startTime := time.Now()
 	var recvBytes int64
 	metrics.SetTransferReadsActive(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, 1))
@@ -237,7 +238,7 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 		metrics.SetTransferReadsActive(connectivity.CirclesFromPeers(t.peers), atomic.AddInt64(&activeReadCounter, -1))
 	}()
 	if offset >= t.size {
-		return nil, io.EOF
+		return 0, io.EOF
 	}
 	if offset+size > t.size {
 		size = t.size - offset
@@ -256,7 +257,7 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 		sizeAhead = t.size - (offset + size)
 	}
 	if size == 0 && sizeAhead == 0 {
-		return nil, nil
+		return 0, nil
 	}
 	t.mtx.Lock()
 	missing := t.have.FindUncovered(offset, offset+size)
@@ -277,17 +278,12 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, size int64) (_ 
 			missingWant := t.want.FindUncoveredRange(missing)
 			if !missingWant.IsEmpty() {
 				t.mtx.Unlock()
-				return nil, errors.New("simpleFetcher admitted failure")
+				return 0, errors.New("simpleFetcher admitted failure")
 			}
 		}
 	}
 	t.mtx.Unlock()
-	buf := make([]byte, size)
-	_, err := t.storage.ReadAt(buf, offset)
-	if err != nil {
-		return nil, err
-	}
-	return buf, nil
+	return t.storage.ReadAt(buf, offset)
 }
 
 func (t *Transfer) simpleFetcher(ctx context.Context) {

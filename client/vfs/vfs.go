@@ -35,7 +35,7 @@ type File struct {
 }
 
 type Handle interface {
-	Read(ctx context.Context, offset int64, size int64) ([]byte, error)
+	Read(ctx context.Context, offset int64, buf []byte) (int, error)
 	Close() error
 }
 
@@ -43,15 +43,17 @@ type fixedContentHandle struct {
 	content []byte
 }
 
-func (handle *fixedContentHandle) Read(ctx context.Context, offset int64, size int64) ([]byte, error) {
+func (handle *fixedContentHandle) Read(ctx context.Context, offset int64, buf []byte) (int, error) {
 	length := int64(len(handle.content))
 	if offset >= length {
-		return nil, io.EOF
+		return 0, io.EOF
 	}
-	if offset+size >= length {
-		size = length - offset
+	end := offset + int64(len(buf))
+	if end > length {
+		end = length
 	}
-	return handle.content[offset : offset+size], nil
+	n := copy(buf, handle.content[offset:end])
+	return n, nil
 }
 
 func (*fixedContentHandle) Close() error {
@@ -132,7 +134,7 @@ func Readdir(ctx context.Context, path string) *Directory {
 		}
 	}
 
-	// remove files available on multiple peers, unless they are a directory everywhere
+	// remove files available on multiple peers, unless they are a directory everywhere or the hash is equal everywhere
 	for filename, file := range files {
 		if len(file.instances) != 1 {
 			var peers []string
