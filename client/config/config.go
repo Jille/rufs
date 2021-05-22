@@ -155,18 +155,19 @@ func parseConfig(data []byte) (*Config, error) {
 	return config, nil
 }
 
-func GetCircles() []Circle {
+func GetConfig() Config {
 	assertParsed()
 	mtx.Lock()
 	defer mtx.Unlock()
-	return cfg.Circles
+	return *cfg
+}
+
+func GetCircles() []Circle {
+	return GetConfig().Circles
 }
 
 func GetCircle(name string) (Circle, bool) {
-	assertParsed()
-	mtx.Lock()
-	defer mtx.Unlock()
-	for _, ci := range cfg.Circles {
+	for _, ci := range GetConfig().Circles {
 		if ci.Name == name {
 			return ci, true
 		}

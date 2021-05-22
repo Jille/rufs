@@ -85,10 +85,7 @@ func respondJSON(v interface{}) convreq.HttpResponse {
 }
 
 func renderConfig(ctx context.Context, req *http.Request) convreq.HttpResponse {
-	ret := config.Config{
-		Circles: config.GetCircles(),
-	}
-	return respondJSON(ret)
+	return respondJSON(config.GetConfig())
 }
 
 type registerCircleGet struct {
