@@ -29,6 +29,7 @@ message RegisterRequest {
 	string username = 1;
 	string token = 2;
 	bytes public_key = 3;
+	string client_version = 4;
 }
 
 message RegisterResponse {
@@ -37,6 +38,7 @@ message RegisterResponse {
 
 message ConnectRequest {
 	repeated string endpoints = 1;
+	string client_version = 2;
 }
 
 message ConnectResponse {

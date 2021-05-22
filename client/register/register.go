@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/config"
+	"github.com/sgielen/rufs/version"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
@@ -56,9 +57,10 @@ func Register(ctx context.Context, circleAddr, username, token, caURI string) er
 	}
 
 	resp, err := c.Register(ctx, &pb.RegisterRequest{
-		Username:  username,
-		Token:     token,
-		PublicKey: pub,
+		Username:      username,
+		Token:         token,
+		PublicKey:     pub,
+		ClientVersion: version.GetVersion(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to register with circle: %v", err)

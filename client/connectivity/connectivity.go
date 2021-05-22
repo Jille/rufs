@@ -12,6 +12,7 @@ import (
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
+	"github.com/sgielen/rufs/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -93,7 +94,8 @@ func (c *circle) run(ctx context.Context) {
 
 func (c *circle) connect(ctx context.Context) error {
 	stream, err := c.client.Connect(ctx, &pb.ConnectRequest{
-		Endpoints: c.myEndpoints,
+		Endpoints:     c.myEndpoints,
+		ClientVersion: version.GetVersion(),
 	}, grpc.WaitForReady(true))
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to discovery server: %v", err)
