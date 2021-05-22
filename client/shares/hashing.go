@@ -9,6 +9,9 @@ import (
 	"path"
 	"sync"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type hashListener func(circle, remoteFilename, hash string)
@@ -40,7 +43,11 @@ type cachedHash struct {
 func StartHash(circle, remoteFilename string) {
 	localFilename, err := resolveRemotePath(circle, remoteFilename)
 	if err != nil {
-		log.Printf("StartHash(%q, %q): resolveRemotePath(): %v", circle, remoteFilename, err)
+		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+			// NotFound does not need to be logged
+		} else {
+			log.Printf("StartHash(%q, %q): resolveRemotePath(): %v", circle, remoteFilename, err)
+		}
 		return
 	}
 	hashCacheMtx.Lock()
