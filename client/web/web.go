@@ -11,6 +11,7 @@ import (
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
+	"github.com/sgielen/rufs/client/register"
 	"github.com/sgielen/rufs/config"
 )
 
@@ -93,8 +94,14 @@ type registerCircleGet struct {
 }
 
 func registerCircle(ctx context.Context, req *http.Request, get registerCircleGet) convreq.HttpResponse {
+	if err := register.Register(ctx, get.Circle, get.User, get.Token, get.Ca); err != nil {
+		return respond.Error(err)
+	}
+	if err := config.AddCircleAndStore(get.Circle); err != nil {
+		return respond.Error(err)
+	}
 	ReloadConfigCallback()
-	return respond.InternalServerError("not yet implemented")
+	return respondJSON(map[string]bool{"ok": true})
 }
 
 type sharesInCircleGet struct {

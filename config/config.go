@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/sgielen/rufs/security"
 	yaml "gopkg.in/yaml.v2"
@@ -19,6 +21,7 @@ var (
 
 	configDir  string
 	configFile string
+	mtx        sync.Mutex
 	cfg        *Config
 )
 
@@ -58,7 +61,9 @@ func LoadConfig() error {
 	if err != nil {
 		return err
 	}
+	mtx.Lock()
 	cfg, err = parseConfig(data)
+	mtx.Unlock()
 	if err != nil {
 		return err
 	}
@@ -66,10 +71,14 @@ func LoadConfig() error {
 }
 
 func LoadEmptyConfig() {
+	mtx.Lock()
 	cfg = &Config{}
+	mtx.Unlock()
 }
 
 func assertParsed() {
+	mtx.Lock()
+	defer mtx.Unlock()
 	if cfg == nil {
 		panic("attempt to use config before calling config.LoadConfig()")
 	}
@@ -148,15 +157,45 @@ func parseConfig(data []byte) (*Config, error) {
 
 func GetCircles() []*Circle {
 	assertParsed()
+	mtx.Lock()
+	defer mtx.Unlock()
 	return cfg.Circles
 }
 
 func GetCircle(name string) (*Circle, bool) {
 	assertParsed()
+	mtx.Lock()
+	defer mtx.Unlock()
 	for _, ci := range cfg.Circles {
 		if ci.Name == name {
 			return ci, true
 		}
 	}
 	return nil, false
+}
+
+func AddCircleAndStore(name string) error {
+	assertParsed()
+	mtx.Lock()
+	defer mtx.Unlock()
+	newCfg := *cfg
+	newCfg.Circles = append(newCfg.Circles, &Circle{
+		Name: name,
+	})
+	if err := writeNewConfig(newCfg); err != nil {
+		return err
+	}
+	cfg = &newCfg
+	return nil
+}
+
+func writeNewConfig(c Config) error {
+	b, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(configFile, b, 0644)
 }
