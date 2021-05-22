@@ -3,17 +3,19 @@
 package systray
 
 import (
-	"fmt"
+	"runtime"
 
 	"github.com/getlantern/systray"
 	"github.com/sgielen/rufs/client/icon"
 )
 
-func Run() {
-	systray.Run(onSystrayReady, func() {})
+func Run(onOpen func(), onSettings func(), onQuit func()) {
+	systray.Run(func() {
+		onSystrayReady(onOpen, onSettings)
+	}, onQuit)
 }
 
-func onSystrayReady() {
+func onSystrayReady(onOpen func(), onSettings func()) {
 	systray.SetTemplateIcon(icon.Data, icon.Data)
 	systray.SetTitle("RUFS")
 	systray.SetTooltip("RUFS")
@@ -26,13 +28,13 @@ func onSystrayReady() {
 		for {
 			select {
 			case <-mOpen.ClickedCh:
-				browser.OpenURL("file://" + *mountpoint)
+				onOpen()
 			case <-mSettings.ClickedCh:
-				address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
-				browser.OpenURL(address)
+				onSettings()
 			case <-mQuit.ClickedCh:
 				systray.Quit()
 			}
 		}
 	}()
 }
+

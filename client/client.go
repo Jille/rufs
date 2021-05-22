@@ -85,7 +85,16 @@ func main() {
 		os.Exit(0)
 	}()
 
-	systray.Run()
+	systray.Run(onOpen, onSettings, func() {})
+}
+
+func onOpen() {
+	browser.OpenURL("file://" + *mountpoint)
+}
+
+func onSettings() {
+	address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
+	browser.OpenURL(address)
 }
 
 func connectToCircles(circles map[string]*security.KeyPair) {

@@ -1,7 +1,7 @@
-// +build !windows,!cgofuse,!systray
+// +build !windows,!darwin,!systray
 
 package systray
 
-func Run() {
+func Run(_, _, _ func()) {
 	select {}
 }
