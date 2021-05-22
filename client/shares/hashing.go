@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"sync"
 	"time"
 )
@@ -17,10 +18,11 @@ type callbackInfo struct {
 }
 
 var (
-	hashQueue    = make(chan hashRequest, 1000)
-	hashCacheMtx sync.Mutex
-	hashCache    = map[string]cachedHash{}
-	listeners    []chan callbackInfo
+	hashCacheMtx     sync.Mutex
+	hashQueue        = make(chan hashRequest, 1000)
+	hashQueueEntries = map[string]struct{}{}
+	hashCache        = map[string]cachedHash{}
+	listeners        []chan callbackInfo
 )
 
 type hashRequest struct {
@@ -41,6 +43,13 @@ func StartHash(circle, remoteFilename string) {
 		log.Printf("StartHash(%q, %q): resolveRemotePath(): %v", circle, remoteFilename, err)
 		return
 	}
+	hashCacheMtx.Lock()
+	defer hashCacheMtx.Unlock()
+	hk := path.Join(circle, remoteFilename)
+	if _, found := hashQueueEntries[hk]; found {
+		return
+	}
+	hashQueueEntries[hk] = struct{}{}
 	select {
 	case hashQueue <- hashRequest{
 		circle:        circle,
@@ -48,6 +57,7 @@ func StartHash(circle, remoteFilename string) {
 		remote:        remoteFilename,
 	}:
 	default:
+		delete(hashQueueEntries, hk)
 		log.Printf("StartHash(%q, %q): hash queue overflow", circle, remoteFilename)
 	}
 }
@@ -66,6 +76,9 @@ func RegisterHashListener(callback hashListener) {
 
 func hashWorker() {
 	for req := range hashQueue {
+		hashCacheMtx.Lock()
+		delete(hashQueueEntries, path.Join(req.circle, req.remote))
+		hashCacheMtx.Unlock()
 		hash, err := hashFile(req.localFilename)
 		if err != nil {
 			log.Printf("Failed to hash %q: %v", req.localFilename, err)
