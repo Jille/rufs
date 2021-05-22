@@ -54,6 +54,9 @@ export class RufsService {
     }
     body.Circles.forEach((circle: any) => {
       const shares: RufsShare[] = [];
+      if (circle.Shares === null) {
+        circle.Shares = [];
+      }
       circle.Shares.forEach((share: any) => {
         shares.push(new RufsShare(share.Local, share.Remote));
       });
