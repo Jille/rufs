@@ -14,6 +14,7 @@ import (
 	"github.com/Jille/convreq/respond"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/register"
+	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/vfs"
 	"github.com/sgielen/rufs/config"
 )
@@ -138,7 +139,13 @@ type addShareGet struct {
 }
 
 func addShare(ctx context.Context, req *http.Request, get addShareGet) convreq.HttpResponse {
-	return respond.InternalServerError("not yet implemented")
+	if err := config.AddShareAndStore(get.Circle, get.Share, get.Local); err != nil {
+		return respond.Error(err)
+	}
+	if err := shares.ReloadConfig(); err != nil {
+		return respond.Error(err)
+	}
+	return respondJSON(map[string]bool{"ok": true})
 }
 
 func openExplorer(ctx context.Context, req *http.Request) convreq.HttpResponse {

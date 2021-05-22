@@ -185,6 +185,23 @@ func AddCircleAndStore(name string) error {
 	return writeNewConfig(newCfg)
 }
 
+func AddShareAndStore(circle, share, local string) error {
+	assertParsed()
+	mtx.Lock()
+	defer mtx.Unlock()
+	newCfg := *cfg
+	for i, c := range newCfg.Circles {
+		if c.Name == circle {
+			newCfg.Circles[i].Shares = append(newCfg.Circles[i].Shares, Share{
+				Remote: share,
+				Local: local,
+			})
+			return writeNewConfig(newCfg)
+		}
+	}
+	return fmt.Errorf("unknown circle %q", circle)
+}
+
 func writeNewConfig(c Config) error {
 	b, err := yaml.Marshal(c)
 	if err != nil {
