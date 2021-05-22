@@ -28,6 +28,8 @@ var (
 	port          = flag.Int("port", 12010, "content server listen port")
 	httpPort      = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
 	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
+
+	unmountFuse = func() {}
 )
 
 func main() {
@@ -73,7 +75,9 @@ func main() {
 	connectToCircles(circles)
 
 	config.RegisterMountpointListener(func(mp string) {
-		// TODO: Close any old fuse mounts.
+		unmountFuse()
+		ctx, cancel := context.WithCancel(ctx)
+		unmountFuse = cancel
 		go func() {
 			f, err := fuse.NewMount(mp, *allowUsers)
 			if err != nil {
