@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/Jille/dfr"
+	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/transfers"
-	"github.com/sgielen/rufs/config"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sgielen/rufs/config"
+	"github.com/sgielen/rufs/client/config"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"

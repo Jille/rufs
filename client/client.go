@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/browser"
+	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
@@ -17,7 +18,6 @@ import (
 	"github.com/sgielen/rufs/client/systray"
 	"github.com/sgielen/rufs/client/web"
 	"github.com/sgielen/rufs/common"
-	"github.com/sgielen/rufs/config"
 	"github.com/sgielen/rufs/security"
 )
 

@@ -12,11 +12,11 @@ import (
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
+	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/register"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/vfs"
-	"github.com/sgielen/rufs/config"
 
 	// Register /debug/ HTTP handlers.
 	_ "github.com/sgielen/rufs/debugging"
