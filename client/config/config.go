@@ -143,7 +143,8 @@ type Circle struct {
 }
 
 type Config struct {
-	Circles []Circle
+	Circles    []Circle
+	Mountpoint string
 }
 
 func parseConfig(data []byte) (*Config, error) {
@@ -195,7 +196,7 @@ func AddShareAndStore(circle, share, local string) error {
 		if c.Name == circle {
 			newCfg.Circles[i].Shares = append(newCfg.Circles[i].Shares, Share{
 				Remote: share,
-				Local: local,
+				Local:  local,
 			})
 			return writeNewConfig(newCfg)
 		}

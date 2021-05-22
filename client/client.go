@@ -35,13 +35,14 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	if *mountpoint == "" {
-		log.Fatalf("--mountpoint must not be empty (see -help)")
-	}
-
 	if err := config.LoadConfig(); err != nil {
 		log.Printf("failed to load configuration: %v", err)
 		config.LoadEmptyConfig()
+	}
+
+	mp := config.GetConfig().Mountpoint
+	if *mountpoint != "" {
+		mp = *mountpoint
 	}
 
 	metrics.Init()
@@ -75,7 +76,10 @@ func main() {
 	connectToCircles(circles)
 
 	go func() {
-		f, err := fuse.NewMount(*mountpoint, *allowUsers)
+		if mp == "" {
+			return
+		}
+		f, err := fuse.NewMount(mp, *allowUsers)
 		if err != nil {
 			log.Fatalf("failed to mount fuse: %v", err)
 		}
@@ -85,11 +89,12 @@ func main() {
 		os.Exit(0)
 	}()
 
-	systray.Run(onOpen, onSettings, func() {})
-}
-
-func onOpen() {
-	browser.OpenURL(*mountpoint)
+	systray.Run(func() {
+		if mp == "" {
+			return
+		}
+		browser.OpenURL(mp)
+	}, onSettings, func() {})
 }
 
 func onSettings() {
