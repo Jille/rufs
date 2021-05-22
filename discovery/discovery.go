@@ -19,6 +19,9 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+
+	// Register /debug/ HTTP handlers.
+	_ "github.com/sgielen/rufs/debugging"
 )
 
 var (

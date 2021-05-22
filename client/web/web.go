@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -19,8 +18,8 @@ import (
 	"github.com/sgielen/rufs/client/vfs"
 	"github.com/sgielen/rufs/config"
 
-	// Imported for /debug/pprof/...
-	_ "net/http/pprof"
+	// Register /debug/ HTTP handlers.
+	_ "github.com/sgielen/rufs/debugging"
 )
 
 var (
@@ -33,7 +32,6 @@ func Init(addr string) {
 	http.Handle("/api/shares_in_circle", convreq.Wrap(sharesInCircle, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/add_share", convreq.Wrap(addShare, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/open_explorer", convreq.Wrap(openExplorer, convreq.WithErrorHandler(errorHandler)))
-	http.Handle("/debug/pprof/threads", http.HandlerFunc(serveStackTraces))
 	http.Handle("/", convreq.Wrap(renderStatic))
 	log.Printf("web server listening on addr %s.", addr)
 	if err := http.ListenAndServe(addr, authMiddleWare(http.DefaultServeMux)); err != nil {
@@ -177,8 +175,4 @@ func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
 		t = "image/svg+xml"
 	}
 	return respond.WithHeader(respond.String(body), "Content-Type", t)
-}
-
-func serveStackTraces(w http.ResponseWriter, req *http.Request) {
-	pprof.Lookup("goroutine").WriteTo(w, 1)
 }
