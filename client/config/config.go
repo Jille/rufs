@@ -67,6 +67,7 @@ func LoadConfig() error {
 	if err != nil {
 		return err
 	}
+	SetMountpoint(cfg.Mountpoint)
 	return nil
 }
 

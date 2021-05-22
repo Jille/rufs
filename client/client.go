@@ -27,7 +27,6 @@ var (
 	port          = flag.Int("port", 12010, "content server listen port")
 	httpPort      = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
 	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
-	mountpoint    = flag.String("mountpoint", "", "Where to mount everyone's stuff")
 )
 
 func main() {
@@ -38,11 +37,6 @@ func main() {
 	if err := config.LoadConfig(); err != nil {
 		log.Printf("failed to load configuration: %v", err)
 		config.LoadEmptyConfig()
-	}
-
-	mp := config.GetConfig().Mountpoint
-	if *mountpoint != "" {
-		mp = *mountpoint
 	}
 
 	metrics.Init()
@@ -75,26 +69,30 @@ func main() {
 
 	connectToCircles(circles)
 
-	go func() {
-		if mp == "" {
-			return
-		}
-		f, err := fuse.NewMount(mp, *allowUsers)
-		if err != nil {
-			log.Fatalf("failed to mount fuse: %v", err)
-		}
-		if err := f.Run(ctx); err != nil {
-			log.Fatalf("failed to run fuse: %v", err)
-		}
-		os.Exit(0)
-	}()
+	config.RegisterMountpointListener(func(mp string) {
+		// TODO: Close any old fuse mounts.
+		go func() {
+			f, err := fuse.NewMount(mp, *allowUsers)
+			if err != nil {
+				log.Fatalf("failed to mount fuse: %v", err)
+			}
+			if err := f.Run(ctx); err != nil {
+				log.Fatalf("failed to run fuse: %v", err)
+			}
+			os.Exit(0)
+		}()
+	})
 
-	systray.Run(func() {
-		if mp == "" {
-			return
-		}
-		browser.OpenURL(mp)
-	}, onSettings, func() {})
+	systray.Run(onOpen, onSettings, func() {})
+}
+
+func onOpen() {
+	mp := config.GetMountpoint()
+	if mp == "" {
+		onSettings()
+		return
+	}
+	browser.OpenURL(mp)
 }
 
 func onSettings() {
