@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/pkg/browser"
@@ -81,6 +82,7 @@ func main() {
 		if err := f.Run(ctx); err != nil {
 			log.Fatalf("failed to run fuse: %v", err)
 		}
+		os.Exit(0)
 	}()
 
 	systray.Run()
