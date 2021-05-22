@@ -1,3 +1,14 @@
 #!/bin/bash
 
+LAUNCH_AGENT_SRC="/Applications/rufs.app/Contents/Resources/sg.sjor.rufs.plist"
+LAUNCH_AGENT_DEST="$HOME/Library/LaunchAgents/sg.sjor.rufs.plist"
+
+USER_UID="$(id -u $USER)"
+
+/bin/launchctl asuser $USER_UID /bin/launchctl unload "$LAUNCH_AGENT_DEST"
+rm -f "$LAUNCH_AGENT_DEST"
+
+/bin/launchctl asuser $USER_UID /bin/cp "$LAUNCH_AGENT_SRC" "$LAUNCH_AGENT_DEST"
+/bin/launchctl asuser $USER_UID /bin/launchctl load "$LAUNCH_AGENT_DEST"
+
 exit 0

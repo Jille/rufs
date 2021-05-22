@@ -71,6 +71,7 @@ EOF
 
 mkdir -p rufs.app/Contents/Resources
 cp rufs.icns rufs.app/Contents/Resources
+cp sg.sjor.rufs.plist rufs.app/Contents/Resources
 
 # Create pkg
 mkdir -p tempdir/root/Applications tempdir/packages
