@@ -182,11 +182,7 @@ func AddCircleAndStore(name string) error {
 	newCfg.Circles = append(newCfg.Circles, Circle{
 		Name: name,
 	})
-	if err := writeNewConfig(newCfg); err != nil {
-		return err
-	}
-	cfg = &newCfg
-	return nil
+	return writeNewConfig(newCfg)
 }
 
 func writeNewConfig(c Config) error {
@@ -197,5 +193,9 @@ func writeNewConfig(c Config) error {
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(configFile, b, 0644)
+	if err := ioutil.WriteFile(configFile, b, 0644); err != nil {
+		return err
+	}
+	cfg = &c
+	return nil
 }
