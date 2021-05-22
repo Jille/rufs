@@ -37,7 +37,10 @@ type circle struct {
 }
 
 func ConnectToCircle(ctx context.Context, name string, port int, myEndpoints []string, myPort int, kp *security.KeyPair) error {
-	if _, found := circles[name]; found {
+	cmtx.Lock()
+	_, found := circles[name]
+	cmtx.Unlock()
+	if found {
 		return nil
 	}
 	conn, err := grpc.DialContext(ctx, net.JoinHostPort(name, fmt.Sprint(port)), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
@@ -71,7 +74,9 @@ func ConnectToCircle(ctx context.Context, name string, port int, myEndpoints []s
 		peers:       map[string]*Peer{},
 	}
 	go c.run(ctx)
+	cmtx.Lock()
 	circles[name] = c
+	cmtx.Unlock()
 	return nil
 }
 
