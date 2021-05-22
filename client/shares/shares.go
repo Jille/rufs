@@ -50,7 +50,7 @@ func ReloadConfig() error {
 	return nil
 }
 
-func resolveSharePath(s *config.Share) (string, error) {
+func resolveSharePath(s config.Share) (string, error) {
 	if strings.Contains(s.Remote, "/") || s.Remote == "." || s.Remote == ".." {
 		return "", fmt.Errorf("remote path invalid: %s", s.Remote)
 	}

@@ -139,11 +139,11 @@ type Share struct {
 
 type Circle struct {
 	Name   string
-	Shares []*Share
+	Shares []Share
 }
 
 type Config struct {
-	Circles []*Circle
+	Circles []Circle
 }
 
 func parseConfig(data []byte) (*Config, error) {
@@ -155,14 +155,14 @@ func parseConfig(data []byte) (*Config, error) {
 	return config, nil
 }
 
-func GetCircles() []*Circle {
+func GetCircles() []Circle {
 	assertParsed()
 	mtx.Lock()
 	defer mtx.Unlock()
 	return cfg.Circles
 }
 
-func GetCircle(name string) (*Circle, bool) {
+func GetCircle(name string) (Circle, bool) {
 	assertParsed()
 	mtx.Lock()
 	defer mtx.Unlock()
@@ -171,7 +171,7 @@ func GetCircle(name string) (*Circle, bool) {
 			return ci, true
 		}
 	}
-	return nil, false
+	return Circle{}, false
 }
 
 func AddCircleAndStore(name string) error {
@@ -179,7 +179,7 @@ func AddCircleAndStore(name string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 	newCfg := *cfg
-	newCfg.Circles = append(newCfg.Circles, &Circle{
+	newCfg.Circles = append(newCfg.Circles, Circle{
 		Name: name,
 	})
 	if err := writeNewConfig(newCfg); err != nil {
