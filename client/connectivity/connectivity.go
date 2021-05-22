@@ -13,6 +13,7 @@ import (
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
@@ -236,4 +237,35 @@ func CirclesFromPeers(peers []*Peer) []string {
 		ret = append(ret, c)
 	}
 	return ret
+}
+
+func WaitForCircle(ctx context.Context, name string) error {
+	for {
+		cmtx.Lock()
+		c, found := circles[name]
+		cmtx.Unlock()
+		if found && len(c.AllPeers()) > 0 {
+			return c.WaitForPeers(ctx)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+}
+
+func (c *circle) WaitForPeers(ctx context.Context) error {
+	for _, p := range c.AllPeers() {
+		for {
+			ls := p.conn.GetState()
+			if ls == connectivity.Ready {
+				break
+			}
+			if !p.conn.WaitForStateChange(ctx, ls) {
+				return ctx.Err()
+			}
+		}
+	}
+	return nil
 }

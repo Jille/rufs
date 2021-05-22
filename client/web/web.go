@@ -8,9 +8,11 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
+	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/register"
 	"github.com/sgielen/rufs/config"
 )
@@ -101,6 +103,11 @@ func registerCircle(ctx context.Context, req *http.Request, get registerCircleGe
 		return respond.Error(err)
 	}
 	ReloadConfigCallback()
+	wctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := connectivity.WaitForCircle(wctx, get.Circle); err != nil && err != context.DeadlineExceeded {
+		return respond.Error(err)
+	}
 	return respondJSON(map[string]bool{"ok": true})
 }
 
