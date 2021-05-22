@@ -12,7 +12,7 @@ import (
 
 var (
 	circle   = flag.String("circle", "", "Name of the circle to join")
-	ca       = flag.String("ca", "/tmp/rufs/ca.crt", "Path or URL to the CA certificate")
+	ca       = flag.String("ca", "", "Path or URL to the CA certificate")
 	username = flag.String("user", "", "RuFS username")
 	token    = flag.String("token", "", "Auth token given by an administrator")
 )

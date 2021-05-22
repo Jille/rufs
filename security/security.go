@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -244,12 +245,26 @@ func getTlsConfig(mode tlsConfigType, ca *x509.Certificate, cert *tls.Certificat
 	return cfg
 }
 
-func TLSConfigForRegistration(caPem []byte) (*tls.Config, error) {
-	ca, err := parseCertificate(caPem)
-	if err != nil {
-		return nil, err
-	}
-	return getTlsConfig(tlsConfigMasterClient, ca, nil, ca.Subject.CommonName), nil
+func TLSConfigForRegistration(circle, fingerprint string) (*tls.Config, *[]byte) {
+	ret := new([]byte)
+	return &tls.Config{
+		InsecureSkipVerify: true, // We'll do the checking ourselves in VerifyConnection.
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			c, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return err
+			}
+			if c.Subject.CommonName != circle {
+				return fmt.Errorf("common_name mismatch (got %q, want %q)", c.Subject.CommonName, circle)
+			}
+			fp := fmt.Sprintf("%x", sha256.Sum256(c.Raw))
+			if fp != fingerprint {
+				return fmt.Errorf("fingerprint mismatch (got %q, want %q)", fp, fingerprint)
+			}
+			*ret = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.Raw})
+			return nil
+		},
+	}, ret
 }
 
 func parseCertificate(crtPEM []byte) (*x509.Certificate, error) {

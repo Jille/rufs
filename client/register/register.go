@@ -20,7 +20,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func Register(ctx context.Context, circleAddr, username, token, caURI string) error {
+func Register(ctx context.Context, circleAddr, username, token, caFingerprint string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -30,15 +30,7 @@ func Register(ctx context.Context, circleAddr, username, token, caURI string) er
 		discoveryPort = "12000"
 	}
 
-	ca, err := readOrFetch(caURI)
-	if err != nil {
-		return fmt.Errorf("failed to read CA certificate from %q: %v", caURI, err)
-	}
-
-	tc, err := security.TLSConfigForRegistration(ca)
-	if err != nil {
-		return fmt.Errorf("Failed to load CA certificate: %v", err)
-	}
+	tc, caPromise := security.TLSConfigForRegistration(circle, caFingerprint)
 
 	conn, err := grpc.DialContext(ctx, net.JoinHostPort(circle, discoveryPort), grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
 	if err != nil {
@@ -80,29 +72,10 @@ func Register(ctx context.Context, circleAddr, username, token, caURI string) er
 		return fmt.Errorf("failed to store certificate: %v", err)
 	}
 
-	if err := ioutil.WriteFile(caFile, ca, 0644); err != nil {
+	if err := ioutil.WriteFile(caFile, *caPromise, 0644); err != nil {
 		os.Remove(keyFile)
 		os.Remove(crtFile)
 		return fmt.Errorf("failed to store CA certificate: %v", err)
 	}
 	return nil
-}
-
-func readOrFetch(uri string) ([]byte, error) {
-	if strings.HasPrefix(uri, "http://") || strings.HasPrefix(uri, "https://") {
-		if strings.HasPrefix(uri, "http://") {
-			log.Print("Warning: Retrieving certificates over unencrypted http is unsafe")
-		}
-
-		resp, err := http.Get(uri)
-		if err != nil {
-			return nil, fmt.Errorf("HTTP request failed: %v", err)
-		}
-		if resp.StatusCode != 200 {
-			return nil, fmt.Errorf("HTTP requested failed with %q", resp.Status)
-		}
-		defer resp.Body.Close()
-		return ioutil.ReadAll(resp.Body)
-	}
-	return ioutil.ReadFile(uri)
 }

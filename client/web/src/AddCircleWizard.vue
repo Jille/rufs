@@ -18,7 +18,7 @@
           </tr>
           <tr>
             <td>CA certificate</td>
-            <td><input type="text" class="form-control" v-model="ca" placeholder="http://rufs.example.org/ca.crt"/></td>
+            <td><input type="text" class="form-control" v-model="ca"/></td>
           </tr>
         </tbody>
       </table>
