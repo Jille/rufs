@@ -6,7 +6,7 @@ set -e
 rm -f rufs.exe rufs-setup.exe
 
 # Build application
-GOOS=windows GOARCH=amd64 go build -o rufs.exe ../../client
+GOOS=windows GOARCH=amd64 go build -ldflags -H=windowsgui -o rufs.exe ../../client
 
 # Build installer
 makensis rufs-setup.nsi
