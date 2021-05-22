@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/ory/go-convenience v0.1.0
-	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4 // indirect
+	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
 	github.com/prometheus/client_golang v1.10.0
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/yookoala/realpath v1.0.0
