@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Clean up
 if [ -d "rufs.app" ]; then
 	rm -rf rufs.app
