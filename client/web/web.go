@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"runtime/pprof"
 	"strings"
 	"time"
 
@@ -17,6 +18,9 @@ import (
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/vfs"
 	"github.com/sgielen/rufs/config"
+
+	// Imported for /debug/pprof/...
+	_ "net/http/pprof"
 )
 
 var (
@@ -24,16 +28,15 @@ var (
 )
 
 func Init(addr string) {
-	m := http.NewServeMux()
-	m.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
-	m.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
-	m.Handle("/api/shares_in_circle", convreq.Wrap(sharesInCircle, convreq.WithErrorHandler(errorHandler)))
-	m.Handle("/api/add_share", convreq.Wrap(addShare, convreq.WithErrorHandler(errorHandler)))
-	m.Handle("/api/open_explorer", convreq.Wrap(openExplorer, convreq.WithErrorHandler(errorHandler)))
-	m.Handle("/", convreq.Wrap(renderStatic))
-	http.HandleFunc("/", authMiddleWare(m))
+	http.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/api/shares_in_circle", convreq.Wrap(sharesInCircle, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/api/add_share", convreq.Wrap(addShare, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/api/open_explorer", convreq.Wrap(openExplorer, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/debug/pprof/threads", http.HandlerFunc(serveStackTraces))
+	http.Handle("/", convreq.Wrap(renderStatic))
 	log.Printf("web server listening on addr %s.", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(addr, authMiddleWare(http.DefaultServeMux)); err != nil {
 		log.Fatalf("failed to start HTTP server on address %q: %v", addr, err)
 	}
 }
@@ -174,4 +177,8 @@ func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
 		t = "image/svg+xml"
 	}
 	return respond.WithHeader(respond.String(body), "Content-Type", t)
+}
+
+func serveStackTraces(w http.ResponseWriter, req *http.Request) {
+	pprof.Lookup("goroutine").WriteTo(w, 1)
 }
