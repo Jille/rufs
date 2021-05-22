@@ -205,6 +205,15 @@ func AddShareAndStore(circle, share, local string) error {
 	return fmt.Errorf("unknown circle %q", circle)
 }
 
+func SetMountpointAndStore(mp string) error {
+	assertParsed()
+	mtx.Lock()
+	defer mtx.Unlock()
+	newCfg := *cfg
+	newCfg.Mountpoint = mp
+	return writeNewConfig(newCfg)
+}
+
 func writeNewConfig(c Config) error {
 	b, err := yaml.Marshal(c)
 	if err != nil {

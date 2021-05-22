@@ -32,6 +32,7 @@ func Init(addr string) {
 	http.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/shares_in_circle", convreq.Wrap(sharesInCircle, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/add_share", convreq.Wrap(addShare, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/api/set_mountpoint", convreq.Wrap(setMountpoint, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/open_explorer", convreq.Wrap(openExplorer, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/", convreq.Wrap(renderStatic))
 	log.Printf("web server listening on addr %s.", addr)
@@ -144,6 +145,18 @@ func addShare(ctx context.Context, req *http.Request, get addShareGet) convreq.H
 	if err := shares.ReloadConfig(); err != nil {
 		return respond.Error(err)
 	}
+	return respondJSON(map[string]bool{"ok": true})
+}
+
+type setMountpointGet struct {
+	Mountpoint string `schema:"mountpoint,required"`
+}
+
+func setMountpoint(ctx context.Context, req *http.Request, get setMountpointGet) convreq.HttpResponse {
+	if err := config.SetMountpointAndStore(get.Mountpoint); err != nil {
+		return respond.Error(err)
+	}
+	config.SetMountpoint(get.Mountpoint)
 	return respondJSON(map[string]bool{"ok": true})
 }
 
