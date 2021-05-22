@@ -110,7 +110,9 @@ func connectToCircles(circles map[string]*security.KeyPair) {
 
 func ReloadConfig() {
 	metrics.ReloadConfig()
-	shares.ReloadConfig()
+	if err := shares.ReloadConfig(); err != nil {
+		log.Fatalf("Failed to reload shares: %v", err)
+	}
 	circles, err := config.LoadAllCerts()
 	if err != nil {
 		log.Fatalf("Failed to read certificates: %v", err)
