@@ -14,6 +14,7 @@ import (
 	"github.com/Jille/convreq/respond"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/register"
+	"github.com/sgielen/rufs/client/vfs"
 	"github.com/sgielen/rufs/config"
 )
 
@@ -119,8 +120,13 @@ func sharesInCircle(ctx context.Context, req *http.Request, get sharesInCircleGe
 	type Res struct {
 		Shares []string
 	}
-	res := Res{
-		Shares: []string{"movies", "series", "music"},
+	res := Res{}
+	// TODO(quis): Only readdir get.Circle.
+	dir := vfs.Readdir(ctx, "")
+	for fn, fi := range dir.Files {
+		if fi.IsDirectory {
+			res.Shares = append(res.Shares, fn)
+		}
 	}
 	return respondJSON(res)
 }
