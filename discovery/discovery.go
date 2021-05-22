@@ -13,6 +13,7 @@ import (
 	"github.com/sgielen/rufs/discovery/metrics"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
+	"github.com/sgielen/rufs/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -31,6 +32,8 @@ var (
 func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	flag.Parse()
+
+	log.Printf("starting rufs %s", version.GetVersion())
 
 	ca, err := security.LoadCAKeyPair("/tmp/rufs/")
 	if err != nil {

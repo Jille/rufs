@@ -7,10 +7,13 @@ import (
 	"os"
 
 	"github.com/sgielen/rufs/security"
+	"github.com/sgielen/rufs/version"
 )
 
 func main() {
 	flag.Parse()
+
+	log.Printf("starting rufs %s", version.GetVersion())
 
 	ca, err := security.LoadCAKeyPair("/tmp/rufs/")
 	if err != nil {

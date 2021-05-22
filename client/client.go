@@ -19,6 +19,7 @@ import (
 	"github.com/sgielen/rufs/client/web"
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/security"
+	"github.com/sgielen/rufs/version"
 )
 
 var (
@@ -33,6 +34,8 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	flag.Parse()
 	ctx := context.Background()
+
+	log.Printf("starting rufs %s", version.GetVersion())
 
 	if err := config.LoadConfig(); err != nil {
 		log.Printf("failed to load configuration: %v", err)

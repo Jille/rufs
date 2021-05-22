@@ -7,6 +7,7 @@ cd $(dirname "$0")
 # Build test binaries
 mkdir -p bin
 pushd bin
+go generate ../../version
 GOOS=linux GOARCH=amd64 go build -o . ../../...
 popd
 

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/sgielen/rufs/security"
+	"github.com/sgielen/rufs/version"
 )
 
 var (
@@ -14,6 +15,8 @@ var (
 
 func main() {
 	flag.Parse()
+
+	log.Printf("starting rufs %s", version.GetVersion())
 
 	if *circle == "" {
 		log.Fatal("Flag --circle is required")

@@ -33,7 +33,8 @@ rm -rf rufs.iconset
 
 # Create app
 mkdir -p rufs.app/Contents/MacOS
-GOOS=darwin GOARCH=amd64 go build -o rufs.app/Contents/MacOS ../../client
+go generate ../../version
+GOOS=darwin GOARCH=amd64 go build -tags withversion -o rufs.app/Contents/MacOS ../../client
 cp rufs.sh rufs.app/Contents/MacOS
 
 cat <<EOF >rufs.app/Contents/Info.plist
