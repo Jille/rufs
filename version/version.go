@@ -1,6 +1,9 @@
 package version
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 var (
 	gitTag    string
@@ -11,5 +14,9 @@ func GetVersion() string {
 	if gitTag == "" {
 		return "(development build)"
 	}
-	return fmt.Sprintf("%s (%s)", gitTag, gitCommit[:7])
+	if strings.HasSuffix(gitTag, gitCommit[:7]) {
+		return gitTag
+	} else {
+		return fmt.Sprintf("%s (%s)", gitTag, gitCommit[:7])
+	}
 }
