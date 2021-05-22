@@ -47,14 +47,12 @@ func main() {
 	metrics.Init()
 	shares.Init()
 
-	circles := map[string]*security.KeyPair{}
+	circles, err := config.LoadAllCerts()
+	if err != nil {
+		log.Fatalf("Failed to read certificates: %v", err)
+	}
 	var kps []*security.KeyPair
-	for _, c := range config.GetCircles() {
-		kp, err := config.LoadCerts(c.Name)
-		if err != nil {
-			log.Fatalf("Failed to read certificates: %v", err)
-		}
-		circles[c.Name] = kp
+	for _, kp := range circles {
 		kps = append(kps, kp)
 	}
 
@@ -65,6 +63,7 @@ func main() {
 	if *httpPort == -1 {
 		*httpPort = *port + 1
 	}
+	web.ReloadConfigCallback = ReloadConfig
 	go web.Init(fmt.Sprintf(":%d", *httpPort))
 
 	if len(circles) == 0 {
@@ -73,12 +72,7 @@ func main() {
 		log.Printf("no circles configured - visit %s to start rufs configuration.", address)
 	}
 
-	for circle, kp := range circles {
-		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
-			log.Fatalf("Failed to connect to circle %q: %v", circle, err)
-		}
-		metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
-	}
+	connectToCircles(circles)
 
 	go func() {
 		f, err := fuse.NewMount(*mountpoint, *allowUsers)
@@ -115,4 +109,30 @@ func onSystrayReady() {
 			}
 		}
 	}()
+}
+
+func connectToCircles(circles map[string]*security.KeyPair) {
+	ctx := context.Background()
+	for circle, kp := range circles {
+		// connectivity.ConnectToCircle returns nil if we already connected to a circle.
+		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
+			log.Fatalf("Failed to connect to circle %q: %v", circle, err)
+		}
+		metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
+	}
+}
+
+func ReloadConfig() {
+	metrics.ReloadConfig()
+	shares.ReloadConfig()
+	circles, err := config.LoadAllCerts()
+	if err != nil {
+		log.Fatalf("Failed to read certificates: %v", err)
+	}
+	var kps []*security.KeyPair
+	for _, kp := range circles {
+		kps = append(kps, kp)
+	}
+	content.SwapKeyPairs(kps)
+	connectToCircles(circles)
 }

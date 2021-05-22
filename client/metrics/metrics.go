@@ -14,8 +14,14 @@ var (
 )
 
 func Init() {
+	ReloadConfig()
+}
+
+func ReloadConfig() {
 	for _, circle := range config.GetCircles() {
-		circles[circle.Name] = &circleMetrics{}
+		if _, found := circles[circle.Name]; !found {
+			circles[circle.Name] = &circleMetrics{}
+		}
 	}
 }
 

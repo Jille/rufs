@@ -25,7 +25,8 @@ import (
 )
 
 var (
-	circles map[string]*circleState
+	circles              map[string]*circleState
+	swappableCredentials *security.SwappableCredentials
 )
 
 func Serve(addr string, kps []*security.KeyPair) error {
@@ -39,8 +40,9 @@ func Serve(addr string, kps []*security.KeyPair) error {
 			activeReads: map[string]int{},
 		}
 	}
+	swappableCredentials = security.NewSwappableCredentials(credentials.NewTLS(security.TLSConfigForServer(kps)))
 
-	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(security.TLSConfigForServer(kps))), grpc.ChainUnaryInterceptor(unaryInterceptor), grpc.ChainStreamInterceptor(streamInterceptor))
+	s := grpc.NewServer(grpc.Creds(swappableCredentials), grpc.ChainUnaryInterceptor(unaryInterceptor), grpc.ChainStreamInterceptor(streamInterceptor))
 	pb.RegisterContentServiceServer(s, content{})
 	reflection.Register(s)
 	sock, err := net.Listen("tcp", addr)
@@ -54,6 +56,10 @@ func Serve(addr string, kps []*security.KeyPair) error {
 		}
 	}()
 	return nil
+}
+
+func SwapKeyPairs(kps []*security.KeyPair) {
+	swappableCredentials.Swap(credentials.NewTLS(security.TLSConfigForServer(kps)))
 }
 
 type content struct {

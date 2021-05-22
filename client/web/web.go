@@ -14,6 +14,10 @@ import (
 	"github.com/sgielen/rufs/config"
 )
 
+var (
+	ReloadConfigCallback func()
+)
+
 func Init(addr string) {
 	m := http.NewServeMux()
 	m.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
@@ -89,6 +93,7 @@ type registerCircleGet struct {
 }
 
 func registerCircle(ctx context.Context, req *http.Request, get registerCircleGet) convreq.HttpResponse {
+	ReloadConfigCallback()
 	return respond.InternalServerError("not yet implemented")
 }
 

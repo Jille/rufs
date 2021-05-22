@@ -28,6 +28,12 @@ type circle struct {
 
 func Init() error {
 	circles = map[string]*circle{}
+	go hashWorker()
+	connectivity.HandleResolveConflictRequest = handleResolveConflictRequest
+	return ReloadConfig()
+}
+
+func ReloadConfig() error {
 	for _, cfg := range config.GetCircles() {
 		c := &circle{
 			shares: map[string]string{},
@@ -41,8 +47,6 @@ func Init() error {
 		}
 		circles[cfg.Name] = c
 	}
-	go hashWorker()
-	connectivity.HandleResolveConflictRequest = handleResolveConflictRequest
 	return nil
 }
 

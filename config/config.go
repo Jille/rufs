@@ -103,6 +103,18 @@ func LoadCerts(circle string) (*security.KeyPair, error) {
 	return security.LoadKeyPair(ca, crt, key)
 }
 
+func LoadAllCerts() (map[string]*security.KeyPair, error) {
+	keyPairs := map[string]*security.KeyPair{}
+	for _, c := range GetCircles() {
+		kp, err := LoadCerts(c.Name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read certificates: %v", err)
+		}
+		keyPairs[c.Name] = kp
+	}
+	return keyPairs, nil
+}
+
 func readFile(fn string) ([]byte, error) {
 	d, err := ioutil.ReadFile(fn)
 	if err != nil {
