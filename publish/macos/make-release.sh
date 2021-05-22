@@ -4,8 +4,8 @@
 if [ -d "rufs.app" ]; then
 	rm -rf rufs.app
 fi
-if [ -f "rufs.dmg" ]; then
-	rm rufs.dmg
+if [ -f "rufs.pkg" ]; then
+	rm rufs.pkg
 fi
 if [ -d "rufs.iconset" ]; then
 	rm -rf rufs.iconset
@@ -72,19 +72,18 @@ EOF
 mkdir -p rufs.app/Contents/Resources
 cp rufs.icns rufs.app/Contents/Resources
 
-# Create dmg
-mkdir tempdir
-cp -R rufs.app tempdir
-create-dmg/create-dmg \
-  --volname "RUFS" \
-  --volicon "rufs.icns" \
-  --background "background.png" \
-  --window-pos 200 120 \
-  --window-size 800 425 \
-  --icon-size 100 \
-  --icon "rufs.app" 250 225 \
-  --hide-extension "rufs.app" \
-  --app-drop-link 550 225 \
-  rufs.dmg \
-  "tempdir"
+# Create pkg
+mkdir -p tempdir/root/Applications tempdir/packages
+cp -R rufs.app tempdir/root/Applications
+pkgutil --expand 'macFUSE 4.1.2.pkg' tempdir/macfuse
+pkgutil --flatten tempdir/macfuse/Core.pkg tempdir/packages/MacfuseCore.pkg
+pkgutil --flatten tempdir/macfuse/PreferencePane.pkg tempdir/packages/MacfusePreferencePane.pkg
+pkgbuild \
+	--identifier sg.sjor.rufs \
+	--version 1.0 \
+	--scripts pkg-scripts \
+	--root tempdir/root \
+	--install-location / \
+	tempdir/packages/rufs-client.pkg
+productbuild --distribution Distribution --resources pkg-resources --package-path tempdir/packages rufs.pkg
 rm -rf tempdir

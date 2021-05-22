@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<installer-gui-script minSpecVersion="2">
+    <title>RuFS</title>
+    <options customize="always" allow-external-scripts="no" hostArchitectures="x86_64" />
+    <domains enable_localSystem="true" />
+
+    <background mime-type="image/png" file="banner.png" scaling="proportional"/>
+    <background-darkAqua mime-type="image/png" file="banner.png" scaling="proportional"/>
+
+    <welcome file="welcome.html" mime-type="text/html" />
+
+    <installation-check script="installCheck();"/>
+    <script>
+function installCheck() {
+    if(system.files.fileExistsAtPath('/Application/rufs.app')) {
+        my.result.title = 'Previous Installation Detected';
+        my.result.message = 'A previous installation of rufs exists at /Application/rufs.app. Make sure it is not running before proceeding.';
+        my.result.type = 'Warning';
+        return false;
+    }
+    return true;
+}
+
+function needMacfuse() {
+    return !system.files.fileExistsAtPath('/Library/Filesystems/macfuse.fs');
+}
+    </script>
+
+    <choices-outline>
+        <line choice="macfuse-core"/>
+        <line choice="macfuse-prefpane"/>
+        <line choice="rufs"/>
+    </choices-outline>
+
+    <choice id="macfuse-core" title="macFUSE" description="RuFS needs macFUSE to provide the RuFS filesystem. If this is unselected, macFUSE is already installed." selected="needMacfuse();" enabled="false">
+        <pkg-ref id="io.macfuse.installer.components.core" auth="root">MacfuseCore.pkg</pkg-ref>
+    </choice>
+
+    <choice id="macfuse-prefpane" title="macFUSE Preference pane" description="macFUSE provides optional Preference Pane integration. It is recommended to install this." selected="needMacfuse();" enabled="needMacfuse()">
+        <pkg-ref id="io.macfuse.installer.components.preferencepane" auth="root">MacfusePreferencePane.pkg</pkg-ref>
+    </choice>
+
+    <choice id="rufs" title="rufs" selected="true" enabled="false">
+        <pkg-ref id="rufs-client.pkg" auth="root">rufs-client.pkg</pkg-ref>
+    </choice>
+
+    <conclusion file="conclusion.html" mime-type="text/html" />
+</installer-gui-script>

@@ -1,3 +1,0 @@
-[submodule "publish/macos/create-dmg"]
-	path = publish/macos/create-dmg
-	url = https://github.com/create-dmg/create-dmg
