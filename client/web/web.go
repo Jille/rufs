@@ -18,6 +18,7 @@ import (
 	"github.com/sgielen/rufs/client/register"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/vfs"
+	"github.com/sgielen/rufs/version"
 
 	// Register /debug/ HTTP handlers.
 	_ "github.com/sgielen/rufs/debugging"
@@ -28,6 +29,7 @@ var (
 )
 
 func Init(addr string) {
+	http.Handle("/api/version", convreq.Wrap(renderVersion, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/shares_in_circle", convreq.Wrap(sharesInCircle, convreq.WithErrorHandler(errorHandler)))
@@ -84,6 +86,13 @@ func respondJSON(v interface{}) convreq.HttpResponse {
 		return respond.Error(fmt.Errorf("JSON encode failed: %v", err))
 	}
 	return respond.WithHeader(respond.Bytes(b), "Content-Type", "text/json")
+}
+
+func renderVersion(ctx context.Context, req *http.Request) convreq.HttpResponse {
+	type Res struct {
+		Version string
+	}
+	return respondJSON(Res{version.GetVersion()})
 }
 
 func renderConfig(ctx context.Context, req *http.Request) convreq.HttpResponse {

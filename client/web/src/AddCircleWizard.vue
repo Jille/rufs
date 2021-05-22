@@ -23,6 +23,7 @@
         </tbody>
       </table>
       <div class="buttons">
+        <p>rufs {{version }}</p>
         <button type="button" class="btn btn-primary" v-on:click="addCircle" v-bind:disabled="!canAddCircle()">
           Connect to circle
         </button>
@@ -82,6 +83,7 @@
         </tfoot>
       </table>
       <div class="buttons">
+        <p>rufs {{version }}</p>
         <button type="button" class="btn btn-primary" v-on:click="saveShares" v-bind:disabled="!canSaveShares">
           {{ anythingShared ? "Save and continue" : "Continue without sharing" }}
         </button>
@@ -94,6 +96,7 @@
     <Box title="You're all done!" v-if="stage == 4">
       <p>All files you share, and files shared with you, should now be visible in your rufs directory.</p>
       <div class="buttons">
+        <p>rufs {{version }}</p>
         <button type="button" class="btn btn-primary" v-on:click="closeWindow" v-if="!closeFailed">
           Close
         </button>
@@ -122,6 +125,7 @@ interface ShareLocalPath {
   }
 })
 export default class AddCircleWizard extends Vue {
+  @Prop() private version!: string;
   @Prop() private config!: RufsConfig;
 
   private circle = "";
@@ -228,6 +232,13 @@ span.icon-downloading {
 }
 
 .buttons {
-  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  p {
+    flex-grow: 1;
+    margin: 0;
+    color: var(--bs-secondary);
+  }
 }
 </style>

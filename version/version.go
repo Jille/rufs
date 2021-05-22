@@ -9,7 +9,7 @@ var (
 
 func GetVersion() string {
 	if gitTag == "" {
-		return "(development version)"
+		return "(development build)"
 	}
 	return fmt.Sprintf("%s (%s)", gitTag, gitCommit[:7])
 }

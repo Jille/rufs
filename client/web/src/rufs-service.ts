@@ -33,6 +33,15 @@ async function rqToError(rq: Response): Promise<string> {
 }
 
 export class RufsService {
+  public static async getVersion(): Promise<string> {
+    const rq = await fetch('/api/version');
+    if (!rq.ok) {
+      throw new Error('Failed retrieving config: ' + await rqToError(rq));
+    }
+    const body = await rq.json();
+    return body.Version;
+  }
+
   public static async getConfig(): Promise<RufsConfig> {
     const rq = await fetch('/api/config');
     if (!rq.ok) {
