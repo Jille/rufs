@@ -89,7 +89,7 @@ func main() {
 }
 
 func onOpen() {
-	browser.OpenURL("file://" + *mountpoint)
+	browser.OpenURL(*mountpoint)
 }
 
 func onSettings() {

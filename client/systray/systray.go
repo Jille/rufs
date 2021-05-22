@@ -17,13 +17,15 @@ func Run(onOpen func(), onSettings func(), onQuit func()) {
 
 func onSystrayReady(onOpen func(), onSettings func()) {
 	systray.SetTemplateIcon(icon.Data, icon.Data)
-	systray.SetTitle("RUFS")
+	if runtime.GOOS != "darwin" {
+		systray.SetTitle("RUFS")
+	}
 	systray.SetTooltip("RUFS")
 
-	mOpen := systray.AddMenuItem("Open", "")
-	mSettings := systray.AddMenuItem("Settings", "")
+	mOpen := systray.AddMenuItem("Open rufs", "")
+	mSettings := systray.AddMenuItem("Rufs settings", "")
 	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Quit", "")
+	mQuit := systray.AddMenuItem("Quit rufs", "")
 	go func() {
 		for {
 			select {
