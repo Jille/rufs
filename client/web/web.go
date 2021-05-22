@@ -12,6 +12,7 @@ import (
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
+	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/register"
@@ -147,7 +148,12 @@ func addShare(ctx context.Context, req *http.Request, get addShareGet) convreq.H
 }
 
 func openExplorer(ctx context.Context, req *http.Request) convreq.HttpResponse {
-	return respond.InternalServerError("not yet implemented")
+	mp := config.GetMountpoint()
+	if mp == "" {
+		return respond.BadRequest("no mountpoint configured")
+	}
+	browser.OpenURL(mp)
+	return respondJSON(map[string]bool{"ok": true})
 }
 
 func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
