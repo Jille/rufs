@@ -16,6 +16,7 @@ import (
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/systray"
+	"github.com/sgielen/rufs/client/vfs"
 	"github.com/sgielen/rufs/client/web"
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/security"
@@ -23,11 +24,12 @@ import (
 )
 
 var (
-	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
-	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
-	port          = flag.Int("port", 12010, "content server listen port")
-	httpPort      = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
-	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
+	discoveryPort      = flag.Int("discovery-port", 12000, "Port of the discovery server")
+	flag_endp          = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
+	port               = flag.Int("port", 12010, "content server listen port")
+	httpPort           = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
+	allowUsers         = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
+	readdirCacheTarget = flag.Int("readdir_cache_target", 1000, "readdir cache size target. Affects memory usage. Set to 0 to disable cache")
 
 	unmountFuse = func() {}
 )
@@ -44,6 +46,7 @@ func main() {
 		config.LoadEmptyConfig()
 	}
 
+	vfs.InitCache(*readdirCacheTarget)
 	metrics.Init()
 	shares.Init()
 
