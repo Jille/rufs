@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	osUser "os/user"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -120,7 +121,19 @@ func (f *Mount) Readdir(path string, fill func(name string, stat *fuse.Stat_t, o
 	defer f.mtx.Unlock()
 	ret := vfs.Readdir(context.Background(), path)
 
-	for fn, f := range ret.Files {
+	var files []string
+	for fn, _ := range ret.Files {
+		files = append(files, fn)
+	}
+
+	// TODO(sjors): This sort.Strings is a workaround for an issue
+	// reproducible in at least two implementations of FUSE on macOS.
+	// Perhaps there is an issue in macFUSE somewhere. See e.g.
+	// https://github.com/billziss-gh/cgofuse/issues/57
+	sort.Strings(files)
+
+	for _, fn := range files {
+		f := ret.Files[fn]
 		attr := fuse.Stat_t{}
 		attr.Size = f.Size
 		if f.IsDirectory {
