@@ -8,7 +8,7 @@ import (
 )
 
 func SetClientStartTimeSeconds(circles []string, v time.Time) {
-	setGauge(circles, pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS, []string{}, float64(v.UnixNano()) / 1e9)
+	setGauge(circles, pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS, []string{}, float64(v.UnixNano())/1e9)
 }
 
 func SetTransferReadsActive(circles []string, v int64) {
