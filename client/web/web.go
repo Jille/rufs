@@ -112,7 +112,7 @@ func checkRemoteAddr(addr string) bool {
 func authMiddleWare(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !checkRemoteAddr(r.RemoteAddr) {
-			errorResponse(403, "Request from "+r.RemoteAddr+" denied").Respond(w, r)
+			errorResponse(403, "Request from "+r.RemoteAddr+" denied (you can set --http_allow_hosts to allow remote hosts)").Respond(w, r)
 			return
 		}
 		if password != "" {
