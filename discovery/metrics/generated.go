@@ -48,28 +48,28 @@ var (
 		pb.PushMetricsRequest_VFS_FIXED_CONTENT_OPENS: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "vfs_fixed_content_opens",
-			Help:      "TODO",
+			Help:      "Number of opens on fixed-content files in the VFS",
 		}, []string{"basename"}),
 		pb.PushMetricsRequest_VFS_READDIRS: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "vfs_readdirs",
-			Help:      "TODO",
+			Help:      "Number of readdir calls on the VFS",
 		}, nil),
 		pb.PushMetricsRequest_VFS_READDIR_LATENCY: newHistogram(prometheus.HistogramOpts{
 			Namespace: "rufs",
 			Name:      "vfs_readdir_latency",
-			Help:      "TODO",
+			Help:      "Latency of readdir calls on the VFS",
 			Buckets:   bucketsForVfsReaddirLatency,
 		}, nil),
 		pb.PushMetricsRequest_VFS_PEER_READDIRS: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "vfs_peer_readdirs",
-			Help:      "TODO",
+			Help:      "Number of readdir RPCs sent to peers from the VFS",
 		}, []string{"peer", "code"}),
 		pb.PushMetricsRequest_VFS_PEER_READDIR_LATENCY: newHistogram(prometheus.HistogramOpts{
 			Namespace: "rufs",
 			Name:      "vfs_peer_readdir_latency",
-			Help:      "TODO",
+			Help:      "Latency of readdir RPCs sent to peers from the VFS",
 			Buckets:   bucketsForVfsPeerReaddirLatency,
 		}, []string{"peer", "code"}),
 		pb.PushMetricsRequest_CONTENT_HASHES: newCounter(prometheus.CounterOpts{
@@ -80,23 +80,23 @@ var (
 		pb.PushMetricsRequest_CONTENT_RPCS_RECV: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "content_rpcs_recv",
-			Help:      "TODO",
+			Help:      "Number of RPCs received by the content server",
 		}, []string{"rpc", "caller", "code"}),
 		pb.PushMetricsRequest_CONTENT_RPCS_RECV_LATENCY: newHistogram(prometheus.HistogramOpts{
 			Namespace: "rufs",
 			Name:      "content_rpcs_recv_latency",
-			Help:      "TODO",
+			Help:      "Latency of incoming RPCs handled by the content server",
 			Buckets:   bucketsForContentRpcsRecvLatency,
 		}, []string{"rpc", "caller", "code"}),
 		pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOINED: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "content_orchestration_joined",
-			Help:      "TODO",
+			Help:      "Number of times we joined an orchestration",
 		}, []string{"why"}),
 		pb.PushMetricsRequest_CONTENT_ORCHESTRATION_JOIN_FAILED: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "content_orchestration_join_failed",
-			Help:      "TODO",
+			Help:      "Number of times we failed to join an orchestration",
 		}, []string{"why"}),
 		pb.PushMetricsRequest_TRANSFER_RECV_BYTES: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
@@ -106,7 +106,7 @@ var (
 		pb.PushMetricsRequest_TRANSFER_SEND_BYTES: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "transfer_send_bytes",
-			Help:      "Number of bytes received from other peers",
+			Help:      "Number of bytes sent to other peers",
 		}, []string{"peer", "transfer_type"}),
 	}
 )

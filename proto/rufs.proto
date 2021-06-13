@@ -163,18 +163,18 @@ message PushMetricsRequest {
 		TRANSFER_READS = 5 [(metric_type) = COUNTER, (metric_fields) = "code", (metric_description) = "Number of read calls from the VFS"];
 		TRANSFER_READ_SIZES = 6 [(metric_type) = DISTRIBUTION, (metric_description) = "Distribution of read sizes through the VFS"];
 		TRANSFER_READ_LATENCY = 7 [(metric_type) = DISTRIBUTION, (metric_fields) = "code", (metric_fields) = "recv_kbytes", (metric_description) = "Latency of read RPCs from the VFS"];
-		VFS_FIXED_CONTENT_OPENS = 8 [(metric_type) = COUNTER, (metric_fields) = "basename", (metric_description) = "TODO"];
-		VFS_READDIRS = 9 [(metric_type) = COUNTER, (metric_description) = "TODO"];
-		VFS_READDIR_LATENCY = 10 [(metric_type) = DISTRIBUTION, (metric_description) = "TODO"];
-		VFS_PEER_READDIRS = 11 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
-		VFS_PEER_READDIR_LATENCY = 12 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "TODO"];
+		VFS_FIXED_CONTENT_OPENS = 8 [(metric_type) = COUNTER, (metric_fields) = "basename", (metric_description) = "Number of opens on fixed-content files in the VFS"];
+		VFS_READDIRS = 9 [(metric_type) = COUNTER, (metric_description) = "Number of readdir calls on the VFS"];
+		VFS_READDIR_LATENCY = 10 [(metric_type) = DISTRIBUTION, (metric_description) = "Latency of readdir calls on the VFS"];
+		VFS_PEER_READDIRS = 11 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "Number of readdir RPCs sent to peers from the VFS"];
+		VFS_PEER_READDIR_LATENCY = 12 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "Latency of readdir RPCs sent to peers from the VFS"];
 		CONTENT_HASHES = 13 [(metric_type) = COUNTER, (metric_description) = "TODO"];
-		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "TODO"];
-		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "TODO"];
-		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
-		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "TODO"];
+		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "Number of RPCs received by the content server"];
+		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "Latency of incoming RPCs handled by the content server"];
+		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "Number of times we joined an orchestration"];
+		CONTENT_ORCHESTRATION_JOIN_FAILED = 17 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "Number of times we failed to join an orchestration"];
 		TRANSFER_RECV_BYTES = 18 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "transfer_type", (metric_description) = "Number of bytes received from other peers"];
-		TRANSFER_SEND_BYTES = 19 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "transfer_type", (metric_description) = "Number of bytes received from other peers"];
+		TRANSFER_SEND_BYTES = 19 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "transfer_type", (metric_description) = "Number of bytes sent to other peers"];
 	}
 	message Metric {
 		MetricId id = 1;
