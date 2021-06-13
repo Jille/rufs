@@ -79,6 +79,10 @@ func (p *CAKeyPair) CreateToken(user string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
+func (p *CAKeyPair) Fingerprint() string {
+	return fingerprintCertificate(p.ca)
+}
+
 func (p *CAKeyPair) TLSConfigForDiscovery() *tls.Config {
 	return getTlsConfig(tlsConfigMaster, p.ca, p.certificate(), "rufs-master")
 }
@@ -257,7 +261,7 @@ func TLSConfigForRegistration(circle, fingerprint string) (*tls.Config, *[]byte)
 			if c.Subject.CommonName != circle {
 				return fmt.Errorf("common_name mismatch (got %q, want %q)", c.Subject.CommonName, circle)
 			}
-			fp := fmt.Sprintf("%x", sha256.Sum256(c.Raw))
+			fp := fingerprintCertificate(c)
 			if fp != fingerprint {
 				return fmt.Errorf("fingerprint mismatch (got %q, want %q)", fp, fingerprint)
 			}
@@ -265,6 +269,10 @@ func TLSConfigForRegistration(circle, fingerprint string) (*tls.Config, *[]byte)
 			return nil
 		},
 	}, ret
+}
+
+func fingerprintCertificate(c *x509.Certificate) string {
+	return fmt.Sprintf("%x", sha256.Sum256(c.Raw))
 }
 
 func parseCertificate(crtPEM []byte) (*x509.Certificate, error) {
