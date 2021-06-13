@@ -1,0 +1,12 @@
+[Unit]
+Description=RUFS Discovery service
+After=network.target
+
+[Service]
+Type=simple
+User=rufs
+Group=rufs
+ExecStart=/path/to/rufs/discovery -certdir /path/to/rufs/certs
+
+[Install]
+WantedBy=multi-user.target
