@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"path/filepath"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/jrick/logrotate/rotator"
 	"github.com/sgielen/rufs/discovery/metrics"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -26,8 +28,9 @@ import (
 )
 
 var (
-	port    = flag.Int("port", 12000, "gRPC port")
-	certdir = flag.String("certdir", "", "Where CA certs are read from (see create_ca_pair)")
+	port          = flag.Int("port", 12000, "gRPC port")
+	certdir       = flag.String("certdir", "", "Where CA certs are read from (see create_ca_pair)")
+	collectedLogs = flag.String("collected_logs_file", "", "Path to store collected logs in")
 )
 
 func main() {
@@ -45,10 +48,19 @@ func main() {
 		log.Fatalf("Failed to load CA key pair: %v", err)
 	}
 
+	var r *rotator.Rotator
+	if *collectedLogs != "" {
+		r, err = rotator.New(filepath.Join(*collectedLogs, "collected.log"), 10*1024*1024, false, 10)
+		if err != nil {
+			log.Fatalf("Failed to open log file: %v", err)
+		}
+	}
+
 	d := &discovery{
 		ca:      ca,
 		circle:  ca.Name(),
 		clients: map[string]*client{},
+		rotator: r,
 	}
 	d.cond = sync.NewCond(&d.mtx)
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(ca.TLSConfigForDiscovery())))
@@ -74,6 +86,9 @@ type discovery struct {
 	mtx     sync.Mutex
 	clients map[string]*client
 	cond    *sync.Cond
+
+	loggingMtx sync.Mutex
+	rotator    *rotator.Rotator
 }
 
 type client struct {
@@ -217,4 +232,20 @@ func (d *discovery) PushMetrics(ctx context.Context, req *pb.PushMetricsRequest)
 		return nil, err
 	}
 	return &pb.PushMetricsResponse{}, nil
+}
+
+func (d *discovery) PushLogs(ctx context.Context, req *pb.PushLogsRequest) (*pb.PushLogsResponse, error) {
+	if d.rotator == nil {
+		return &pb.PushLogsResponse{
+			StopSendingLogs: true,
+		}, nil
+	}
+	d.loggingMtx.Lock()
+	defer d.loggingMtx.Unlock()
+	for _, m := range req.GetMessages() {
+		if _, err := d.rotator.Write(m); err != nil {
+			return nil, err
+		}
+	}
+	return &pb.PushLogsResponse{}, nil
 }

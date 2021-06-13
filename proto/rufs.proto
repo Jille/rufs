@@ -23,6 +23,9 @@ service DiscoveryService {
 
 	rpc PushMetrics(PushMetricsRequest) returns (PushMetricsResponse) {
 	}
+
+	rpc PushLogs(PushLogsRequest) returns (PushLogsResponse) {
+	}
 }
 
 message RegisterRequest {
@@ -182,6 +185,14 @@ message PushMetricsRequest {
 }
 
 message PushMetricsResponse {
+}
+
+message PushLogsRequest {
+	repeated bytes messages = 1;
+}
+
+message PushLogsResponse {
+	bool stop_sending_logs = 1;
 }
 
 service ContentService {

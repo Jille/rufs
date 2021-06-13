@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/remotelogging"
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/client/metrics"
@@ -123,6 +124,7 @@ func connectToCircles(circles map[string]*security.KeyPair) {
 			metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
 		}()
 	}
+	remotelogging.AddSinks(connectivity.AllDiscoveryClients())
 }
 
 func ReloadConfig() {

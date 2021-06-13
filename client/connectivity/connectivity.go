@@ -229,6 +229,16 @@ func DiscoveryClient(circle string) pb.DiscoveryServiceClient {
 	return circles[circle].client
 }
 
+func AllDiscoveryClients() []pb.DiscoveryServiceClient {
+	cmtx.Lock()
+	defer cmtx.Unlock()
+	ret := make([]pb.DiscoveryServiceClient, 0, len(circles))
+	for _, c := range circles {
+		ret = append(ret, c.client)
+	}
+	return ret
+}
+
 func CirclesFromPeers(peers []*Peer) []string {
 	cs := map[string]bool{}
 	for _, p := range peers {
