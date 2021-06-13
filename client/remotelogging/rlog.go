@@ -45,7 +45,7 @@ func AddSinks(clients []pb.DiscoveryServiceClient) {
 		go s.pusher()
 		sinks = append(sinks, s)
 	}
-	if sinks[0] == initBufferSink {
+	if len(sinks) > 0 && sinks[0] == initBufferSink {
 		sinks = sinks[1:]
 		initBufferSink.queue = nil
 	}
