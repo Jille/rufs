@@ -122,6 +122,7 @@ func connectToCircles(circles map[string]*security.KeyPair) {
 				log.Fatalf("Failed to connect to circle %q: %v", circle, err)
 			}
 			metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
+			metrics.SetClientVersion([]string{circle}, version.GetVersion(), 1)
 		}()
 	}
 	remotelogging.AddSinks(connectivity.AllDiscoveryClients())

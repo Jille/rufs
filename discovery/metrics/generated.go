@@ -13,6 +13,11 @@ var (
 			Name:      "client_start_time_seconds",
 			Help:      "Timestamp at which each client started",
 		}, nil),
+		pb.PushMetricsRequest_CLIENT_VERSION: newGauge(prometheus.GaugeOpts{
+			Namespace: "rufs",
+			Name:      "client_version",
+			Help:      "Always 1, the field contains the client version",
+		}, []string{"version"}),
 		pb.PushMetricsRequest_TRANSFER_READS_ACTIVE: newGauge(prometheus.GaugeOpts{
 			Namespace: "rufs",
 			Name:      "transfer_reads_active",

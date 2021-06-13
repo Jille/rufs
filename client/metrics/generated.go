@@ -11,6 +11,10 @@ func SetClientStartTimeSeconds(circles []string, v time.Time) {
 	setGauge(circles, pb.PushMetricsRequest_CLIENT_START_TIME_SECONDS, []string{}, float64(v.UnixNano())/1e9)
 }
 
+func SetClientVersion(circles []string, version string, v int64) {
+	setGauge(circles, pb.PushMetricsRequest_CLIENT_VERSION, []string{version}, float64(v))
+}
+
 func SetTransferReadsActive(circles []string, v int64) {
 	setGauge(circles, pb.PushMetricsRequest_TRANSFER_READS_ACTIVE, []string{}, float64(v))
 }

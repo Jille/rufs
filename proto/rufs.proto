@@ -157,6 +157,7 @@ message PushMetricsRequest {
 	enum MetricId {
 		UNKNOWN = 0 [(metric_type) = UNKNOWN_TYPE];
 		CLIENT_START_TIME_SECONDS = 1 [(metric_type) = TIME_GAUGE, (metric_description) = "Timestamp at which each client started"];
+		CLIENT_VERSION = 20 [(metric_type) = INT64_GAUGE, (metric_fields) = "version", (metric_description) = "Always 1, the field contains the client version"];
 		TRANSFER_READS_ACTIVE = 2 [(metric_type) = INT64_GAUGE, (metric_description) = "Number of currently active reads"];
 		TRANSFER_OPENS = 3 [(metric_type) = COUNTER, (metric_fields) = "code", (metric_description) = "Number of open calls from the VFS"];
 		TRANSFER_READS = 5 [(metric_type) = COUNTER, (metric_fields) = "code", (metric_description) = "Number of read calls from the VFS"];
