@@ -22,7 +22,7 @@ After=network.target
 Type=simple
 User=vagrant
 Group=vagrant
-ExecStart=/home/vagrant/bin/discovery
+ExecStart=/home/vagrant/bin/discovery -certdir /public/certs
 
 [Install]
 WantedBy=multi-user.target
