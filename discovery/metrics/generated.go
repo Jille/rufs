@@ -75,7 +75,7 @@ var (
 		pb.PushMetricsRequest_CONTENT_HASHES: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",
 			Name:      "content_hashes",
-			Help:      "TODO",
+			Help:      "Number of files we've hashed for this circle",
 		}, nil),
 		pb.PushMetricsRequest_CONTENT_RPCS_RECV: newCounter(prometheus.CounterOpts{
 			Namespace: "rufs",

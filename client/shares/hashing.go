@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgielen/rufs/client/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -86,7 +87,7 @@ func hashWorker() {
 		hashCacheMtx.Lock()
 		delete(hashQueueEntries, path.Join(req.circle, req.remote))
 		hashCacheMtx.Unlock()
-		hash, err := hashFile(req.localFilename)
+		hash, err := hashFile(req.localFilename, req.circle)
 		if err != nil {
 			log.Printf("Failed to hash %q: %v", req.localFilename, err)
 			continue
@@ -126,7 +127,7 @@ func getFileHash(localFilename string, st os.FileInfo) string {
 	return ""
 }
 
-func hashFile(localFilename string) (string, error) {
+func hashFile(localFilename, circle string) (string, error) {
 	fh, err := os.Open(localFilename)
 	if err != nil {
 		return "", err
@@ -152,5 +153,6 @@ func hashFile(localFilename string) (string, error) {
 		size:  st.Size(),
 	}
 	hashCacheMtx.Unlock()
+	metrics.AddContentHashes([]string{circle}, 1)
 	return hash, nil
 }

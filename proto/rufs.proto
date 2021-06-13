@@ -168,7 +168,7 @@ message PushMetricsRequest {
 		VFS_READDIR_LATENCY = 10 [(metric_type) = DISTRIBUTION, (metric_description) = "Latency of readdir calls on the VFS"];
 		VFS_PEER_READDIRS = 11 [(metric_type) = COUNTER, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "Number of readdir RPCs sent to peers from the VFS"];
 		VFS_PEER_READDIR_LATENCY = 12 [(metric_type) = DISTRIBUTION, (metric_fields) = "peer", (metric_fields) = "code", (metric_description) = "Latency of readdir RPCs sent to peers from the VFS"];
-		CONTENT_HASHES = 13 [(metric_type) = COUNTER, (metric_description) = "TODO"];
+		CONTENT_HASHES = 13 [(metric_type) = COUNTER, (metric_description) = "Number of files we've hashed for this circle"];
 		CONTENT_RPCS_RECV = 14 [(metric_type) = COUNTER, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "Number of RPCs received by the content server"];
 		CONTENT_RPCS_RECV_LATENCY = 15 [(metric_type) = DISTRIBUTION, (metric_fields) = "rpc", (metric_fields) = "caller", (metric_fields) = "code", (metric_description) = "Latency of incoming RPCs handled by the content server"];
 		CONTENT_ORCHESTRATION_JOINED = 16 [(metric_type) = COUNTER, (metric_fields) = "why", (metric_description) = "Number of times we joined an orchestration"];
