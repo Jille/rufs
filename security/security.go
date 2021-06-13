@@ -141,7 +141,7 @@ func NewCA(dir string, name string) error {
 	if err := ks.StorePrivateKey(keyfn); err != nil {
 		return err
 	}
-	if err := pemToFile(filepath.Join(dir, "ca.crt"), "CERTIFICATE", ca, 0644); err != nil {
+	if err := pemToFile(filepath.Join(dir, "ca.crt"), "CERTIFICATE", ca, 0644, false); err != nil {
 		os.Remove(keyfn)
 		return err
 	}
@@ -172,7 +172,7 @@ func NewKey() (KeySerializer, error) {
 
 // StorePrivateKey writes the private key to disk.
 func (s KeySerializer) StorePrivateKey(fn string) error {
-	return pemToFile(fn, "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(s.priv), 0600)
+	return pemToFile(fn, "RSA PRIVATE KEY", x509.MarshalPKCS1PrivateKey(s.priv), 0600, true)
 }
 
 // SerializePublicKey returns the encoded public key.
@@ -180,8 +180,13 @@ func (s KeySerializer) SerializePublicKey() ([]byte, error) {
 	return x509.MarshalPKIXPublicKey(&s.priv.PublicKey)
 }
 
-func pemToFile(fn, pemType string, data []byte, mode os.FileMode) error {
-	fh, err := os.OpenFile(fn, os.O_WRONLY|os.O_CREATE|os.O_EXCL|os.O_TRUNC, mode)
+func pemToFile(fn, pemType string, data []byte, mode os.FileMode, overwrite bool) error {
+	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+	if !overwrite {
+		flags |= os.O_EXCL
+	}
+
+	fh, err := os.OpenFile(fn, flags, mode)
 	if err != nil {
 		return err
 	}
