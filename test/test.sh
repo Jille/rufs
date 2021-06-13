@@ -8,7 +8,7 @@ cd $(dirname "$0")
 mkdir -p bin
 pushd bin
 go generate ../../version
-GOOS=linux GOARCH=amd64 go build -o . ../../...
+GOOS=linux GOARCH=amd64 go build -tags withversion -o . ../../...
 popd
 
 # Start over with new state
