@@ -39,4 +39,3 @@ func onSystrayReady(onOpen func(), onSettings func()) {
 		}
 	}()
 }
-

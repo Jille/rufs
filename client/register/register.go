@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/sgielen/rufs/client/config"
