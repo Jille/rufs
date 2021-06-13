@@ -11,11 +11,13 @@ import (
 	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
+	"github.com/sgielen/rufs/client/remotelogging"
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/systray"
+	"github.com/sgielen/rufs/client/vfs"
 	"github.com/sgielen/rufs/client/web"
 	"github.com/sgielen/rufs/common"
 	"github.com/sgielen/rufs/security"
@@ -23,11 +25,12 @@ import (
 )
 
 var (
-	discoveryPort = flag.Int("discovery-port", 12000, "Port of the discovery server")
-	flag_endp     = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
-	port          = flag.Int("port", 12010, "content server listen port")
-	httpPort      = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
-	allowUsers    = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
+	discoveryPort      = flag.Int("discovery-port", 12000, "Port of the discovery server")
+	flag_endp          = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
+	port               = flag.Int("port", 12010, "content server listen port")
+	httpPort           = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
+	allowUsers         = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
+	readdirCacheTarget = flag.Int("readdir_cache_target", 1000, "readdir cache size target. Affects memory usage. Set to 0 to disable cache")
 
 	unmountFuse = func() {}
 )
@@ -44,6 +47,7 @@ func main() {
 		config.LoadEmptyConfig()
 	}
 
+	vfs.InitCache(*readdirCacheTarget)
 	metrics.Init()
 	shares.Init()
 
@@ -110,12 +114,17 @@ func onSettings() {
 func connectToCircles(circles map[string]*security.KeyPair) {
 	ctx := context.Background()
 	for circle, kp := range circles {
-		// connectivity.ConnectToCircle returns nil if we already connected to a circle.
-		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
-			log.Fatalf("Failed to connect to circle %q: %v", circle, err)
-		}
-		metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
+		circle := circle
+		kp := kp
+		go func() {
+			// connectivity.ConnectToCircle returns nil if we already connected to a circle.
+			if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
+				log.Fatalf("Failed to connect to circle %q: %v", circle, err)
+			}
+			metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
+		}()
 	}
+	remotelogging.AddSinks(connectivity.AllDiscoveryClients())
 }
 
 func ReloadConfig() {

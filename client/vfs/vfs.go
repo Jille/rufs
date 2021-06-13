@@ -66,7 +66,7 @@ func (*fixedContentHandle) Close() error {
 func Open(ctx context.Context, p string) (Handle, error) {
 	basename := path.Base(p)
 	dirname := path.Dir(p)
-	dir := Readdir(ctx, dirname)
+	dir := readdirImpl(ctx, dirname, true)
 	file := dir.Files[basename]
 	if file == nil {
 		return nil, errors.New("ENOENT")
@@ -89,7 +89,7 @@ func Open(ctx context.Context, p string) (Handle, error) {
 
 func Stat(ctx context.Context, p string) (*File, bool) {
 	dn, fn := path.Split(p)
-	ret := Readdir(ctx, dn)
+	ret := readdirImpl(ctx, dn, true)
 	f, found := ret.Files[fn]
 	if !found {
 		return nil, false
@@ -98,13 +98,18 @@ func Stat(ctx context.Context, p string) (*File, bool) {
 }
 
 func Readdir(ctx context.Context, p string) *Directory {
-	peers := connectivity.AllPeers()
 	startTime := time.Now()
 	go func() {
+		peers := connectivity.AllPeers()
 		circles := connectivity.CirclesFromPeers(peers)
 		metrics.AddVfsReaddirs(circles, 1)
 		metrics.AppendVfsReaddirLatency(circles, time.Since(startTime).Seconds())
 	}()
+
+	return readdirImpl(ctx, p, false)
+}
+
+func readdirImpl(ctx context.Context, p string, preferCache bool) *Directory {
 	p = strings.Trim(p, "/")
 
 	type peerFileInstance struct {
@@ -118,9 +123,43 @@ func Readdir(ctx context.Context, p string) *Directory {
 	var warnings []string
 	files := make(map[string]*peerFile)
 
-	resps, errs := parallelReadDir(ctx, peers, &pb.ReadDirRequest{
+	allPeers := connectivity.AllPeers()
+	resps := map[*connectivity.Peer]*pb.ReadDirResponse{}
+	errs := map[*connectivity.Peer]error{}
+
+	req := &pb.ReadDirRequest{
 		Path: p,
-	})
+	}
+
+	var fanoutPeers []*connectivity.Peer
+	if preferCache && cacheIsEnabled() {
+		for _, peer := range allPeers {
+			found, age, resp, err := getFromCache(req, peer)
+			if !found || age > cacheAgeRecent || (resp == nil && err == nil) {
+				fanoutPeers = append(fanoutPeers, peer)
+				continue
+			}
+			if resp != nil {
+				resps[peer] = resp
+			}
+			if err != nil {
+				errs[peer] = err
+			}
+		}
+	} else {
+		fanoutPeers = allPeers
+	}
+
+	if len(fanoutPeers) > 0 {
+		respsP, errsP := parallelReadDir(ctx, fanoutPeers, req)
+		for p, resp := range respsP {
+			resps[p] = resp
+		}
+		for p, err := range errsP {
+			errs[p] = err
+		}
+	}
+
 	for p, err := range errs {
 		warnings = append(warnings, fmt.Sprintf("failed to readdir on peer %s, ignoring: %v", p.Name, err))
 	}
@@ -207,11 +246,43 @@ func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.Re
 		go func() {
 			defer wg.Done()
 			circles := []string{common.CircleFromPeer(p.Name)}
-			startTime := time.Now()
-			r, err := p.ContentServiceClient().ReadDir(ctx, req)
-			code := status.Code(err).String()
-			metrics.AddVfsPeerReaddirs(circles, p.Name, code, 1)
-			metrics.AppendVfsPeerReaddirLatency(circles, p.Name, code, time.Since(startTime).Seconds())
+			type res struct {
+				r   *pb.ReadDirResponse
+				err error
+			}
+			ch := make(chan res, 1)
+			go func() {
+				startTime := time.Now()
+				readDirCtx, readDirCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer readDirCancel()
+				r, err := p.ContentServiceClient().ReadDir(readDirCtx, req)
+				ch <- res{r, err}
+				// Store response in cache (even if it's transient, so we don't retry on stat/open)
+				putCache(req, p, r, err)
+				code := status.Code(err).String()
+				metrics.AddVfsPeerReaddirs(circles, p.Name, code, 1)
+				metrics.AppendVfsPeerReaddirLatency(circles, p.Name, code, time.Since(startTime).Seconds())
+			}()
+			var r *pb.ReadDirResponse
+			var err error
+			select {
+			case <-ctx.Done():
+				err = ctx.Err()
+			case res := <-ch:
+				r = res.r
+				err = res.err
+			}
+			if status.Code(err) == codes.DeadlineExceeded || err == context.DeadlineExceeded {
+				// Retrieve response from cache if possible
+				found, age, lastResponse, lastErr := getFromCache(req, p)
+				if found && age < cacheAgeExpired {
+					r = lastResponse
+					err = lastErr
+				} else {
+					// Cache deadline exceeded too, so we don't retry on stat/open
+					putCache(req, p, nil, err)
+				}
+			}
 			mtx.Lock()
 			defer mtx.Unlock()
 			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {

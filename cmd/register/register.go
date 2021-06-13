@@ -5,8 +5,8 @@ import (
 	"flag"
 	"log"
 
-	"github.com/sgielen/rufs/client/register"
 	"github.com/sgielen/rufs/client/config"
+	"github.com/sgielen/rufs/client/register"
 	"github.com/sgielen/rufs/version"
 )
 
@@ -22,8 +22,8 @@ func main() {
 
 	log.Printf("starting rufs %s", version.GetVersion())
 
-	if *circle == "" || *username == "" || *token == "" {
-		log.Fatal("--circle, --username and --token are required")
+	if *circle == "" || *ca == "" || *username == "" || *token == "" {
+		log.Fatal("--circle, --ca, --username and --token are required")
 	}
 	config.MustResolvePath()
 

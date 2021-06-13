@@ -13,9 +13,9 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/version"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
+	"github.com/sgielen/rufs/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -32,7 +32,7 @@ func Register(ctx context.Context, circleAddr, username, token, caFingerprint st
 
 	tc, caPromise := security.TLSConfigForRegistration(circle, caFingerprint)
 
-	conn, err := grpc.DialContext(ctx, net.JoinHostPort(circle, discoveryPort), grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(circle, discoveryPort), grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithReturnConnectionError(), grpc.FailOnNonTempDialError(true))
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}

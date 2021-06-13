@@ -14,6 +14,7 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
+	github.com/jrick/logrotate v1.0.0
 	github.com/ory/go-convenience v0.1.0
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
 	github.com/prometheus/client_golang v1.10.0

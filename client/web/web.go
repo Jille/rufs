@@ -3,7 +3,9 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -25,10 +27,29 @@ import (
 )
 
 var (
+	allowHosts   = flag.String("http_allow_hosts", "127.0.0.1/8", "Comma separated list of CIDRs to allow access to the web interface")
+	passwordFile = flag.String("http_password_file", "", "File with the password for the web interface")
+
+	acls     []*net.IPNet
+	password string
+
 	ReloadConfigCallback func()
 )
 
 func Init(addr string) {
+	if *passwordFile != "" {
+		b, err := ioutil.ReadFile(*passwordFile)
+		if err != nil {
+			log.Fatalf("Failed to read password file %q: %v", *passwordFile, err)
+		}
+		password = strings.TrimSpace(string(b))
+	}
+	var err error
+	acls, err = parseACLs(*allowHosts)
+	if err != nil {
+		log.Fatalf("Failed to parse --http_allow_hosts %q: %v", *allowHosts, err)
+	}
+
 	http.Handle("/api/version", convreq.Wrap(renderVersion, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
@@ -41,6 +62,19 @@ func Init(addr string) {
 	if err := http.ListenAndServe(addr, authMiddleWare(http.DefaultServeMux)); err != nil {
 		log.Fatalf("failed to start HTTP server on address %q: %v", addr, err)
 	}
+}
+
+func parseACLs(acls string) ([]*net.IPNet, error) {
+	var ret []*net.IPNet
+	for _, a := range strings.Split(acls, ",") {
+		a = strings.TrimSpace(a)
+		_, n, err := net.ParseCIDR(a)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, n)
+	}
+	return ret, nil
 }
 
 func errorHandler(code int, msg string, r *http.Request) convreq.HttpResponse {
@@ -67,17 +101,29 @@ func checkRemoteAddr(addr string) bool {
 	if ip == nil {
 		return false
 	}
-	return ip.IsLoopback()
+	for _, a := range acls {
+		if a.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
-func authMiddleWare(h http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func authMiddleWare(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !checkRemoteAddr(r.RemoteAddr) {
 			errorResponse(403, "Request from "+r.RemoteAddr+" denied").Respond(w, r)
 			return
 		}
+		if password != "" {
+			_, pw, ok := r.BasicAuth()
+			if !ok || password != pw {
+				respond.WithHeader(errorResponse(http.StatusUnauthorized, "Unauthorized"), "WWW-Authenticate", "Basic").Respond(w, r)
+				return
+			}
+		}
 		h.ServeHTTP(w, r)
-	}
+	})
 }
 
 func respondJSON(v interface{}) convreq.HttpResponse {

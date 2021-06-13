@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	circle = flag.String("circle", "", "Hostname of the circle's discovery server")
+	circle  = flag.String("circle", "", "Hostname of the circle's discovery server")
+	certdir = flag.String("certdir", "", "Where CA certs are read from (see create_ca_pair)")
 )
 
 func main() {
@@ -18,15 +19,15 @@ func main() {
 
 	log.Printf("starting rufs %s", version.GetVersion())
 
-	if *circle == "" {
-		log.Fatal("Flag --circle is required")
+	if *circle == "" || *certdir == "" {
+		log.Fatal("Flags --circle and --certdir are required")
 	}
 
-	if err := os.MkdirAll("/tmp/rufs", 0755); err != nil {
-		log.Fatalf("Failed to create /tmp/rufs: %v", err)
+	if err := os.MkdirAll(*certdir, 0755); err != nil {
+		log.Fatalf("Failed to create %s: %v", *certdir, err)
 	}
 
-	if err := security.NewCA("/tmp/rufs", *circle); err != nil {
+	if err := security.NewCA(*certdir, *circle); err != nil {
 		log.Fatalf("Failed to create CA key pair: %v", err)
 	}
 }

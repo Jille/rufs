@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/format"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -30,7 +31,11 @@ func main() {
 	}
 
 	fn := flag.Arg(0)
-	if err := ioutil.WriteFile(fn, out.Bytes(), 0644); err != nil {
+	o, err := format.Source(out.Bytes())
+	if err != nil {
+		log.Fatalf("Generated source was invalid: %v", err)
+	}
+	if err := ioutil.WriteFile(fn, o, 0644); err != nil {
 		log.Fatalf("Failed to write to %q: %v", fn, err)
 	}
 }
