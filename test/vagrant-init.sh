@@ -46,6 +46,7 @@ EOF
   chown -R vagrant:vagrant /data /fuse ~vagrant/.rufs2
 
   AUTH_TOKEN=$(~vagrant/bin/create_auth_token -certdir /public/certs user1 2>/dev/null)
-  sudo -Hiu vagrant ~vagrant/bin/register -circle e2e.circle -ca /public/certs/ca.crt -token $AUTH_TOKEN -user user1
+  CA_FINGERPRINT=$(~vagrant/bin/ca_fingerprint -certdir /public/certs 2>/dev/null)
+  sudo -Hiu vagrant ~vagrant/bin/register -circle e2e.circle -ca $CA_FINGERPRINT -token $AUTH_TOKEN -user user1
 ;;
 esac
