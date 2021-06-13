@@ -9,11 +9,10 @@ sed -i 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
 echo "198.51.100.42 e2e.circle" >>/etc/hosts
 
 mkdir -p /public/certs
-ln -sf /public/certs /tmp/rufs
 
 case $1 in
 discovery)
-  ~vagrant/bin/create_ca_pair -circle e2e.circle
+  ~vagrant/bin/create_ca_pair -circle e2e.circle -certdir /public/certs
   cat <<EOF >/etc/systemd/system/rufs-discovery.service
 [Unit]
 Description=RUFS Discovery service
@@ -46,7 +45,7 @@ circles:
 EOF
   chown -R vagrant:vagrant /data /fuse ~vagrant/.rufs2
 
-  AUTH_TOKEN=$(~vagrant/bin/create_auth_token user1 2>/dev/null)
-  sudo -Hiu vagrant ~vagrant/bin/register -circle e2e.circle -token $AUTH_TOKEN -user user1
+  AUTH_TOKEN=$(~vagrant/bin/create_auth_token -certdir /public/certs user1 2>/dev/null)
+  sudo -Hiu vagrant ~vagrant/bin/register -circle e2e.circle -ca /public/certs/ca.crt -token $AUTH_TOKEN -user user1
 ;;
 esac

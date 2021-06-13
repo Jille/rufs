@@ -10,12 +10,20 @@ import (
 	"github.com/sgielen/rufs/version"
 )
 
+var (
+	certdir = flag.String("certdir", "", "Where CA certs are read from (see create_ca_pair)")
+)
+
 func main() {
 	flag.Parse()
 
 	log.Printf("starting rufs %s", version.GetVersion())
 
-	ca, err := security.LoadCAKeyPair("/tmp/rufs/")
+	if *certdir == "" {
+		log.Fatalf("Flag --certdir is required")
+	}
+
+	ca, err := security.LoadCAKeyPair(*certdir)
 	if err != nil {
 		log.Fatalf("Failed to load CA key pair: %v", err)
 	}

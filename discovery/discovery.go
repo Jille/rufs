@@ -26,16 +26,21 @@ import (
 )
 
 var (
-	port = flag.Int("port", 12000, "gRPC port")
+	port    = flag.Int("port", 12000, "gRPC port")
+	certdir = flag.String("certdir", "", "Where CA certs are read from (see create_ca_pair)")
 )
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	flag.Parse()
 
+	if *certdir == "" {
+		log.Fatalf("Flag --certdir is required")
+	}
+
 	log.Printf("starting rufs %s", version.GetVersion())
 
-	ca, err := security.LoadCAKeyPair("/tmp/rufs/")
+	ca, err := security.LoadCAKeyPair(*certdir)
 	if err != nil {
 		log.Fatalf("Failed to load CA key pair: %v", err)
 	}
