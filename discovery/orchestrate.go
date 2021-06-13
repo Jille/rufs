@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/ory/go-convenience/stringslice"
+	"github.com/sgielen/rufs/discovery/metrics"
 	"github.com/sgielen/rufs/discovery/orchestrate"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -18,6 +19,8 @@ import (
 var (
 	activeOrchestrationMtx sync.Mutex
 	activeOrchestration    = map[int64]*orchestration{}
+
+	schedulerBusynessMetric = metrics.NewBusynessMetric("orchestrate_scheduler", []string{"orchestration"})
 )
 
 type orchestration struct {
@@ -25,11 +28,12 @@ type orchestration struct {
 	activeDownload *pb.ConnectResponse_ActiveDownload
 	handlesChan    chan struct{}
 
-	mtx         sync.Mutex
-	closing     bool
-	schedCond   *sync.Cond
-	connections map[string]*orchestrationClient
-	scheduler   *orchestrate.Orchestrator
+	mtx               sync.Mutex
+	closing           bool
+	schedCond         *sync.Cond
+	connections       map[string]*orchestrationClient
+	scheduler         *orchestrate.Orchestrator
+	schedulerBusyness *metrics.BusynessSubMetric
 }
 
 type orchestrationClient struct {
@@ -84,6 +88,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 			// Allow resuming after discovery server restarts.
 			o.activeDownload.DownloadId = msg.GetStartOrchestration().GetDownloadId()
 		}
+		o.schedulerBusyness = schedulerBusynessMetric.Instance([]string{fmt.Sprint(o.activeDownload.DownloadId)})
 		activeOrchestration[o.activeDownload.GetDownloadId()] = o
 		d.broadcastNewActiveDownloads()
 		go o.schedulerThread()
@@ -247,7 +252,9 @@ func (o *orchestration) schedulerThread() {
 	o.mtx.Lock()
 	defer o.mtx.Unlock()
 	for !o.closing {
+		o.schedulerBusyness.Idle()
 		o.schedCond.Wait()
+		o.schedulerBusyness.Busy()
 		if o.closing {
 			break
 		}
