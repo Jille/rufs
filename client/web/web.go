@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -184,6 +185,7 @@ func sharesInCircle(ctx context.Context, req *http.Request, get sharesInCircleGe
 			res.Shares = append(res.Shares, fn)
 		}
 	}
+	sort.Strings(res.Shares)
 	return respondJSON(res)
 }
 
