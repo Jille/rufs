@@ -144,7 +144,7 @@ export default class AddCircleWizard extends Vue {
   }
 
   public isValidShareName(name: string): boolean {
-    return new RegExp('^[a-zA-Z0-9]+$').test(name);
+    return new RegExp('^[a-zA-Z0-9 _.-]+$').test(name);
   }
 
   public get anythingShared(): boolean {
