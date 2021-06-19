@@ -38,7 +38,7 @@ func NewMount(mountpoint string, allowUsers string) (*Mount, error) {
 	}
 
 	res := &Mount{
-		mountpoint:   mountpoint,
+		mountpoint:   strings.TrimRight(mountpoint, `/\`),
 		allowedUsers: allowedUsers,
 		handles:      map[uint64]vfs.Handle{},
 	}
