@@ -72,7 +72,7 @@ func main() {
 
 	if len(circles) == 0 {
 		address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
-		browser.OpenURL(address)
+		go browser.OpenURL(address)
 		log.Printf("no circles configured - visit %s to start rufs configuration.", address)
 	}
 
@@ -103,12 +103,12 @@ func onOpen() {
 		onSettings()
 		return
 	}
-	browser.OpenURL(mp)
+	go browser.OpenURL(mp)
 }
 
 func onSettings() {
 	address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
-	browser.OpenURL(address)
+	go browser.OpenURL(address)
 }
 
 func connectToCircles(circles map[string]*security.KeyPair) {

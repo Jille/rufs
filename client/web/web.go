@@ -220,7 +220,7 @@ func openExplorer(ctx context.Context, req *http.Request) convreq.HttpResponse {
 	if mp == "" {
 		return respond.BadRequest("no mountpoint configured")
 	}
-	browser.OpenURL(mp)
+	go browser.OpenURL(mp)
 	return respondJSON(map[string]bool{"ok": true})
 }
 
