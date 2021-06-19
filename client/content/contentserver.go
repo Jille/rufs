@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/Jille/dfr"
-	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/transfers"
@@ -25,7 +24,8 @@ import (
 )
 
 var (
-	circles              map[string]*circleState
+	mtx                  sync.Mutex
+	circles              = map[string]*circleState{}
 	swappableCredentials *security.SwappableCredentials
 )
 
@@ -34,12 +34,6 @@ func Serve(addr string, kps []*security.KeyPair) error {
 		return errors.New("missing parameter addr")
 	}
 
-	circles = map[string]*circleState{}
-	for _, circle := range config.GetCircles() {
-		circles[circle.Name] = &circleState{
-			activeReads: map[string]map[string]int{},
-		}
-	}
 	swappableCredentials = security.NewSwappableCredentials(credentials.NewTLS(security.TLSConfigForServer(kps)))
 
 	s := grpc.NewServer(grpc.Creds(swappableCredentials), grpc.ChainUnaryInterceptor(unaryInterceptor), grpc.ChainStreamInterceptor(streamInterceptor))
@@ -125,6 +119,19 @@ func (s *circleState) decreaseActiveCounter(path, peer string) {
 	}
 }
 
+func getCircleState(circle string) *circleState {
+	mtx.Lock()
+	defer mtx.Unlock()
+	cs, ok := circles[circle]
+	if !ok {
+		cs = &circleState{
+			activeReads: map[string]map[string]int{},
+		}
+		circles[circle] = cs
+	}
+	return cs
+}
+
 func (content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) (retErr error) {
 	d := dfr.D{}
 	defer d.Run(&retErr)
@@ -140,7 +147,7 @@ func (content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFi
 	defer fh.Close()
 	path := fh.Name()
 
-	circleState := circles[circle]
+	circleState := getCircleState(circle)
 
 	circleState.mtx.Lock()
 	circleState.increaseActiveCounter(path, peer)
