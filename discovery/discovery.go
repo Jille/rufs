@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -33,11 +34,14 @@ var (
 	port          = flag.Int("port", 12000, "gRPC port")
 	certdir       = flag.String("certdir", "", "Where CA certs are read from (see create_ca_pair)")
 	collectedLogs = flag.String("collected_logs_file", "", "Path to store collected logs in")
+
+	mutexProfileFraction = flag.Int("mutex_profile_fraction", 0, "Controls the fraction of mutex contention events that are reported in the mutex profile. On average 1/rate events are reported.")
 )
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	flag.Parse()
+	runtime.SetMutexProfileFraction(*mutexProfileFraction)
 
 	if *certdir == "" {
 		log.Fatalf("Flag --certdir is required")
