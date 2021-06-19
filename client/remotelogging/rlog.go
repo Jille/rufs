@@ -88,7 +88,7 @@ func (s *sink) pusher() {
 				Messages: b,
 			})
 			if err != nil {
-				os.Stderr.Write([]byte(fmt.Sprintf("%v\n", err)))
+				os.Stderr.Write([]byte(fmt.Sprintf("Error uploading logs to discovery server: %v\n", err)))
 			}
 			mtx.Lock()
 			if resp.GetStopSendingLogs() {
