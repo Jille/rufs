@@ -100,7 +100,7 @@ func (c *circle) connect(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to discovery server: %v", err)
 	}
-	log.Printf("Connected to RuFS. My endpoints: %s", c.myEndpoints)
+	log.Printf("Connected to RuFS circle %s. My endpoints: %s", c.name, c.myEndpoints)
 	go runConnectivityMetrics(ctx, c.name, c.client)
 
 	for {
