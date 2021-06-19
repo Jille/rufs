@@ -37,7 +37,7 @@ func Serve(addr string, kps []*security.KeyPair) error {
 	circles = map[string]*circleState{}
 	for _, circle := range config.GetCircles() {
 		circles[circle.Name] = &circleState{
-			activeReads: map[string]int{},
+			activeReads: map[string]map[string]int{},
 		}
 	}
 	swappableCredentials = security.NewSwappableCredentials(credentials.NewTLS(security.TLSConfigForServer(kps)))
@@ -68,7 +68,7 @@ type content struct {
 
 type circleState struct {
 	mtx         sync.Mutex
-	activeReads map[string]int
+	activeReads map[string]map[string]int
 }
 
 func unaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -111,6 +111,20 @@ func (content) ReadDir(ctx context.Context, req *pb.ReadDirRequest) (*pb.ReadDir
 	return res, nil
 }
 
+func (s *circleState) increaseActiveCounter(path, peer string) {
+	if _, found := s.activeReads[path]; !found {
+		s.activeReads[path] = map[string]int{}
+	}
+	s.activeReads[path][peer]++
+}
+
+func (s *circleState) decreaseActiveCounter(path, peer string) {
+	delete(s.activeReads[path], peer)
+	if len(s.activeReads[path]) == 0 {
+		delete(s.activeReads, path)
+	}
+}
+
 func (content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFileServer) (retErr error) {
 	d := dfr.D{}
 	defer d.Run(&retErr)
@@ -129,12 +143,12 @@ func (content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFi
 	circleState := circles[circle]
 
 	circleState.mtx.Lock()
-	circleState.activeReads[path]++
-	upgrade := circleState.activeReads[path] > 1
+	circleState.increaseActiveCounter(path, peer)
+	upgrade := len(circleState.activeReads[path]) > 1
 	circleState.mtx.Unlock()
 	defer func() {
 		circleState.mtx.Lock()
-		circleState.activeReads[path]--
+		circleState.decreaseActiveCounter(path, peer)
 		circleState.mtx.Unlock()
 	}()
 
