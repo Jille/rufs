@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -37,11 +36,11 @@ func resolvePath() error {
 	}
 	path := *configFlag
 	if strings.HasPrefix(path, "~/") {
-		usr, err := user.Current()
+		d, err := homedir()
 		if err != nil {
 			return err
 		}
-		path = filepath.Join(usr.HomeDir, path[2:])
+		path = filepath.Join(d, path[2:])
 	}
 	if strings.HasSuffix(path, ".yaml") {
 		configFile = path
@@ -177,11 +176,26 @@ func GetCircle(name string) (Circle, bool) {
 	return Circle{}, false
 }
 
+func currentOrDefaultConfig() (Config, error) {
+	c := *cfg
+	if c.Mountpoint == "" {
+		var err error
+		c.Mountpoint, err = defaultMountpoint()
+		if err != nil {
+			return c, err
+		}
+	}
+	return c, nil
+}
+
 func AddCircleAndStore(name string) error {
 	assertParsed()
 	mtx.Lock()
 	defer mtx.Unlock()
-	newCfg := *cfg
+	newCfg, err := currentOrDefaultConfig()
+	if err != nil {
+		return err
+	}
 	newCfg.Circles = append(newCfg.Circles, Circle{
 		Name: name,
 	})
@@ -192,7 +206,10 @@ func AddShareAndStore(circle, share, local string) error {
 	assertParsed()
 	mtx.Lock()
 	defer mtx.Unlock()
-	newCfg := *cfg
+	newCfg, err := currentOrDefaultConfig()
+	if err != nil {
+		return err
+	}
 	for i, c := range newCfg.Circles {
 		if c.Name == circle {
 			newCfg.Circles[i].Shares = append(newCfg.Circles[i].Shares, Share{
@@ -209,7 +226,10 @@ func SetMountpointAndStore(mp string) error {
 	assertParsed()
 	mtx.Lock()
 	defer mtx.Unlock()
-	newCfg := *cfg
+	newCfg, err := currentOrDefaultConfig()
+	if err != nil {
+		return err
+	}
 	newCfg.Mountpoint = mp
 	return writeNewConfig(newCfg)
 }
