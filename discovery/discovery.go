@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,19 +50,11 @@ func main() {
 		log.Fatalf("Failed to load CA key pair: %v", err)
 	}
 
-	var r *rotator.Rotator
-	if *collectedLogs != "" {
-		r, err = rotator.New(filepath.Join(*collectedLogs, "collected.log"), 10*1024*1024, false, 10)
-		if err != nil {
-			log.Fatalf("Failed to open log file: %v", err)
-		}
-	}
-
 	d := &discovery{
-		ca:      ca,
-		circle:  ca.Name(),
-		clients: map[string]*client{},
-		rotator: r,
+		ca:       ca,
+		circle:   ca.Name(),
+		clients:  map[string]*client{},
+		rotators: map[string]*rotator.Rotator{},
 	}
 	d.cond = sync.NewCond(&d.mtx)
 	go d.keepAliver()
@@ -90,7 +83,7 @@ type discovery struct {
 	cond    *sync.Cond
 
 	loggingMtx sync.Mutex
-	rotator    *rotator.Rotator
+	rotators   map[string]*rotator.Rotator
 }
 
 type client struct {
@@ -248,15 +241,32 @@ func (d *discovery) PushMetrics(ctx context.Context, req *pb.PushMetricsRequest)
 }
 
 func (d *discovery) PushLogs(ctx context.Context, req *pb.PushLogsRequest) (*pb.PushLogsResponse, error) {
-	if d.rotator == nil {
+	if *collectedLogs == "" {
 		return &pb.PushLogsResponse{
 			StopSendingLogs: true,
 		}, nil
 	}
+
+	peer, _, err := security.PeerFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	d.loggingMtx.Lock()
 	defer d.loggingMtx.Unlock()
+
+	if d.rotators[peer] == nil {
+		filename := strings.Split(peer, "@")[0] + ".log"
+		r, err := rotator.New(filepath.Join(*collectedLogs, filename), 10*1024, false, 10)
+		if err != nil {
+			return nil, err
+		}
+		d.rotators[peer] = r
+	}
+
+	r := d.rotators[peer]
 	for _, m := range req.GetMessages() {
-		if _, err := d.rotator.Write(m); err != nil {
+		if _, err := r.Write(m); err != nil {
 			return nil, err
 		}
 	}
