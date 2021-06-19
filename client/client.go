@@ -76,7 +76,7 @@ func main() {
 		log.Printf("no circles configured - visit %s to start rufs configuration.", address)
 	}
 
-	connectToCircles(circles)
+	go connectToCircles(circles)
 
 	config.RegisterMountpointListener(func(mp string) {
 		unmountFuse()
@@ -114,16 +114,12 @@ func onSettings() {
 func connectToCircles(circles map[string]*security.KeyPair) {
 	ctx := context.Background()
 	for circle, kp := range circles {
-		circle := circle
-		kp := kp
-		go func() {
-			// connectivity.ConnectToCircle returns nil if we already connected to a circle.
-			if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
-				log.Fatalf("Failed to connect to circle %q: %v", circle, err)
-			}
-			metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
-			metrics.SetClientVersion([]string{circle}, version.GetVersion(), 1)
-		}()
+		// connectivity.ConnectToCircle returns nil if we already connected to a circle.
+		if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
+			log.Fatalf("Failed to connect to circle %q: %v", circle, err)
+		}
+		metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())
+		metrics.SetClientVersion([]string{circle}, version.GetVersion(), 1)
 	}
 	remotelogging.AddSinks(connectivity.AllDiscoveryClients())
 }
