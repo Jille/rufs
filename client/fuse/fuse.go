@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	osUser "os/user"
@@ -224,6 +225,11 @@ type handle struct {
 func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
 	response.Data = make([]byte, request.Size)
 	n, retErr := h.vh.Read(ctx, request.Offset, response.Data)
+	if n > 0 && retErr == io.EOF {
+		// Golang's io.Reader contract allows n>0 with io.EOF to indicate a short read.
+		// Fuse however treats any returned error as fatal.
+		retErr = nil
+	}
 	if retErr != nil {
 		log.Printf("VFS read failed for {%s}: %v", h.path, retErr)
 	}
