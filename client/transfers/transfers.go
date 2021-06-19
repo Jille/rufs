@@ -207,7 +207,7 @@ func RedirectToOrchestration(circle string, t *transfer.Transfer, downloadId int
 	mtx.Lock()
 	defer mtx.Unlock()
 	c := getCircle(circle)
-	log.Printf("Transfer got redirected to orchestration %d", t.DownloadId())
+	log.Printf("Transfer got redirected to orchestration %d", downloadId)
 	if err := t.SwitchToOrchestratedMode(downloadId); err != nil {
 		metrics.AddContentOrchestrationJoinFailed([]string{c.name}, "redirected", 1)
 		return err
