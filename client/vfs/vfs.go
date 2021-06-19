@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -220,6 +221,7 @@ func readdirImpl(ctx context.Context, p string, preferCache bool) *Directory {
 	}
 	if len(warnings) >= 1 {
 		warning := "*** RUFS encountered some issues showing this directory: ***\n"
+		sort.Strings(warnings)
 		warning += strings.Join(warnings, "\n") + "\n"
 		res.Files["rufs-warnings.txt"] = &File{
 			FullPath:     p + "/rufs-warnings.txt",
