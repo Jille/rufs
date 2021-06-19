@@ -162,6 +162,11 @@ func readdirImpl(ctx context.Context, p string, preferCache bool) *Directory {
 	}
 
 	for p, err := range errs {
+		if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
+			// File not found on peer, don't include this error in warnings
+			continue
+		}
+
 		warnings = append(warnings, fmt.Sprintf("failed to readdir on peer %s, ignoring: %v", p.Name, err))
 	}
 	for p, r := range resps {
@@ -287,9 +292,7 @@ func parallelReadDir(ctx context.Context, peers []*connectivity.Peer, req *pb.Re
 			}
 			mtx.Lock()
 			defer mtx.Unlock()
-			if st, ok := status.FromError(err); ok && st.Code() == codes.NotFound {
-				// File not found on peer, don't include peer in errs or ret
-			} else if err != nil {
+			if err != nil {
 				errs[p] = err
 			} else {
 				ret[p] = r
