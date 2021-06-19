@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/jrick/logrotate/rotator"
@@ -63,6 +64,7 @@ func main() {
 		rotator: r,
 	}
 	d.cond = sync.NewCond(&d.mtx)
+	go d.keepAliver()
 	s := grpc.NewServer(grpc.Creds(credentials.NewTLS(ca.TLSConfigForDiscovery())))
 	pb.RegisterDiscoveryServiceServer(s, d)
 	reflection.Register(s)
@@ -97,6 +99,7 @@ type client struct {
 	newPeerList             bool
 	newActiveDownloads      bool
 	resolveConflictRequests []*pb.ResolveConflictRequest
+	nextKeepAlive           time.Time
 }
 
 func (d *discovery) broadcastNewActiveDownloads() {
@@ -106,6 +109,12 @@ func (d *discovery) broadcastNewActiveDownloads() {
 	}
 	d.cond.Broadcast()
 	d.mtx.Unlock()
+}
+
+func (d *discovery) keepAliver() {
+	for range time.Tick(5 * time.Second) {
+		d.cond.Broadcast()
+	}
 }
 
 func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_ConnectServer) error {
@@ -140,7 +149,8 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	}()
 
 	for {
-		for c.newPeerList || c.newActiveDownloads || len(c.resolveConflictRequests) > 0 {
+		now := time.Now()
+		for c.newPeerList || c.newActiveDownloads || len(c.resolveConflictRequests) > 0 || c.nextKeepAlive.Before(now) {
 			msg := &pb.ConnectResponse{}
 			if len(c.resolveConflictRequests) > 0 {
 				msg.Msg = &pb.ConnectResponse_ResolveConflictRequest{
@@ -160,7 +170,7 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 					},
 				}
 				c.newActiveDownloads = false
-			} else {
+			} else if c.newPeerList {
 				msg.Msg = &pb.ConnectResponse_PeerList_{
 					PeerList: &pb.ConnectResponse_PeerList{},
 				}
@@ -168,7 +178,10 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 					msg.GetPeerList().Peers = append(msg.GetPeerList().Peers, c2.peer)
 				}
 				c.newPeerList = false
+			} else {
+				// Send a keep alive message without any content.
 			}
+			c.nextKeepAlive = now.Add(5 * time.Second)
 			d.mtx.Unlock()
 			if err := stream.Send(msg); err != nil {
 				d.mtx.Lock()
