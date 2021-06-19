@@ -110,8 +110,7 @@ func (f *Mount) Getattr(path string, attr *fuse.Stat_t, fh uint64) int {
 	} else {
 		attr.Mode = 0644 | fuse.S_IFREG
 	}
-	attr.Mtim.Sec = file.Mtime.Unix()
-	attr.Mtim.Nsec = file.Mtime.UnixNano()
+	attr.Mtim = fuse.NewTimespec(file.Mtime)
 	return 0
 }
 
@@ -141,8 +140,7 @@ func (f *Mount) Readdir(path string, fill func(name string, stat *fuse.Stat_t, o
 		} else {
 			attr.Mode = 0644
 		}
-		attr.Mtim.Sec = f.Mtime.Unix()
-		attr.Mtim.Nsec = f.Mtime.UnixNano()
+		attr.Mtim = fuse.NewTimespec(f.Mtime)
 		if !fill(fn, &attr, 0) {
 			break
 		}
