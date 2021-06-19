@@ -133,7 +133,7 @@ func (d *discovery) Orchestrate(stream pb.DiscoveryService_OrchestrateServer) er
 		errCh <- c.writer()
 	}()
 	err = <-errCh
-	log.Printf("Orchestrate{%d} [%s] reader or writer thread died: %s", c.o.activeDownload.GetDownloadId(), c.peer, err)
+	log.Printf("Orchestrate{%d} [%s] reader or writer thread died: %v", c.o.activeDownload.GetDownloadId(), c.peer, err)
 	o.mtx.Lock()
 	c.disconnecting = true
 	o.scheduler.Disappeered(peer)
@@ -150,7 +150,7 @@ func (c *orchestrationClient) reader() error {
 	for {
 		msg, err := c.stream.Recv()
 		if err != nil {
-			log.Printf("Orchestrate{%d} [%s] reader died: %s", c.o.activeDownload.GetDownloadId(), c.peer, err)
+			log.Printf("Orchestrate{%d} [%s] reader died: %v", c.o.activeDownload.GetDownloadId(), c.peer, err)
 			return err
 		}
 		c.o.mtx.Lock()
