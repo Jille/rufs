@@ -14,7 +14,6 @@ import (
 	"github.com/sgielen/rufs/client/content"
 	"github.com/sgielen/rufs/client/fuse"
 	"github.com/sgielen/rufs/client/metrics"
-	"github.com/sgielen/rufs/client/remotelogging"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/systray"
 	"github.com/sgielen/rufs/client/vfs"
@@ -125,7 +124,6 @@ func connectToCircles(circles map[string]*security.KeyPair) {
 			metrics.SetClientVersion([]string{circle}, version.GetVersion(), 1)
 		}()
 	}
-	remotelogging.AddSinks(connectivity.AllDiscoveryClients())
 }
 
 func ReloadConfig() {

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sgielen/rufs/client/remotelogging"
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
@@ -79,6 +80,7 @@ func ConnectToCircle(ctx context.Context, name string, port int, myEndpoints []s
 	cmtx.Lock()
 	circles[name] = c
 	cmtx.Unlock()
+	remotelogging.AddSink(client)
 	return nil
 }
 

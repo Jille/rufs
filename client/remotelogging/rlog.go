@@ -2,9 +2,11 @@ package remotelogging
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"sync"
+	"time"
 
 	pb "github.com/sgielen/rufs/proto"
 )
@@ -36,18 +38,28 @@ func (logWriter) Write(p []byte) (int, error) {
 	return os.Stderr.Write(p)
 }
 
-func AddSinks(clients []pb.DiscoveryServiceClient) {
-	for _, c := range clients {
-		s := &sink{
-			client: c,
-			queue:  initBufferSink.queue,
-		}
-		go s.pusher()
-		sinks = append(sinks, s)
+func AddSink(client pb.DiscoveryServiceClient) {
+	s := &sink{
+		client: client,
+		queue:  append([][]byte(nil), initBufferSink.queue...),
 	}
-	if len(sinks) > 0 && sinks[0] == initBufferSink {
-		sinks = sinks[1:]
-		initBufferSink.queue = nil
+	go s.pusher()
+	mtx.Lock()
+	defer mtx.Unlock()
+	sinks = append(sinks, s)
+
+	if sinks[0] == initBufferSink {
+		// Allow other circles to connect within one second. After this,
+		// clear the initial buffer sink.
+		go func() {
+			time.Sleep(time.Second)
+			mtx.Lock()
+			defer mtx.Unlock()
+			if sinks[0] == initBufferSink {
+				sinks = sinks[1:]
+				initBufferSink.queue = nil
+			}
+		}()
 	}
 }
 
@@ -75,7 +87,9 @@ func (s *sink) pusher() {
 			resp, err := s.client.PushLogs(ctx, &pb.PushLogsRequest{
 				Messages: b,
 			})
-			_ = err
+			if err != nil {
+				os.Stderr.Write([]byte(fmt.Sprintf("%v\n", err)))
+			}
 			mtx.Lock()
 			if resp.GetStopSendingLogs() {
 				s.queue = nil
