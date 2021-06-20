@@ -238,9 +238,11 @@ func (d *discovery) ResolveConflict(ctx context.Context, req *pb.ResolveConflict
 }
 
 func (d *discovery) PushMetrics(ctx context.Context, req *pb.PushMetricsRequest) (*pb.PushMetricsResponse, error) {
-	if err := metrics.PushMetrics(ctx, req); err != nil {
+	peer, _, err := security.PeerFromContext(ctx)
+	if err != nil {
 		return nil, err
 	}
+	metrics.PushMetrics(peer, req)
 	return &pb.PushMetricsResponse{}, nil
 }
 
