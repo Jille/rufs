@@ -70,6 +70,7 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 	log.Printf("Listening on port %d for circle %q", *port, d.circle)
+	go RunStun(*port)
 	go metrics.Serve()
 	if err := s.Serve(sock); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
