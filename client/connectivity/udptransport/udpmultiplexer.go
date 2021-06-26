@@ -31,32 +31,50 @@ func newUDPMultiplexer(sock *net.UDPConn, newPeerCallback func(net.Conn)) *udpMu
 	return m
 }
 
+// GetBlocking returns the connection to a peer, possibly calling newPeerCallback if it didn't exist yet.
+// GetBlocking guarantees that newPeerCallback has returned before it returns itself.
+func (m *udpMultiplexer) GetBlocking(addr *net.UDPAddr) net.Conn {
+	a := m.get(addr)
+	<-a.initialized
+	return a
+}
+
+func (m *udpMultiplexer) get(addr *net.UDPAddr) *semiConnectedUDP {
+	key := addr.String()
+	m.mtx.Lock()
+	defer m.mtx.Unlock()
+	if c, ok := m.connections[key]; ok {
+		return c
+	}
+	c := &semiConnectedUDP{
+		udpConn:     m.sock,
+		remoteAddr:  addr,
+		msgs:        make(chan message, 100),
+		quit:        make(chan struct{}),
+		initialized: make(chan struct{}),
+	}
+	m.connections[key] = c
+	go func() {
+		m.newPeerCallback(c)
+		close(c.initialized)
+	}()
+	return c
+}
+
 func (m *udpMultiplexer) reader() {
 	for {
 		buf := pool.Get().([]byte)
-		n, addr, err := s.sock.ReadFromUDP(buf[:])
+		n, addr, err := m.sock.ReadFromUDP(buf[:])
 		if err != nil {
 			panic(err)
 		}
-		m := message{
+		msg := message{
 			data: buf[:n],
 			peer: addr,
 		}
-		key := addr.String()
-		s.mtx.Lock()
-		a, ok := s.connections[key]
-		if !ok {
-			a = &semiConnectedUDP{
-				udpConn:    s.sock,
-				remoteAddr: addr,
-				msgs:       make(chan message, 100),
-			}
-			s.connections[key] = a
-			go m.newPeerCallback(a)
-		}
-		s.mtx.Unlock()
+		c := m.get(addr)
 		select {
-		case a.msgs <- m:
+		case c.msgs <- msg:
 		default:
 			// Channel is full. Drop the packet.
 		}
@@ -72,8 +90,9 @@ type semiConnectedUDP struct {
 	udpConn    *net.UDPConn
 	remoteAddr *net.UDPAddr
 
-	msgs chan message
-	quit chan struct{}
+	msgs        chan message
+	quit        chan struct{}
+	initialized chan struct{}
 }
 
 func (t *semiConnectedUDP) Write(p []byte) (int, error) {
@@ -92,7 +111,7 @@ func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 		pool.Put(m.data)
 		return n, nil
 	case <-t.quit:
-		return errors.New("emiConnectedUDP connection was closed")
+		return 0, errors.New("semiConnectedUDP connection was closed")
 	}
 }
 
