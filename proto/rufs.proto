@@ -42,6 +42,7 @@ message RegisterResponse {
 message ConnectRequest {
 	repeated string endpoints = 1;
 	string client_version = 2;
+	repeated string udpEndpoints = 3;
 }
 
 message ConnectResponse {
@@ -74,6 +75,7 @@ message GetMyIPResponse {
 message Peer {
 	string name = 1;
 	repeated string endpoints = 2;
+	repeated string udpEndpoints = 3;
 }
 
 message ResolveConflictRequest {

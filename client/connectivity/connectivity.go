@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/sgielen/rufs/client/connectivity/udptransport"
 	"github.com/sgielen/rufs/client/remotelogging"
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
@@ -25,13 +27,17 @@ var (
 	cmtx    sync.Mutex
 	circles = map[string]*circle{}
 
-	HandleResolveConflictRequest = func(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {}
-	HandleActiveDownloadList     = func(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {}
+	HandleResolveConflictRequest    = func(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {}
+	HandleActiveDownloadList        = func(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {}
+	HandleIncomingContentConnection = func(net.Conn) {}
 )
 
 type circle struct {
 	name        string
+	port        int
 	client      pb.DiscoveryServiceClient
+	myPort      int
+	udpSocket   *udptransport.Socket
 	myEndpoints []string
 	keyPair     *security.KeyPair
 
@@ -52,30 +58,23 @@ func ConnectToCircle(ctx context.Context, name string, port int, myEndpoints []s
 	}
 	client := pb.NewDiscoveryServiceClient(conn)
 
-	if len(myEndpoints) == 0 {
-		// Auto-detect endpoints
-		res, err := client.GetMyIP(ctx, &pb.GetMyIPRequest{})
-		if err != nil {
-			return fmt.Errorf("no ips given and failed to retrieve IP from discovery server")
-		}
-		myEndpoints = []string{res.GetIp()}
-	}
-
-	// Add ports to endpoints that don't have any
-	for i, e := range myEndpoints {
-		_, _, err := net.SplitHostPort(e)
-		if err != nil {
-			myEndpoints[i] = net.JoinHostPort(e, fmt.Sprint(myPort))
-		}
+	// Enable gRPC-over-UDP
+	udpSocket, err := udptransport.New(HandleIncomingContentConnection)
+	if err != nil {
+		log.Printf("failed to enable gRPC-over-UDP: %v", err)
 	}
 
 	c := &circle{
 		name:        name,
+		port:        port,
 		client:      client,
+		myPort:      myPort,
+		udpSocket:   udpSocket,
 		myEndpoints: myEndpoints,
 		keyPair:     kp,
 		peers:       map[string]*Peer{},
 	}
+
 	go c.run(ctx)
 	cmtx.Lock()
 	circles[name] = c
@@ -95,14 +94,41 @@ func (c *circle) run(ctx context.Context) {
 }
 
 func (c *circle) connect(ctx context.Context) error {
+	myEndpoints := c.myEndpoints
+
+	if len(myEndpoints) == 0 {
+		// Auto-detect endpoints
+		res, err := c.client.GetMyIP(ctx, &pb.GetMyIPRequest{})
+		if err != nil {
+			return fmt.Errorf("no ips given and failed to retrieve IP from discovery server")
+		}
+		myEndpoints = []string{res.GetIp()}
+	}
+
+	// Add ports to endpoints that don't have any
+	for i, e := range myEndpoints {
+		_, _, err := net.SplitHostPort(e)
+		if err != nil {
+			myEndpoints[i] = net.JoinHostPort(e, fmt.Sprint(c.myPort))
+		}
+	}
+
+	// Auto-detect our gRPC-over-UDP public endpoint
+	udpEndpoint, err := c.udpSocket.GetEndpointStunlite(net.JoinHostPort(c.name, fmt.Sprint(c.port)))
+	if err != nil {
+		log.Printf("gRPC-over-UDP disabled, stunlite failed: %v", err)
+		udpEndpoint = ""
+	}
+
 	stream, err := c.client.Connect(ctx, &pb.ConnectRequest{
-		Endpoints:     c.myEndpoints,
+		Endpoints:     myEndpoints,
 		ClientVersion: version.GetVersion(),
+		UdpEndpoints:  []string{udpEndpoint},
 	}, grpc.WaitForReady(true))
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to discovery server: %v", err)
 	}
-	log.Printf("Connected to RuFS circle %s. My endpoints: %s", c.name, c.myEndpoints)
+	log.Printf("Connected to RuFS circle %s. My endpoints: %s; my gRPC-over-UDP endpoint: %s", c.name, myEndpoints, udpEndpoint)
 	go runConnectivityMetrics(ctx, c.name, c.client)
 
 	for {
@@ -150,7 +176,13 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s", p.GetName()))
 	r.InitialState(peerToResolverState(p))
-	conn, err := grpc.DialContext(ctx, r.Scheme()+":///magic", grpc.WithResolvers(r), grpc.WithTransportCredentials(credentials.NewTLS(c.keyPair.TLSConfigForServerClient(p.GetName()))))
+	conn, err := grpc.DialContext(
+		ctx,
+		r.Scheme()+":///magic",
+		grpc.WithResolvers(r),
+		grpc.WithContextDialer(c.dialPeer),
+		grpc.WithTransportCredentials(credentials.NewTLS(c.keyPair.TLSConfigForServerClient(p.GetName()))),
+	)
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
 	}
@@ -161,11 +193,26 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 	}
 }
 
+func (c *circle) dialPeer(ctx context.Context, addr string) (net.Conn, error) {
+	if strings.HasPrefix(addr, "udp:") {
+		return c.udpSocket.DialContext(ctx, strings.TrimPrefix(addr, "udp:"))
+	} else {
+		var d net.Dialer
+		return d.DialContext(ctx, "tcp", addr)
+	}
+}
+
 func peerToResolverState(p *pb.Peer) resolver.State {
 	var s resolver.State
 	for _, e := range p.GetEndpoints() {
 		s.Addresses = append(s.Addresses, resolver.Address{
 			Addr:       e,
+			ServerName: p.GetName(),
+		})
+	}
+	for _, e := range p.GetUdpEndpoints() {
+		s.Addresses = append(s.Addresses, resolver.Address{
+			Addr:       "udp:" + e,
 			ServerName: p.GetName(),
 		})
 	}

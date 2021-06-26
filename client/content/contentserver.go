@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Jille/dfr"
+	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
 	"github.com/sgielen/rufs/client/transfers"
@@ -49,6 +50,13 @@ func Serve(addr string, kps []*security.KeyPair) error {
 			log.Fatalf("content server failed to serve on %s: %v", addr, err)
 		}
 	}()
+	listener := &fakeListener{ch: make(chan net.Conn)}
+	go func() {
+		if err := s.Serve(listener); err != nil {
+			log.Fatalf("content server failed to serve on fake listener: %v", err)
+		}
+	}()
+	RegisterIncomingContentConnectionsServer(listener)
 	return nil
 }
 
@@ -216,4 +224,27 @@ func (content) ReadFile(req *pb.ReadFileRequest, stream pb.ContentService_ReadFi
 
 func (content) PassiveTransfer(stream pb.ContentService_PassiveTransferServer) error {
 	return transfers.HandleIncomingPassiveTransfer(stream)
+}
+
+type fakeListener struct {
+	ch chan net.Conn
+}
+
+func (f *fakeListener) Accept() (net.Conn, error) {
+	conn := <-f.ch
+	return conn, nil
+}
+
+func (f *fakeListener) Close() error {
+	return nil
+}
+
+func (f *fakeListener) Addr() net.Addr {
+	return nil
+}
+
+func RegisterIncomingContentConnectionsServer(l *fakeListener) {
+	connectivity.HandleIncomingContentConnection = func(conn net.Conn) {
+		l.ch <- conn
+	}
 }
