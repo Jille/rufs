@@ -26,7 +26,7 @@ func newUDPMultiplexer(sock *net.UDPConn, newPeerCallback func(net.Conn)) *udpMu
 	m := &udpMultiplexer{
 		sock:            sock,
 		newPeerCallback: newPeerCallback,
-		connections: map[string]*semiConnectedUDP{},
+		connections:     map[string]*semiConnectedUDP{},
 	}
 	go m.reader()
 	return m

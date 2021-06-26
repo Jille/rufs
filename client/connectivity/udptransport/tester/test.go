@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity/udptransport"
@@ -14,8 +17,10 @@ var (
 )
 
 func main() {
+	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
+	ctx := context.Background()
 	flag.Parse()
-	udpSocket, err := udptransport.New(handleIncomingContentConnection)
+	udpSocket, err := udptransport.New(handleConnection)
 	if err != nil {
 		log.Fatalf("Failed to enable gRPC-over-UDP: %v", err)
 	}
@@ -24,10 +29,24 @@ func main() {
 		log.Fatalf("Stunlite failed: %v", err)
 	}
 	log.Printf("Stunlite: %s", udpEndpoint)
-	// udpSocket.DialContext(ctx, addr)
+
+	var remoteB [128]byte
+	n, err := os.Stdin.Read(remoteB[:])
+	if err != nil {
+		panic(err)
+	}
+	remote := strings.TrimSpace(string(remoteB[:n]))
+	log.Printf("Okay. %q is my peer", remote)
+
+	conn, err := udpSocket.DialContext(ctx, remote)
+	if err != nil {
+		panic(err)
+	}
+	handleConnection(conn)
+	select{}
 }
 
-func handleIncomingContentConnection(s net.Conn) {
+func handleConnection(s net.Conn) {
 	go func() {
 		for range time.Tick(time.Second) {
 			if _, err := s.Write([]byte("Hail!")); err != nil {
@@ -43,7 +62,7 @@ func handleIncomingContentConnection(s net.Conn) {
 				panic(err)
 			}
 			p := b[:n]
-			log.Printf("Got packet from stream %d: %q", s.RemoteAddr(), string(p))
+			log.Printf("Got packet from stream %s: %q", s.RemoteAddr(), string(p))
 		}
 	}()
 }

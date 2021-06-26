@@ -179,15 +179,15 @@ type sctpStreamWrapper struct {
 }
 
 func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
-	return w.Write(p)
+	return w.stream.Write(p)
 }
 
 func (w *sctpStreamWrapper) Read(p []byte) (int, error) {
-	return w.Read(p)
+	return w.stream.Read(p)
 }
 
 func (w *sctpStreamWrapper) Close() error {
-	return w.Close()
+	return w.stream.Close()
 }
 
 func (w *sctpStreamWrapper) LocalAddr() net.Addr {
