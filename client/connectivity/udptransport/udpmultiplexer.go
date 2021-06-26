@@ -10,7 +10,7 @@ import (
 
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 8192)
+		return make([]byte, 1401)
 	},
 }
 
@@ -26,6 +26,7 @@ func newUDPMultiplexer(sock *net.UDPConn, newPeerCallback func(net.Conn)) *udpMu
 	m := &udpMultiplexer{
 		sock:            sock,
 		newPeerCallback: newPeerCallback,
+		connections: map[string]*semiConnectedUDP{},
 	}
 	go m.reader()
 	return m
@@ -34,12 +35,16 @@ func newUDPMultiplexer(sock *net.UDPConn, newPeerCallback func(net.Conn)) *udpMu
 // GetBlocking returns the connection to a peer, possibly calling newPeerCallback if it didn't exist yet.
 // GetBlocking guarantees that newPeerCallback has returned before it returns itself.
 func (m *udpMultiplexer) GetBlocking(addr *net.UDPAddr) net.Conn {
-	a := m.get(addr)
+	a := m.get(addr, m.newPeerCallback)
 	<-a.initialized
 	return a
 }
 
-func (m *udpMultiplexer) get(addr *net.UDPAddr) *semiConnectedUDP {
+func (m *udpMultiplexer) GetBypassCallback(addr *net.UDPAddr) net.Conn {
+	return m.get(addr, func(net.Conn) {})
+}
+
+func (m *udpMultiplexer) get(addr *net.UDPAddr, newPeerCallback func(net.Conn)) *semiConnectedUDP {
 	key := addr.String()
 	m.mtx.Lock()
 	defer m.mtx.Unlock()
@@ -55,7 +60,7 @@ func (m *udpMultiplexer) get(addr *net.UDPAddr) *semiConnectedUDP {
 	}
 	m.connections[key] = c
 	go func() {
-		m.newPeerCallback(c)
+		newPeerCallback(c)
 		close(c.initialized)
 	}()
 	return c
@@ -68,11 +73,15 @@ func (m *udpMultiplexer) reader() {
 		if err != nil {
 			panic(err)
 		}
+		if n > 1400 {
+			// Message is too large. Shouldn't happen with our SCTP settings. Dropping it.
+			continue
+		}
 		msg := message{
 			data: buf[:n],
 			peer: addr,
 		}
-		c := m.get(addr)
+		c := m.get(addr, m.newPeerCallback)
 		select {
 		case c.msgs <- msg:
 		default:

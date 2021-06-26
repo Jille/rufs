@@ -48,26 +48,27 @@ func New(newStreamCallback func(net.Conn)) (*Socket, error) {
 }
 
 func (s *Socket) GetEndpointStunlite(addr string) (string, error) {
-	// TODO: Don't touch s.sock, use the multiplexer instead.
 	log.Printf("gRPC-over-UDP transport local port = %d", s.sock.LocalAddr().(*net.UDPAddr).Port)
 	raddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
 		return "", err
 	}
 
-	res := [22]byte{}
-	_, err = s.sock.WriteToUDP([]byte{}, raddr)
+	sock := s.multiplexer.GetBypassCallback(raddr)
+
+	_, err = sock.Write(nil)
 	if err != nil {
 		return "", err
 	}
 
-	s.sock.SetReadDeadline(time.Now().Add(5 * time.Second))
-	n, _, err := s.sock.ReadFromUDP(res[:])
+	sock.SetReadDeadline(time.Now().Add(5 * time.Second))
+	res := [22]byte{}
+	n, err := sock.Read(res[:])
 	if err != nil {
 		return "", err
 	}
 	log.Printf("gRPC-over-UDP public endpoint = %s", res[:n])
-	s.sock.SetReadDeadline(time.Time{})
+	sock.SetReadDeadline(time.Time{})
 	return string(res[:n]), nil
 }
 
@@ -129,6 +130,7 @@ func (s *Socket) handleIncomingStreams(assoc *sctp.Association, raddr net.Addr, 
 }
 
 func (s *Socket) negotiate(stream1 *sctp.Stream) (bool, error) {
+	defer stream1.Close()
 	myRand := make([]byte, 8)
 	if _, err := rand.Read(myRand); err != nil {
 		return false, err
