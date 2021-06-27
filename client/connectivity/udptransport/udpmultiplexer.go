@@ -1,6 +1,7 @@
 package udptransport
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net"
@@ -57,6 +58,7 @@ func (m *udpMultiplexer) get(addr *net.UDPAddr, newPeerCallback func(net.Conn)) 
 		msgs:        make(chan message, 100),
 		quit:        make(chan struct{}),
 		initialized: make(chan struct{}),
+		newDeadline: make(chan struct{}, 1),
 	}
 	m.connections[key] = c
 	go func() {
@@ -78,8 +80,8 @@ func (m *udpMultiplexer) reader() {
 			continue
 		}
 		msg := message{
-			data: buf[:n],
-			peer: addr,
+			data:  buf[:n],
+			peer:  addr,
 			alloc: buf,
 		}
 		c := m.get(addr, m.newPeerCallback)
@@ -101,9 +103,11 @@ type semiConnectedUDP struct {
 	udpConn    *net.UDPConn
 	remoteAddr *net.UDPAddr
 
-	msgs        chan message
-	quit        chan struct{}
-	initialized chan struct{}
+	msgs         chan message
+	quit         chan struct{}
+	initialized  chan struct{}
+	newDeadline  chan struct{}
+	readDeadline time.Time
 }
 
 func (t *semiConnectedUDP) Write(p []byte) (int, error) {
@@ -116,13 +120,24 @@ func (t *semiConnectedUDP) Write(p []byte) (int, error) {
 }
 
 func (t *semiConnectedUDP) Read(p []byte) (int, error) {
-	select {
-	case m := <-t.msgs:
-		n := copy(p, m.data)
-		pool.Put(m.alloc)
-		return n, nil
-	case <-t.quit:
-		return 0, errors.New("semiConnectedUDP connection was closed")
+	for {
+		var deadline <-chan time.Time
+		if !t.readDeadline.IsZero() {
+			deadline = time.After(time.Until(t.readDeadline))
+		}
+
+		select {
+		case m := <-t.msgs:
+			n := copy(p, m.data)
+			pool.Put(m.alloc)
+			return n, nil
+		case <-t.quit:
+			return 0, errors.New("semiConnectedUDP connection was closed")
+		case <-deadline:
+			return 0, context.DeadlineExceeded
+		case <-t.newDeadline:
+			// there is a new deadline, repeat our Read
+		}
 	}
 }
 
@@ -140,12 +155,22 @@ func (t *semiConnectedUDP) RemoteAddr() net.Addr {
 }
 
 func (t *semiConnectedUDP) SetDeadline(ts time.Time) error {
-	log.Printf("Ignoring SetDeadline(%s) call", ts)
+	if err := t.SetReadDeadline(ts); err != nil {
+		return err
+	}
+	if err := t.SetWriteDeadline(ts); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (t *semiConnectedUDP) SetReadDeadline(ts time.Time) error {
-	log.Printf("Ignoring SetReadDeadline(%s) call", ts)
+	t.readDeadline = ts
+	select {
+	case t.newDeadline <- struct{}{}:
+	default:
+		// Channel is full, drop this
+	}
 	return nil
 }
 
