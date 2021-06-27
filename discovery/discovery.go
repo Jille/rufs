@@ -124,8 +124,9 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	defer d.mtx.Unlock()
 	c := &client{
 		peer: &pb.Peer{
-			Name:      name,
-			Endpoints: req.GetEndpoints(),
+			Name:         name,
+			Endpoints:    req.GetEndpoints(),
+			UdpEndpoints: req.GetUdpEndpoints(),
 		},
 		stream:             stream,
 		newPeerList:        true,
