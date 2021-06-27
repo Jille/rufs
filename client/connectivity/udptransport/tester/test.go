@@ -14,6 +14,7 @@ import (
 
 var (
 	stunServer = flag.String("stun_server", "skynet.quis.cx:12000", "Address of Stunlite server")
+	send       = flag.Bool("send", true, "Whether this instance will send or only receive")
 )
 
 func main() {
@@ -47,13 +48,16 @@ func main() {
 }
 
 func handleConnection(s net.Conn) {
-	go func() {
-		for range time.Tick(time.Second) {
-			if _, err := s.Write([]byte("Hail!")); err != nil {
-				panic(err)
+	if (*send) {
+		go func() {
+			for range time.Tick(time.Second) {
+				if _, err := s.Write([]byte("Hail!")); err != nil {
+					panic(err)
+				}
 			}
-		}
-	}()
+		}()
+	}
+
 	go func() {
 		for {
 			var b [8192]byte
