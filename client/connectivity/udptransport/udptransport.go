@@ -122,6 +122,7 @@ func (s *Socket) handleIncomingStreams(assoc *sctp.Association, raddr net.Addr, 
 			}
 			continue
 		}
+		log.Printf("AcceptStream returned %d from %s", stream.StreamIdentifier(), raddr.String())
 		s.newStreamCallback(&sctpStreamWrapper{
 			stream:     stream,
 			remoteAddr: raddr,
@@ -167,6 +168,7 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to OpenStream on SCTP association: %v", err)
 	}
+	log.Printf("OpenStream(%d) when dialing to %q", stream.StreamIdentifier(), addr)
 	return &sctpStreamWrapper{
 		stream:     stream,
 		remoteAddr: raddr,
@@ -179,7 +181,20 @@ type sctpStreamWrapper struct {
 }
 
 func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
-	return w.stream.Write(p)
+	sent := 0
+	for len(p) > 0 {
+		f := p
+		if len(f) > 1000 {
+			f = p[:1000]
+		}
+		p = p[len(f):]
+		n, err := w.stream.Write(f)
+		sent += n
+		if err != nil {
+			return sent, err
+		}
+	}
+	return sent, nil
 }
 
 func (w *sctpStreamWrapper) Read(p []byte) (int, error) {

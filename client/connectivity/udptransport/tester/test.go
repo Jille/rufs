@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"net"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/sgielen/rufs/client/connectivity/udptransport"
 )
@@ -44,16 +44,22 @@ func main() {
 		panic(err)
 	}
 	handleConnection(conn)
-	select{}
+	select {}
 }
 
 func handleConnection(s net.Conn) {
-	if (*send) {
+	if *send {
 		go func() {
-			for range time.Tick(time.Second) {
-				if _, err := s.Write([]byte("Hail!")); err != nil {
-					panic(err)
-				}
+			fh, err := os.Open("/tmp/vmlinuz-5.11.0-22-generic")
+			if err != nil {
+				panic(err)
+			}
+			defer fh.Close()
+			if _, err := io.Copy(s, fh); err != nil {
+				panic(err)
+			}
+			if err := s.Close(); err != nil {
+				panic(err)
 			}
 		}()
 	}
@@ -63,6 +69,10 @@ func handleConnection(s net.Conn) {
 			var b [8192]byte
 			n, err := s.Read(b[:])
 			if err != nil {
+				if err == io.EOF {
+					log.Printf("EOF on reader")
+					return
+				}
 				panic(err)
 			}
 			p := b[:n]
