@@ -1,6 +1,7 @@
 package udptransport
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -126,6 +127,7 @@ func (s *Socket) handleIncomingStreams(assoc *sctp.Association, raddr net.Addr, 
 		s.newStreamCallback(&sctpStreamWrapper{
 			stream:     stream,
 			remoteAddr: raddr,
+			reader:     bufio.NewReaderSize(stream, 2048),
 		})
 	}
 }
@@ -172,12 +174,14 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 	return &sctpStreamWrapper{
 		stream:     stream,
 		remoteAddr: raddr,
+		reader:     bufio.NewReaderSize(stream, 2048),
 	}, nil
 }
 
 type sctpStreamWrapper struct {
 	stream     *sctp.Stream
 	remoteAddr net.Addr
+	reader     io.Reader
 }
 
 func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
@@ -198,7 +202,7 @@ func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
 }
 
 func (w *sctpStreamWrapper) Read(p []byte) (int, error) {
-	return w.stream.Read(p)
+	return w.reader.Read(p)
 }
 
 func (w *sctpStreamWrapper) Close() error {
