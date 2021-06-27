@@ -80,6 +80,7 @@ func (m *udpMultiplexer) reader() {
 		msg := message{
 			data: buf[:n],
 			peer: addr,
+			alloc: buf,
 		}
 		c := m.get(addr, m.newPeerCallback)
 		select {
@@ -91,8 +92,9 @@ func (m *udpMultiplexer) reader() {
 }
 
 type message struct {
-	peer *net.UDPAddr
-	data []byte
+	peer  *net.UDPAddr
+	data  []byte
+	alloc []byte
 }
 
 type semiConnectedUDP struct {
@@ -117,7 +119,7 @@ func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 	select {
 	case m := <-t.msgs:
 		n := copy(p, m.data)
-		pool.Put(m.data)
+		pool.Put(m.alloc)
 		return n, nil
 	case <-t.quit:
 		return 0, errors.New("semiConnectedUDP connection was closed")
