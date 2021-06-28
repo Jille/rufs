@@ -17,6 +17,8 @@ import (
 	"github.com/pion/sctp"
 )
 
+const writeBufferSize = 16384
+
 type Socket struct {
 	sock              *net.UDPConn
 	newStreamCallback func(net.Conn)
@@ -124,11 +126,7 @@ func (s *Socket) handleIncomingStreams(assoc *sctp.Association, raddr net.Addr, 
 			continue
 		}
 		log.Printf("AcceptStream returned %d from %s", stream.StreamIdentifier(), raddr.String())
-		s.newStreamCallback(&sctpStreamWrapper{
-			stream:     stream,
-			remoteAddr: raddr,
-			reader:     bufio.NewReaderSize(stream, 2048),
-		})
+		s.newStreamCallback(wrapSctpStream(stream, raddr))
 	}
 }
 
@@ -171,20 +169,33 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 		return nil, fmt.Errorf("failed to OpenStream on SCTP association: %v", err)
 	}
 	log.Printf("OpenStream(%d) when dialing to %q", stream.StreamIdentifier(), addr)
-	return &sctpStreamWrapper{
+	return wrapSctpStream(stream, raddr), nil
+}
+
+func wrapSctpStream(stream *sctp.Stream, raddr net.Addr) net.Conn {
+	stream.SetBufferedAmountLowThreshold(writeBufferSize)
+	ret := &sctpStreamWrapper{
 		stream:     stream,
 		remoteAddr: raddr,
-		reader:     bufio.NewReaderSize(stream, 2048),
-	}, nil
+		reader:     bufio.NewReaderSize(stream, 2048), // must be > mtu-28
+	}
+	ret.pushbackCond = sync.NewCond(&ret.pushbackMtx)
+	stream.OnBufferedAmountLow(ret.bufferedAmountLow)
+	return ret
 }
 
 type sctpStreamWrapper struct {
-	stream     *sctp.Stream
-	remoteAddr net.Addr
-	reader     io.Reader
+	stream       *sctp.Stream
+	remoteAddr   net.Addr
+	reader       io.Reader
+	writeMtx     sync.Mutex
+	pushbackMtx  sync.Mutex
+	pushbackCond *sync.Cond
 }
 
 func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
+	w.writeMtx.Lock()
+	defer w.writeMtx.Unlock()
 	sent := 0
 	for len(p) > 0 {
 		f := p
@@ -192,6 +203,7 @@ func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
 			f = p[:mtu-28]
 		}
 		p = p[len(f):]
+		w.waitForBufferSpace()
 		n, err := w.stream.Write(f)
 		sent += n
 		if err != nil {
@@ -199,6 +211,20 @@ func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
 		}
 	}
 	return sent, nil
+}
+
+func (w *sctpStreamWrapper) waitForBufferSpace() {
+	w.pushbackMtx.Lock()
+	defer w.pushbackMtx.Unlock()
+	for w.stream.BufferedAmount() > writeBufferSize {
+		w.pushbackCond.Wait()
+	}
+}
+
+func (w *sctpStreamWrapper) bufferedAmountLow() {
+	w.pushbackMtx.Lock()
+	defer w.pushbackMtx.Unlock()
+	w.pushbackCond.Signal()
 }
 
 func (w *sctpStreamWrapper) Read(p []byte) (int, error) {
