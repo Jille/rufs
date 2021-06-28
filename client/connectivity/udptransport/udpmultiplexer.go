@@ -9,9 +9,11 @@ import (
 	"time"
 )
 
+const mtu = 1400
+
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, 1401)
+		return make([]byte, mtu+1)
 	},
 }
 
@@ -75,7 +77,7 @@ func (m *udpMultiplexer) reader() {
 		if err != nil {
 			panic(err)
 		}
-		if n > 1400 {
+		if n > mtu {
 			// Message is too large. Shouldn't happen with our SCTP settings. Dropping it.
 			continue
 		}

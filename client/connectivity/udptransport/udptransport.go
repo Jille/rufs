@@ -188,8 +188,8 @@ func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
 	sent := 0
 	for len(p) > 0 {
 		f := p
-		if len(f) > 1000 {
-			f = p[:1000]
+		if len(f) > mtu-28 {
+			f = p[:mtu-28]
 		}
 		p = p[len(f):]
 		n, err := w.stream.Write(f)
