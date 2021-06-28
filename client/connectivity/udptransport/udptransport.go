@@ -75,6 +75,10 @@ func (s *Socket) GetEndpointStunlite(addr string) (string, error) {
 	return string(res[:n]), nil
 }
 
+func (s *Socket) LocalAddr() net.Addr {
+	return s.sock.LocalAddr()
+}
+
 func (s *Socket) handleNewConnection(c net.Conn) {
 	assoc, err := sctp.Client(sctp.Config{
 		NetConn:        c,
