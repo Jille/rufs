@@ -1,16 +1,7 @@
-var nodes, edges, dataURL;
+var nodes, edges;
 
 function init() {
     createGraph();
-
-    dataURL = document.location.hash.replace(/^#/, '')
-
-    var urlInput = document.getElementById("url")
-    urlInput.value = dataURL
-    urlInput.onchange = (event) => {
-        dataURL = event.target.value
-        document.location.hash = dataURL
-    }
 
     reloadData();
     setInterval(reloadData, 1000);
@@ -49,11 +40,7 @@ function createGraph() {
 }
 
 function reloadData() {
-    if (!dataURL) {
-        console.log('Empty data URL')
-        return
-    }
-    fetch(dataURL)
+    fetch("/visualize/api/received_bytes")
         .then(response => response.json())
         .then(data => updateGraph(data))
         .catch(err => console.error(err))
