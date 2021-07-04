@@ -79,6 +79,10 @@ func (s *Socket) LocalAddr() net.Addr {
 	return s.sock.LocalAddr()
 }
 
+func (s *Socket) LocalPort() int {
+	return s.sock.LocalAddr().(*net.UDPAddr).Port
+}
+
 func (s *Socket) handleNewConnection(c net.Conn) {
 	assoc, err := sctp.Client(sctp.Config{
 		NetConn:        c,

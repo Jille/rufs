@@ -2,6 +2,7 @@ package udptransport_test
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 
@@ -20,11 +21,14 @@ func TestStuff(t *testing.T) {
 		t.Fatalf("Failed to create listener B: %v", err)
 	}
 
-	connA, err := sockA.DialContext(ctx, sockB.LocalAddr().String())
+	sockAddrA := fmt.Sprintf("127.0.0.1:%d", sockA.LocalPort())
+	sockAddrB := fmt.Sprintf("127.0.0.1:%d", sockB.LocalPort())
+
+	connA, err := sockA.DialContext(ctx, sockAddrB)
 	if err != nil {
 		t.Fatalf("Failed to create connection from A: %v", err)
 	}
-	connB, err := sockB.DialContext(ctx, sockA.LocalAddr().String())
+	connB, err := sockB.DialContext(ctx, sockAddrA)
 	if err != nil {
 		t.Fatalf("Failed to create connection from B: %v", err)
 	}
