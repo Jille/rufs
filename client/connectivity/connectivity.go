@@ -39,14 +39,21 @@ type circle struct {
 	peers map[string]*Peer
 }
 
-func ConnectToCircle(ctx context.Context, name string, port int, myEndpoints []string, myPort int, kp *security.KeyPair) error {
+func ConnectToCircle(ctx context.Context, name string, myEndpoints []string, myPort int, kp *security.KeyPair) error {
 	cmtx.Lock()
 	_, found := circles[name]
 	cmtx.Unlock()
 	if found {
 		return nil
 	}
-	conn, err := grpc.DialContext(ctx, net.JoinHostPort(name, fmt.Sprint(port)), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
+
+	addr, port, err := net.SplitHostPort(name)
+	if err != nil {
+		addr = name
+		port = "12000"
+	}
+
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(addr, fmt.Sprint(port)), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}
