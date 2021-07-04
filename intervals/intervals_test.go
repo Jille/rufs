@@ -94,7 +94,7 @@ func TestFuzz(t *testing.T) {
 	var si Intervals
 	for i := 0; 10000 > i; i++ {
 		s := rand.Intn(1000)
-		e := s + rand.Intn(1000-s) + 1
+		e := s + rand.Intn(1000-s)
 		if rand.Intn(2) == 0 {
 			di.Add(int64(s), int64(e))
 			si.Add(int64(s), int64(e))

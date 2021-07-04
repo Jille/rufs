@@ -22,6 +22,9 @@ type Intervals struct {
 
 func (is *Intervals) Add(s, e int64) {
 	if s >= e {
+		if s == e {
+			return
+		}
 		log.Panicf("Invalid call to Intervals.Add(%d, %d)", s, e)
 	}
 	is.Remove(s, e)
@@ -46,6 +49,9 @@ func (is *Intervals) AddRange(other Intervals) {
 
 func (is *Intervals) Remove(s, e int64) {
 	if s >= e {
+		if s == e {
+			return
+		}
 		log.Panicf("Invalid call to Intervals.Remove(%d, %d)", s, e)
 	}
 	var newRanges []Interval
@@ -76,6 +82,9 @@ func (is *Intervals) RemoveRange(other Intervals) {
 
 func (is *Intervals) Has(s, e int64) bool {
 	if s >= e {
+		if s == e {
+			return true
+		}
 		log.Panicf("Invalid call to Intervals.Has(%d, %d)", s, e)
 	}
 	for _, i := range is.ranges {
