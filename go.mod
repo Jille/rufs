@@ -1,6 +1,6 @@
 module github.com/sgielen/rufs
 
-go 1.13
+go 1.16
 
 require (
 	bazil.org/fuse v0.0.0-20200407214033-5883e5a4b512

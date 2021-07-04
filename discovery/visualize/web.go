@@ -9,10 +9,16 @@ import (
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
+
+	"embed"
 )
+
+//go:embed index.html main.js
+var embedded embed.FS
 
 func init() {
 	http.Handle("/visualize/api/received_bytes", convreq.Wrap(renderReceivedBytes))
+	http.Handle("/visualize/", http.StripPrefix("/visualize/", http.FileServer(http.FS(embedded))))
 }
 
 type TransferGraph struct {
