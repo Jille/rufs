@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -135,6 +136,45 @@ func mustApiRequest(t *testing.T, port int, api string, args map[string]string) 
 	return ret
 }
 
+func genFile(t *testing.T, name string, size int) {
+	t.Helper()
+	b := make([]byte, size)
+	for i := 0; size > i; i++ {
+		b[i] = byte(i % 256)
+	}
+	if err := os.WriteFile(name, b, 0644); err != nil {
+		t.Fatalf("Failed to create random file %q: %v", name, err)
+	}
+}
+
+func verifyReads(t *testing.T, path string, offset, size int) {
+	t.Helper()
+	fh, err := os.Open(path)
+	if err != nil {
+		t.Errorf("Failed to open %q: %v", path, err)
+		return
+	}
+	defer fh.Close()
+	buf := make([]byte, size)
+	n, err := fh.ReadAt(buf, int64(offset))
+	if err != nil {
+		t.Errorf("Failed to read %q at %d (%d bytes): %v", path, offset, size, err)
+		return
+	}
+	if n != size {
+		t.Errorf("Short read on %q: Got %d/%d", path, n, size)
+	}
+	wrong := 0
+	for i := 0; n > i; i++ {
+		if buf[i] != byte((offset+i)%256) {
+			wrong++
+		}
+	}
+	if wrong > 0 {
+		t.Errorf("Incorrect data when reading from %q: %d/%d bytes are incorrect", path, wrong, size)
+	}
+}
+
 func TestBasic(t *testing.T) {
 	baseDir, err := os.MkdirTemp("", "rufs-test-")
 	if err != nil {
@@ -146,6 +186,11 @@ func TestBasic(t *testing.T) {
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1", "cfg"), 0755))
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1", "mnt"), 0755))
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1", "shareA"), 0755))
+	genFile(t, filepath.Join(baseDir, "client-1", "shareA", "file-0.dat"), 0)
+	genFile(t, filepath.Join(baseDir, "client-1", "shareA", "file-1024.dat"), 1024)
+	genFile(t, filepath.Join(baseDir, "client-1", "shareA", "file-8191.dat"), 8191)
+	genFile(t, filepath.Join(baseDir, "client-1", "shareA", "file-8192.dat"), 8192)
+	genFile(t, filepath.Join(baseDir, "client-1", "shareA", "file-10M.dat"), 10*1024*1024)
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1", "shareB"), 0755))
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-2"), 0755))
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-2", "cfg"), 0755))
@@ -195,4 +240,20 @@ func TestBasic(t *testing.T) {
 		t.Errorf("shares_in_circle returned incorrect list: %s", diff)
 	}
 	mustApiRequest(t, 11021, "add_share", map[string]string{"circle": "localhost.quis.cx:11000", "share": "shareA", "local": filepath.Join(baseDir, "client-2", "shareA")})
+
+	mustRunCommand(t, "md5sum", filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-0.dat"))
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 1024)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 512)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 511)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-8191.dat"), 0, 8191)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-8192.dat"), 0, 8192)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-8192.dat"), 4095, 4097)
+	for i := 0; 1000 > i; i++ {
+		off := rand.Intn(10 * 1024 * 1024)
+		siz := rand.Intn(1024 * 1024)
+		if off+siz > 10*1024*1024 {
+			siz = 10*1024*1024 - off
+		}
+		verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-10M.dat"), off, siz)
+	}
 }
