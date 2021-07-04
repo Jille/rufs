@@ -78,16 +78,29 @@ func min(a, b int64) int64 {
 	return b
 }
 
-func historical(seconds int) map[edgedef]int64 {
+func historical(seconds int) map[edgedef]float64 {
 	mtx.Lock()
 	defer mtx.Unlock()
 	now := time.Now().Unix()
 	getBucket(now) // Clears old buckets if we haven't had a write in a while.
-	ret := map[edgedef]int64{}
+	sum := map[edgedef]int64{}
+	firstSeen := map[edgedef]int64{}
+	lastSeen := map[edgedef]int64{}
 	for b := now - int64(seconds); now > b; b++ {
 		for k, v := range timeseries[b%maxHistory] {
-			ret[k] += v
+			sum[k] += v
+			lastSeen[k] = now - b
+			if _, found := firstSeen[k]; !found {
+				firstSeen[k] = now - b
+			}
 		}
+	}
+	ret := map[edgedef]float64{}
+	for edge, bps := range sum {
+		if lastSeen[edge] >= 3 {
+			bps = 0
+		}
+		ret[edge] = float64(bps) / float64(firstSeen[edge])
 	}
 	return ret
 }
@@ -98,12 +111,12 @@ func toGraph(seconds int) TransferGraph {
 		Edges: []Edge{},
 	}
 	nodes := map[string]struct{}{}
-	for edge, v := range historical(seconds) {
+	for edge, bps := range historical(seconds) {
 		ret.Edges = append(ret.Edges, Edge{
 			Sender:         edge.sender,
 			Receiver:       edge.receiver,
 			Mode:           edge.mode,
-			BytesPerSecond: float64(v) / float64(seconds),
+			BytesPerSecond: bps,
 		})
 		nodes[edge.sender] = struct{}{}
 		nodes[edge.receiver] = struct{}{}
