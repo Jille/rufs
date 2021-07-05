@@ -40,9 +40,9 @@ message RegisterResponse {
 }
 
 message ConnectRequest {
-	repeated string endpoints = 1;
+	repeated string old_endpoints = 1;
 	string client_version = 2;
-	repeated string udpEndpoints = 3;
+	repeated Endpoint endpoints = 3;
 }
 
 message ConnectResponse {
@@ -72,10 +72,20 @@ message GetMyIPResponse {
 	string ip = 1;
 }
 
+message Endpoint {
+	enum Type {
+		UNKNOWN_TYPE = 0;
+		TCP = 1;
+		SCTP_OVER_UDP = 2;
+	}
+	Type type = 1;
+	string address = 2;
+}
+
 message Peer {
 	string name = 1;
-	repeated string endpoints = 2;
-	repeated string udpEndpoints = 3;
+	repeated string old_endpoints = 2;
+	repeated Endpoint endpoints = 3;
 }
 
 message ResolveConflictRequest {

@@ -94,41 +94,59 @@ func (c *circle) run(ctx context.Context) {
 }
 
 func (c *circle) connect(ctx context.Context) error {
-	myEndpoints := c.myEndpoints
+	var endpoints []*pb.Endpoint
 
-	if len(myEndpoints) == 0 {
+	if len(c.myEndpoints) > 0 {
+		for _, endpoint := range c.myEndpoints {
+			_, _, err := net.SplitHostPort(endpoint)
+			if err != nil {
+				endpoint = net.JoinHostPort(endpoint, fmt.Sprint(c.myPort))
+			}
+			endpoints = append(endpoints, &pb.Endpoint{
+				Type:    pb.Endpoint_TCP,
+				Address: endpoint,
+			})
+		}
+	} else {
 		// Auto-detect endpoints
 		res, err := c.client.GetMyIP(ctx, &pb.GetMyIPRequest{})
 		if err != nil {
 			return fmt.Errorf("no ips given and failed to retrieve IP from discovery server")
 		}
-		myEndpoints = []string{res.GetIp()}
+		endpoints = append(endpoints, &pb.Endpoint{
+			Type:    pb.Endpoint_TCP,
+			Address: net.JoinHostPort(res.GetIp(), fmt.Sprint(c.myPort)),
+		})
 	}
 
-	// Add ports to endpoints that don't have any
-	for i, e := range myEndpoints {
-		_, _, err := net.SplitHostPort(e)
-		if err != nil {
-			myEndpoints[i] = net.JoinHostPort(e, fmt.Sprint(c.myPort))
-		}
-	}
-
-	// Auto-detect our gRPC-over-UDP public endpoint
+	// Auto-detect our gRPC-over-SCTP-over-UDP public endpoint
 	udpEndpoint, err := c.udpSocket.GetEndpointStunlite(net.JoinHostPort(c.name, fmt.Sprint(c.port)))
 	if err != nil {
 		log.Printf("gRPC-over-UDP disabled, stunlite failed: %v", err)
-		udpEndpoint = ""
+	} else {
+		endpoints = append(endpoints, &pb.Endpoint{
+			Type:    pb.Endpoint_SCTP_OVER_UDP,
+			Address: udpEndpoint,
+		})
+	}
+
+	// TODO: Remove this, as soon as all Discovery servers have new-endpoint support.
+	var oldEndpoints []string
+	for _, endpoint := range endpoints {
+		if endpoint.GetType() == pb.Endpoint_TCP {
+			oldEndpoints = append(oldEndpoints, endpoint.GetAddress())
+		}
 	}
 
 	stream, err := c.client.Connect(ctx, &pb.ConnectRequest{
-		Endpoints:     myEndpoints,
+		OldEndpoints:  oldEndpoints,
 		ClientVersion: version.GetVersion(),
-		UdpEndpoints:  []string{udpEndpoint},
+		Endpoints:     endpoints,
 	}, grpc.WaitForReady(true))
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to discovery server: %v", err)
 	}
-	log.Printf("Connected to RuFS circle %s. My endpoints: %s; my gRPC-over-UDP endpoint: %s", c.name, myEndpoints, udpEndpoint)
+	log.Printf("Connected to RuFS circle %s. My endpoints: %v", c.name, endpoints)
 	go runConnectivityMetrics(ctx, c.name, c.client)
 
 	for {
@@ -205,17 +223,30 @@ func (c *circle) dialPeer(ctx context.Context, addr string) (net.Conn, error) {
 func peerToResolverState(p *pb.Peer) resolver.State {
 	var s resolver.State
 	for _, e := range p.GetEndpoints() {
-		s.Addresses = append(s.Addresses, resolver.Address{
-			Addr:       e,
-			ServerName: p.GetName(),
-		})
+		switch e.Type {
+		case pb.Endpoint_TCP:
+			s.Addresses = append(s.Addresses, resolver.Address{
+				Addr:       e.GetAddress(),
+				ServerName: p.GetName(),
+			})
+		case pb.Endpoint_SCTP_OVER_UDP:
+			s.Addresses = append(s.Addresses, resolver.Address{
+				Addr:       "udp:" + e.GetAddress(),
+				ServerName: p.GetName(),
+			})
+		}
 	}
-	for _, e := range p.GetUdpEndpoints() {
-		s.Addresses = append(s.Addresses, resolver.Address{
-			Addr:       "udp:" + e,
-			ServerName: p.GetName(),
-		})
+
+	// TODO: remove this once all Discoveries send the new endpoint list
+	if len(p.GetEndpoints()) == 0 {
+		for _, e := range p.GetOldEndpoints() {
+			s.Addresses = append(s.Addresses, resolver.Address{
+				Addr:       e,
+				ServerName: p.GetName(),
+			})
+		}
 	}
+
 	return s
 }
 

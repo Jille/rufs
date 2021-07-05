@@ -120,13 +120,34 @@ func (d *discovery) Connect(req *pb.ConnectRequest, stream pb.DiscoveryService_C
 	if err != nil {
 		return err
 	}
+
+	var oldEndpoints []string
+	var endpoints []*pb.Endpoint
+
+	if len(req.GetEndpoints()) > 0 {
+		endpoints = req.GetEndpoints()
+		for _, endpoint := range endpoints {
+			if endpoint.Type == pb.Endpoint_TCP {
+				oldEndpoints = append(oldEndpoints, endpoint.GetAddress())
+			}
+		}
+	} else if len(req.GetOldEndpoints()) > 0 {
+		oldEndpoints = req.GetOldEndpoints()
+		for _, endpoint := range oldEndpoints {
+			endpoints = append(endpoints, &pb.Endpoint{
+				Type:    pb.Endpoint_TCP,
+				Address: endpoint,
+			})
+		}
+	}
+
 	d.mtx.Lock()
 	defer d.mtx.Unlock()
 	c := &client{
 		peer: &pb.Peer{
 			Name:         name,
-			Endpoints:    req.GetEndpoints(),
-			UdpEndpoints: req.GetUdpEndpoints(),
+			OldEndpoints: oldEndpoints,
+			Endpoints:    endpoints,
 		},
 		stream:             stream,
 		newPeerList:        true,
