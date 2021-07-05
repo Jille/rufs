@@ -221,36 +221,33 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 }
 
 func (c *circle) dialPeer(ctx context.Context, addr string) (net.Conn, error) {
-	if strings.HasPrefix(addr, "udp:") {
-		return c.udpSocket.DialContext(ctx, strings.TrimPrefix(addr, "udp:"))
-	} else {
+	sp := strings.SplitN(addr, ":", 2)
+	addr = sp[1]
+	switch pb.Endpoint_Type(pb.Endpoint_Type_value[sp[0]]) {
+	case pb.Endpoint_SCTP_OVER_UDP:
+		return c.udpSocket.DialContext(ctx, addr)
+	case pb.Endpoint_TCP:
 		var d net.Dialer
 		return d.DialContext(ctx, "tcp", addr)
+	default:
+		return nil, fmt.Errorf("internal error: unknown endpoint type: %v", sp[0])
 	}
 }
 
 func peerToResolverState(p *pb.Peer) resolver.State {
 	var s resolver.State
 	for _, e := range p.GetEndpoints() {
-		switch e.Type {
-		case pb.Endpoint_TCP:
-			s.Addresses = append(s.Addresses, resolver.Address{
-				Addr:       e.GetAddress(),
-				ServerName: p.GetName(),
-			})
-		case pb.Endpoint_SCTP_OVER_UDP:
-			s.Addresses = append(s.Addresses, resolver.Address{
-				Addr:       "udp:" + e.GetAddress(),
-				ServerName: p.GetName(),
-			})
-		}
+		s.Addresses = append(s.Addresses, resolver.Address{
+			Addr:       e.Type.String() +":"+ e.GetAddress(),
+			ServerName: p.GetName(),
+		})
 	}
 
 	// TODO: remove this once all Discoveries send the new endpoint list
 	if len(p.GetEndpoints()) == 0 {
 		for _, e := range p.GetOldEndpoints() {
 			s.Addresses = append(s.Addresses, resolver.Address{
-				Addr:       e,
+				Addr:       pb.Endpoint_TCP.String() + ":" + e,
 				ServerName: p.GetName(),
 			})
 		}
