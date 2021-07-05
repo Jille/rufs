@@ -85,7 +85,7 @@ func waitForPort(t *testing.T, port int) {
 		c, err := net.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err != nil {
 			tries++
-			if tries >= 5 {
+			if tries >= 10 {
 				t.Fatalf("Port %d didn't come up: %v", port, err)
 			}
 			continue
@@ -182,6 +182,8 @@ func TestBasic(t *testing.T) {
 	}
 	t.Cleanup(func() { os.RemoveAll(baseDir) })
 
+	circleName := "localhost:11000"
+
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1"), 0755))
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1", "cfg"), 0755))
 	must(t, os.Mkdir(filepath.Join(baseDir, "client-1", "mnt"), 0755))
@@ -205,7 +207,7 @@ func TestBasic(t *testing.T) {
 	mustRunCommand(t, "chmod", "755", filepath.Join(baseDir, "path", "xdg-open"))
 	os.Setenv("PATH", fmt.Sprintf("%s:%s", filepath.Join(baseDir, "path"), os.Getenv("PATH")))
 
-	mustRunCommand(t, getRUFSBinary("create_ca_pair"), "--circle=localhost.quis.cx:11000", "--certdir="+filepath.Join(baseDir, "discovery"))
+	mustRunCommand(t, getRUFSBinary("create_ca_pair"), "--circle=" + circleName, "--certdir="+filepath.Join(baseDir, "discovery"))
 	caFingerprint := strings.TrimSpace(mustRunCommand_GetStdout(t, getRUFSBinary("ca_fingerprint"), "--certdir="+filepath.Join(baseDir, "discovery")))
 	client1Token := strings.TrimSpace(mustRunCommand_GetStdout(t, getRUFSBinary("create_auth_token"), "--certdir="+filepath.Join(baseDir, "discovery"), "client-1"))
 	client2Token := strings.TrimSpace(mustRunCommand_GetStdout(t, getRUFSBinary("create_auth_token"), "--certdir="+filepath.Join(baseDir, "discovery"), "client-2"))
@@ -227,19 +229,19 @@ func TestBasic(t *testing.T) {
 
 	waitForPort(t, 11000)
 
-	mustApiRequest(t, 11011, "register", map[string]string{"user": "client-1", "token": client1Token, "circle": "localhost.quis.cx:11000", "ca": caFingerprint})
-	mustApiRequest(t, 11011, "shares_in_circle", map[string]string{"circle": "localhost.quis.cx:11000"})
-	mustApiRequest(t, 11011, "add_share", map[string]string{"circle": "localhost.quis.cx:11000", "share": "shareA", "local": filepath.Join(baseDir, "client-1", "shareA")})
-	mustApiRequest(t, 11011, "add_share", map[string]string{"circle": "localhost.quis.cx:11000", "share": "shareB", "local": filepath.Join(baseDir, "client-1", "shareB")})
+	mustApiRequest(t, 11011, "register", map[string]string{"user": "client-1", "token": client1Token, "circle": circleName, "ca": caFingerprint})
+	mustApiRequest(t, 11011, "shares_in_circle", map[string]string{"circle": circleName})
+	mustApiRequest(t, 11011, "add_share", map[string]string{"circle": circleName, "share": "shareA", "local": filepath.Join(baseDir, "client-1", "shareA")})
+	mustApiRequest(t, 11011, "add_share", map[string]string{"circle": circleName, "share": "shareB", "local": filepath.Join(baseDir, "client-1", "shareB")})
 
 	waitForPort(t, 11021)
 
-	mustApiRequest(t, 11021, "register", map[string]string{"user": "client-2", "token": client2Token, "circle": "localhost.quis.cx:11000", "ca": caFingerprint})
-	resp = mustApiRequest(t, 11021, "shares_in_circle", map[string]string{"circle": "localhost.quis.cx:11000"})
+	mustApiRequest(t, 11021, "register", map[string]string{"user": "client-2", "token": client2Token, "circle": circleName, "ca": caFingerprint})
+	resp = mustApiRequest(t, 11021, "shares_in_circle", map[string]string{"circle": circleName})
 	if diff := cmp.Diff(resp.Shares, []string{"shareA", "shareB"}); diff != "" {
 		t.Errorf("shares_in_circle returned incorrect list: %s", diff)
 	}
-	mustApiRequest(t, 11021, "add_share", map[string]string{"circle": "localhost.quis.cx:11000", "share": "shareA", "local": filepath.Join(baseDir, "client-2", "shareA")})
+	mustApiRequest(t, 11021, "add_share", map[string]string{"circle": circleName, "share": "shareA", "local": filepath.Join(baseDir, "client-2", "shareA")})
 
 	mustRunCommand(t, "md5sum", filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-0.dat"))
 	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 1024)
