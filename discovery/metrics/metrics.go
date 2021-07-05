@@ -1,14 +1,12 @@
 package metrics
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	pb "github.com/sgielen/rufs/proto"
-	"github.com/sgielen/rufs/security"
 )
 
 var (
@@ -48,11 +46,7 @@ func newHistogram(opts prometheus.HistogramOpts, labelNames []string) processMet
 	}
 }
 
-func PushMetrics(ctx context.Context, req *pb.PushMetricsRequest) error {
-	peer, _, err := security.PeerFromContext(ctx)
-	if err != nil {
-		return err
-	}
+func PushMetrics(peer string, req *pb.PushMetricsRequest) {
 	for _, m := range req.GetMetrics() {
 		md, ok := metrics[m.GetId()]
 		if !ok {
@@ -60,7 +54,6 @@ func PushMetrics(ctx context.Context, req *pb.PushMetricsRequest) error {
 		}
 		md(peer, m)
 	}
-	return nil
 }
 
 func Serve() {

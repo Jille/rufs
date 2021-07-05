@@ -243,6 +243,9 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, buf []byte) (n 
 	if offset+size > t.size {
 		size = t.size - offset
 	}
+	if size == 0 {
+		return 0, nil
+	}
 	// sizeAhead is the read-ahead size after offset+size. By default, we set it
 	// to the same size as the requested block, assuming the next Read call will
 	// ask for an equal-sized block. Readahead blocks are sent to clients with a
@@ -255,9 +258,6 @@ func (h *TransferHandle) Read(ctx context.Context, offset int64, buf []byte) (n 
 	}
 	if offset+size+sizeAhead > t.size {
 		sizeAhead = t.size - (offset + size)
-	}
-	if size == 0 && sizeAhead == 0 {
-		return 0, nil
 	}
 	t.mtx.Lock()
 	missing := t.have.FindUncovered(offset, offset+size)

@@ -137,9 +137,10 @@ func respondJSON(v interface{}) convreq.HttpResponse {
 
 func renderVersion(ctx context.Context, req *http.Request) convreq.HttpResponse {
 	type Res struct {
+		Ok      bool
 		Version string
 	}
-	return respondJSON(Res{version.GetVersion()})
+	return respondJSON(Res{true, version.GetVersion()})
 }
 
 func renderConfig(ctx context.Context, req *http.Request) convreq.HttpResponse {
@@ -175,9 +176,10 @@ type sharesInCircleGet struct {
 
 func sharesInCircle(ctx context.Context, req *http.Request, get sharesInCircleGet) convreq.HttpResponse {
 	type Res struct {
+		Ok     bool
 		Shares []string
 	}
-	res := Res{}
+	res := Res{Ok: true}
 	// TODO(quis): Only readdir get.Circle.
 	dir := vfs.Readdir(ctx, "")
 	for fn, fi := range dir.Files {

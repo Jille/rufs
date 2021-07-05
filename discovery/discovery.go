@@ -16,6 +16,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/jrick/logrotate/rotator"
 	"github.com/sgielen/rufs/discovery/metrics"
+	"github.com/sgielen/rufs/discovery/visualize"
 	pb "github.com/sgielen/rufs/proto"
 	"github.com/sgielen/rufs/security"
 	"github.com/sgielen/rufs/version"
@@ -261,9 +262,16 @@ func (d *discovery) ResolveConflict(ctx context.Context, req *pb.ResolveConflict
 }
 
 func (d *discovery) PushMetrics(ctx context.Context, req *pb.PushMetricsRequest) (*pb.PushMetricsResponse, error) {
-	if err := metrics.PushMetrics(ctx, req); err != nil {
+	peer, _, err := security.PeerFromContext(ctx)
+	if err != nil {
 		return nil, err
 	}
+	for _, m := range req.GetMetrics() {
+		if m.GetId() == pb.PushMetricsRequest_TRANSFER_RECV_BYTES {
+			visualize.IncreaseReceivedBytes(peer, m.Fields[0], m.Fields[1], int64(m.GetSingleValue()))
+		}
+	}
+	metrics.PushMetrics(peer, req)
 	return &pb.PushMetricsResponse{}, nil
 }
 

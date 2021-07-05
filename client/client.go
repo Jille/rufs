@@ -24,7 +24,6 @@ import (
 )
 
 var (
-	discoveryPort      = flag.Int("discovery-port", 12000, "Port of the discovery server")
 	flag_endp          = flag.String("endpoints", "", "Override our RuFS endpoints (comma-separated IPs or IP:port, autodetected if empty)")
 	port               = flag.Int("port", 12010, "content server listen port")
 	httpPort           = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
@@ -117,7 +116,7 @@ func connectToCircles(circles map[string]*security.KeyPair) {
 		kp := kp
 		go func() {
 			// connectivity.ConnectToCircle returns nil if we already connected to a circle.
-			if err := connectivity.ConnectToCircle(ctx, circle, *discoveryPort, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
+			if err := connectivity.ConnectToCircle(ctx, circle, common.SplitMaybeEmpty(*flag_endp, ","), *port, kp); err != nil {
 				log.Fatalf("Failed to connect to circle %q: %v", circle, err)
 			}
 			metrics.SetClientStartTimeSeconds([]string{circle}, time.Now())

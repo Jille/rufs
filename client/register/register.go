@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"time"
@@ -17,19 +16,13 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func Register(ctx context.Context, circleAddr, username, token, caFingerprint string) error {
+func Register(ctx context.Context, circle, username, token, caFingerprint string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	circle, discoveryPort, err := net.SplitHostPort(circleAddr)
-	if err != nil {
-		circle = circleAddr
-		discoveryPort = "12000"
-	}
-
 	tc, caPromise := security.TLSConfigForRegistration(circle, caFingerprint)
 
-	conn, err := grpc.DialContext(ctx, net.JoinHostPort(circle, discoveryPort), grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithReturnConnectionError(), grpc.FailOnNonTempDialError(true))
+	conn, err := grpc.DialContext(ctx, circle, grpc.WithTransportCredentials(credentials.NewTLS(tc)), grpc.WithReturnConnectionError(), grpc.FailOnNonTempDialError(true))
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}
