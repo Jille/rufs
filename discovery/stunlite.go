@@ -20,6 +20,9 @@ func RunStun(port int) {
 		if err != nil {
 			panic(err)
 		}
+		if addr == nil {
+			continue
+		}
 		_, err = sock.WriteToUDP([]byte(addr.String()), addr)
 		if err != nil {
 			log.Printf("Failed to respond to stunlite packet: %v", err)
