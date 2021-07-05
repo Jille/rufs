@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -37,7 +38,22 @@ func Serve(addr string, kps []*security.KeyPair) error {
 
 	swappableCredentials = security.NewSwappableCredentials(credentials.NewTLS(security.TLSConfigForServer(kps)))
 
-	s := grpc.NewServer(grpc.Creds(swappableCredentials), grpc.ChainUnaryInterceptor(unaryInterceptor), grpc.ChainStreamInterceptor(streamInterceptor))
+	s := grpc.NewServer(
+		grpc.Creds(swappableCredentials),
+		grpc.ChainUnaryInterceptor(unaryInterceptor),
+		grpc.ChainStreamInterceptor(streamInterceptor),
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             60 * time.Second,
+			PermitWithoutStream: true,
+		}),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionIdle:     0,
+			MaxConnectionAge:      0,
+			MaxConnectionAgeGrace: 0,
+			Time:                  60 * time.Second,
+			Timeout:               30 * time.Second,
+		}),
+	)
 	pb.RegisterContentServiceServer(s, content{})
 	reflection.Register(s)
 	sock, err := net.Listen("tcp", addr)

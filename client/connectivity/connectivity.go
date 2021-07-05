@@ -19,6 +19,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
 )
@@ -203,12 +204,36 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s", p.GetName()))
 	r.InitialState(peerToResolverState(p))
+
+	// If we enable keepalive on a peer that does not allow it, they will
+	// close the connection with a GOAWAY / ENHANCE_YOUR_CALM error.
+	// TODO: Once all clients support this, remove this and assume all
+	// peers are keepaliveable.
+	isKeepaliveableClient := false
+	for _, endpoint := range p.GetEndpoints() {
+		if endpoint.Type != pb.Endpoint_TCP {
+			isKeepaliveableClient = true
+		}
+	}
+
+	var keepaliveOption grpc.DialOption
+	if isKeepaliveableClient {
+		keepaliveOption = grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                time.Second * 60,
+			Timeout:             time.Second * 30,
+			PermitWithoutStream: true,
+		})
+	} else {
+		keepaliveOption = grpc.EmptyDialOption{}
+	}
+
 	conn, err := grpc.DialContext(
 		ctx,
 		r.Scheme()+":///magic",
 		grpc.WithResolvers(r),
 		grpc.WithContextDialer(c.dialPeer),
 		grpc.WithTransportCredentials(credentials.NewTLS(c.keyPair.TLSConfigForServerClient(p.GetName()))),
+		keepaliveOption,
 	)
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
