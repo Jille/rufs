@@ -34,6 +34,7 @@ var (
 
 type circle struct {
 	name        string
+	addr        string
 	port        string
 	client      pb.DiscoveryServiceClient
 	myPort      int
@@ -73,6 +74,7 @@ func ConnectToCircle(ctx context.Context, name string, myEndpoints []string, myP
 
 	c := &circle{
 		name:        name,
+		addr:        addr,
 		port:        port,
 		client:      client,
 		myPort:      myPort,
@@ -127,7 +129,7 @@ func (c *circle) connect(ctx context.Context) error {
 	}
 
 	// Auto-detect our gRPC-over-SCTP-over-UDP public endpoint
-	udpEndpoint, err := c.udpSocket.GetEndpointStunlite(net.JoinHostPort(c.name, c.port))
+	udpEndpoint, err := c.udpSocket.GetEndpointStunlite(net.JoinHostPort(c.addr, c.port))
 	if err != nil {
 		log.Printf("gRPC-over-UDP disabled, stunlite failed: %v", err)
 	} else {
