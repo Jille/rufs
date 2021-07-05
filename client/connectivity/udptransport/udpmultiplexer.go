@@ -1,7 +1,6 @@
 package udptransport
 
 import (
-	"context"
 	"errors"
 	"log"
 	"net"
@@ -136,7 +135,7 @@ func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 		case <-t.quit:
 			return 0, errors.New("semiConnectedUDP connection was closed")
 		case <-deadline:
-			return 0, context.DeadlineExceeded
+			return 0, deadlineExceeded{}
 		case <-t.newDeadline:
 			// there is a new deadline, repeat our Read
 		}
