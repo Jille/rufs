@@ -20,7 +20,7 @@ var (
 func main() {
 	flag.Parse()
 
-	log.Printf("starting rufs %s", version.GetVersion())
+	log.Printf("starting rufs register %s", version.GetVersion())
 
 	if *circle == "" || *ca == "" || *username == "" || *token == "" {
 		log.Fatal("--circle, --ca, --username and --token are required")

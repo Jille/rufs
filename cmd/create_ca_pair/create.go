@@ -17,7 +17,7 @@ var (
 func main() {
 	flag.Parse()
 
-	log.Printf("starting rufs %s", version.GetVersion())
+	log.Printf("starting rufs create_ca_pair %s", version.GetVersion())
 
 	if *circle == "" || *certdir == "" {
 		log.Fatal("Flags --circle and --certdir are required")

@@ -17,7 +17,7 @@ var (
 func main() {
 	flag.Parse()
 
-	log.Printf("starting rufs %s", version.GetVersion())
+	log.Printf("starting rufs create_auth_token %s", version.GetVersion())
 
 	if *certdir == "" {
 		log.Fatalf("Flag --certdir is required")

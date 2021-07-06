@@ -38,7 +38,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	log.Printf("starting rufs %s", version.GetVersion())
+	log.Printf("starting rufs client %s", version.GetVersion())
 
 	if err := config.LoadConfig(); err != nil {
 		log.Printf("failed to load configuration: %v", err)

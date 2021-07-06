@@ -48,7 +48,7 @@ func main() {
 		log.Fatalf("Flag --certdir is required")
 	}
 
-	log.Printf("starting rufs %s", version.GetVersion())
+	log.Printf("starting rufs discovery %s", version.GetVersion())
 
 	ca, err := security.LoadCAKeyPair(*certdir)
 	if err != nil {
