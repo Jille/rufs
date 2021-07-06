@@ -130,7 +130,7 @@ func (c *circle) connect(ctx context.Context) error {
 	}
 
 	// Auto-detect our gRPC-over-SCTP-over-UDP public endpoint
-	udpEndpoint, err := c.udpSocket.GetEndpointStunlite(net.JoinHostPort(c.addr, c.port))
+	udpEndpoint, err := c.udpSocket.GetEndpointStunlite(ctx, net.JoinHostPort(c.addr, c.port))
 	if err != nil {
 		log.Printf("gRPC-over-UDP disabled, stunlite failed: %v", err)
 	} else {

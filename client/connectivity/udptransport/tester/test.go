@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to enable gRPC-over-UDP: %v", err)
 	}
-	udpEndpoint, err := udpSocket.GetEndpointStunlite(*stunServer)
+	udpEndpoint, err := udpSocket.GetEndpointStunlite(ctx, *stunServer)
 	if err != nil {
 		log.Fatalf("Stunlite failed: %v", err)
 	}

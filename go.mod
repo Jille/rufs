@@ -8,6 +8,7 @@ require (
 	github.com/Jille/dfr v1.0.0
 	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
 	github.com/billziss-gh/cgofuse v1.5.0
+	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/cratonica/2goarray v0.0.0-20190331194516-514510793eaa // indirect
 	github.com/getlantern/systray v1.1.0
 	github.com/golang/protobuf v1.5.2

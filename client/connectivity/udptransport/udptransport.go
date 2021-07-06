@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/pion/logging"
 	"github.com/pion/sctp"
 )
@@ -50,7 +51,7 @@ func New(newStreamCallback func(net.Conn)) (*Socket, error) {
 	return s, nil
 }
 
-func (s *Socket) GetEndpointStunlite(addr string) (string, error) {
+func (s *Socket) GetEndpointStunlite(ctx context.Context, addr string) (string, error) {
 	log.Printf("gRPC-over-UDP transport local port = %d", s.sock.LocalAddr().(*net.UDPAddr).Port)
 	raddr, err := net.ResolveUDPAddr("udp4", addr)
 	if err != nil {
@@ -63,6 +64,17 @@ func (s *Socket) GetEndpointStunlite(addr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	go func() {
+		b := backoff.NewExponentialBackOff()
+		b.InitialInterval = 100 * time.Millisecond
+		_ = backoff.Retry(func() error {
+			_, err := sock.Write(nil)
+			return err
+		}, backoff.WithContext(b, ctx))
+	}()
 
 	sock.SetReadDeadline(time.Now().Add(5 * time.Second))
 	res := [22]byte{}
