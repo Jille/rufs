@@ -20,13 +20,13 @@ func TestStuff(t *testing.T) {
 
 	sockA, err := udptransport.New(func(conn net.Conn) {
 		handleEchoConnection(t, conn)
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("Failed to create listener A: %v", err)
 	}
 	sockB, err := udptransport.New(func(conn net.Conn) {
 		handleEchoConnection(t, conn)
-	})
+	}, "")
 	if err != nil {
 		t.Fatalf("Failed to create listener B: %v", err)
 	}

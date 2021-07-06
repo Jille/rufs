@@ -21,11 +21,11 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	ctx := context.Background()
 	flag.Parse()
-	udpSocket, err := udptransport.New(handleConnection)
+	udpSocket, err := udptransport.New(handleConnection, *stunServer)
 	if err != nil {
 		log.Fatalf("Failed to enable gRPC-over-UDP: %v", err)
 	}
-	udpEndpoint, err := udpSocket.GetEndpointStunlite(ctx, *stunServer)
+	udpEndpoint, err := udpSocket.PerformStunlite(ctx)
 	if err != nil {
 		log.Fatalf("Stunlite failed: %v", err)
 	}

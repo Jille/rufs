@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity/udptransport/deadlinech"
@@ -22,6 +23,7 @@ var pool = sync.Pool{
 type udpMultiplexer struct {
 	sock            *net.UDPConn
 	newPeerCallback func(net.Conn)
+	hadWrites       int32
 
 	mtx         sync.Mutex
 	connections map[string]*semiConnectedUDP
@@ -49,6 +51,10 @@ func (m *udpMultiplexer) GetBypassCallback(addr *net.UDPAddr) net.Conn {
 	return m.get(addr, func(net.Conn) {})
 }
 
+func (m *udpMultiplexer) GetHadWritesAndClear() bool {
+	return atomic.SwapInt32(&m.hadWrites, 0) != 0
+}
+
 func (m *udpMultiplexer) get(addr *net.UDPAddr, newPeerCallback func(net.Conn)) *semiConnectedUDP {
 	key := addr.String()
 	m.mtx.Lock()
@@ -63,6 +69,7 @@ func (m *udpMultiplexer) get(addr *net.UDPAddr, newPeerCallback func(net.Conn)) 
 		quit:         make(chan struct{}),
 		initialized:  make(chan struct{}),
 		readDeadline: deadlinech.New(),
+		onWrite:      func() { atomic.StoreInt32(&m.hadWrites, 1) },
 	}
 	m.connections[key] = c
 	go func() {
@@ -111,6 +118,7 @@ type semiConnectedUDP struct {
 	quit         chan struct{}
 	initialized  chan struct{}
 	readDeadline *deadlinech.DeadlineChannel
+	onWrite      func()
 }
 
 func (t *semiConnectedUDP) Write(p []byte) (int, error) {
@@ -118,6 +126,7 @@ func (t *semiConnectedUDP) Write(p []byte) (int, error) {
 	case <-t.quit:
 		return 0, errors.New("Write on a closed semiConnectedUDP")
 	default:
+		t.onWrite()
 		return t.udpConn.WriteToUDP(p, t.remoteAddr)
 	}
 }

@@ -26,6 +26,7 @@ type Socket struct {
 	newStreamCallback func(net.Conn)
 	multiplexer       *udpMultiplexer
 	loggerFactory     logging.LoggerFactory
+	stunliteServer    string
 
 	mtx          sync.Mutex
 	associations map[string]*association
@@ -37,7 +38,7 @@ type association struct {
 	nextStreamId uint16
 }
 
-func New(newStreamCallback func(net.Conn)) (*Socket, error) {
+func New(newStreamCallback func(net.Conn), stunliteServer string) (*Socket, error) {
 	sock, err := net.ListenUDP("udp4", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to enable gRPC-over-UDP: %v", err)
@@ -48,14 +49,26 @@ func New(newStreamCallback func(net.Conn)) (*Socket, error) {
 		newStreamCallback: newStreamCallback,
 		loggerFactory:     logging.NewDefaultLoggerFactory(),
 		associations:      map[string]*association{},
+		stunliteServer:    stunliteServer,
 	}
 	s.multiplexer = newUDPMultiplexer(sock, s.handleNewConnection)
+
+	go s.keepaliver()
+
 	return s, nil
 }
 
-func (s *Socket) GetEndpointStunlite(ctx context.Context, addr string) (string, error) {
+func (s *Socket) keepaliver() {
+	for range time.Tick(5 * time.Second) {
+		if !s.multiplexer.GetHadWritesAndClear() {
+			s.PerformStunlite(context.Background())
+		}
+	}
+}
+
+func (s *Socket) PerformStunlite(ctx context.Context) (string, error) {
 	log.Printf("gRPC-over-UDP transport local port = %d", s.sock.LocalAddr().(*net.UDPAddr).Port)
-	raddr, err := net.ResolveUDPAddr("udp4", addr)
+	raddr, err := net.ResolveUDPAddr("udp4", s.stunliteServer)
 	if err != nil {
 		return "", err
 	}
