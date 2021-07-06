@@ -170,7 +170,7 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 	}
 	s.mtx.Unlock()
 	if !ok {
-		return nil, errors.New("strange race condition where the association isn't known. The again later")
+		return nil, errors.New("failed to establish SCTP association")
 	}
 	stream, err := a.assoc.OpenStream(a.nextStreamId, sctp.PayloadTypeWebRTCBinary)
 	if err != nil {
