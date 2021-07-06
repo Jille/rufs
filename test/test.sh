@@ -11,4 +11,4 @@ go generate ../../version
 go build -tags withversion -o . ../../...
 popd
 
-go test
+go test -v ../... | grep -v '\[no test files\]'
