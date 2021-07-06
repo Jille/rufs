@@ -124,7 +124,9 @@ func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 	for {
 		var deadline <-chan time.Time
 		if !t.readDeadline.IsZero() {
-			deadline = time.After(time.Until(t.readDeadline))
+			t := time.NewTimer(time.Until(t.readDeadline))
+			defer t.Stop()
+			deadline = t.C
 		}
 
 		select {

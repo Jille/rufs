@@ -248,7 +248,9 @@ func (w *sctpStreamWrapper) waitForBufferSpace() error {
 	for w.stream.BufferedAmount() > writeBufferSize {
 		var deadline <-chan time.Time
 		if !w.writeDeadline.IsZero() {
-			deadline = time.After(time.Until(w.writeDeadline))
+			t := time.NewTimer(time.Until(w.writeDeadline))
+			defer t.Stop()
+			deadline = t.C
 		}
 		w.pushbackMtx.Unlock()
 		select {
