@@ -109,7 +109,8 @@ func (s *Socket) handleNewConnection(c net.Conn) {
 	stream1Ch := make(chan *sctp.Stream, 1)
 	go s.handleIncomingStreams(assoc, c.RemoteAddr(), stream1Ch)
 	var odd bool
-	if stream, err := assoc.OpenStream(1, sctp.PayloadTypeWebRTCBinary); err == nil {
+	stream, err := assoc.OpenStream(1, sctp.PayloadTypeWebRTCBinary)
+	if err == nil {
 		odd, err = s.negotiate(stream)
 	} else {
 		odd, err = s.negotiate(<-stream1Ch)
