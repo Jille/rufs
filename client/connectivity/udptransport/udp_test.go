@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/sgielen/rufs/client/connectivity/udptransport"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestStuff(t *testing.T) {
@@ -52,23 +53,35 @@ func TestStuff(t *testing.T) {
 		t.Fatalf("Failed to generate random buffer B: %v", err)
 	}
 
-	go sender(t, connA, bufA)
-	go sender(t, connB, bufB)
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return sender(connA, bufA)
+	})
+	eg.Go(func() error {
+		return sender(connB, bufB)
+	})
 
 	var recvBufA []byte
-	readDone := make(chan struct{})
-	go func() {
+	var recvBufB []byte
+	eg.Go(func() error {
 		recvBufA, err = io.ReadAll(connA)
 		if err != nil {
-			t.Fatalf("Failed to ReadAll on A: %v", err)
+			return fmt.Errorf("Failed to ReadAll on A: %v", err)
 		}
-		close(readDone)
-	}()
-	recvBufB, err := io.ReadAll(connB)
+		return nil
+	})
+	eg.Go(func() error {
+		recvBufB, err = io.ReadAll(connB)
+		if err != nil {
+			return fmt.Errorf("Failed to ReadAll on B: %v", err)
+		}
+		return nil
+	})
+
+	err = eg.Wait()
 	if err != nil {
-		t.Fatalf("Failed to ReadAll on B: %v", err)
+		t.Fatalf("Error ruunning test: %v", err)
 	}
-	<-readDone
 
 	connA.Close()
 	connB.Close()
@@ -81,11 +94,11 @@ func TestStuff(t *testing.T) {
 func handleEchoConnection(t *testing.T, c net.Conn) {
 	_, err := io.Copy(c, c)
 	if err != nil {
-		t.Fatalf("Fatal error occurred in echo server: %v", err)
+		t.Errorf("Fatal error occurred in echo server: %v", err)
 	}
 }
 
-func sender(t *testing.T, c net.Conn, buf []byte) {
+func sender(c net.Conn, buf []byte) error {
 	offset := 0
 	for offset < len(buf) {
 		n := len(buf) - offset
@@ -95,7 +108,7 @@ func sender(t *testing.T, c net.Conn, buf []byte) {
 		n = rand.Intn(n + 1)
 		n, err := c.Write(buf[offset : offset+n])
 		if err != nil {
-			t.Fatalf("write failed: %v", err)
+			return fmt.Errorf("write failed: %v", err)
 		}
 		offset += n
 
@@ -103,4 +116,5 @@ func sender(t *testing.T, c net.Conn, buf []byte) {
 		time.Sleep(ms * time.Millisecond)
 	}
 	c.Close()
+	return nil
 }
