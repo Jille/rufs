@@ -262,8 +262,11 @@ func (c *circle) dialPeer(ctx context.Context, addr string) (net.Conn, error) {
 func peerToResolverState(p *pb.Peer) resolver.State {
 	var s resolver.State
 	for _, e := range p.GetEndpoints() {
+		if _, known := pb.Endpoint_Type_name[int32(e.Type)]; !known || e.Type == 0 {
+			continue
+		}
 		s.Addresses = append(s.Addresses, resolver.Address{
-			Addr:       e.Type.String() +":"+ e.GetAddress(),
+			Addr:       e.Type.String() + ":" + e.GetAddress(),
 			ServerName: p.GetName(),
 		})
 	}
