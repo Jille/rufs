@@ -6,6 +6,8 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/sgielen/rufs/client/connectivity/udptransport/deadlinech"
 )
 
 const mtu = 1400
@@ -54,12 +56,12 @@ func (m *udpMultiplexer) get(addr *net.UDPAddr, newPeerCallback func(net.Conn)) 
 		return c
 	}
 	c := &semiConnectedUDP{
-		udpConn:     m.sock,
-		remoteAddr:  addr,
-		msgs:        make(chan message, 100),
-		quit:        make(chan struct{}),
-		initialized: make(chan struct{}),
-		newDeadline: make(chan struct{}, 1),
+		udpConn:      m.sock,
+		remoteAddr:   addr,
+		msgs:         make(chan message, 100),
+		quit:         make(chan struct{}),
+		initialized:  make(chan struct{}),
+		readDeadline: deadlinech.New(),
 	}
 	m.connections[key] = c
 	go func() {
@@ -104,12 +106,10 @@ type semiConnectedUDP struct {
 	udpConn    *net.UDPConn
 	remoteAddr *net.UDPAddr
 
-	msgs            chan message
-	quit            chan struct{}
-	initialized     chan struct{}
-	newDeadline     chan struct{}
-	readDeadlineMtx sync.Mutex
-	readDeadline    time.Time
+	msgs         chan message
+	quit         chan struct{}
+	initialized  chan struct{}
+	readDeadline *deadlinech.DeadlineChannel
 }
 
 func (t *semiConnectedUDP) Write(p []byte) (int, error) {
@@ -123,15 +123,6 @@ func (t *semiConnectedUDP) Write(p []byte) (int, error) {
 
 func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 	for {
-		var deadline <-chan time.Time
-		t.readDeadlineMtx.Lock()
-		if !t.readDeadline.IsZero() {
-			t := time.NewTimer(time.Until(t.readDeadline))
-			defer t.Stop()
-			deadline = t.C
-		}
-		t.readDeadlineMtx.Unlock()
-
 		select {
 		case m := <-t.msgs:
 			n := copy(p, m.data)
@@ -139,10 +130,8 @@ func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 			return n, nil
 		case <-t.quit:
 			return 0, errors.New("semiConnectedUDP connection was closed")
-		case <-deadline:
+		case <-t.readDeadline.Wait():
 			return 0, deadlineExceeded{}
-		case <-t.newDeadline:
-			// there is a new deadline, repeat our Read
 		}
 	}
 }
@@ -171,14 +160,7 @@ func (t *semiConnectedUDP) SetDeadline(ts time.Time) error {
 }
 
 func (t *semiConnectedUDP) SetReadDeadline(ts time.Time) error {
-	t.readDeadlineMtx.Lock()
-	t.readDeadline = ts
-	t.readDeadlineMtx.Unlock()
-	select {
-	case t.newDeadline <- struct{}{}:
-	default:
-		// Channel is full, drop this
-	}
+	t.readDeadline.Set(ts)
 	return nil
 }
 

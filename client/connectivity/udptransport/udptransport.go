@@ -15,6 +15,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/pion/logging"
 	"github.com/pion/sctp"
+	"github.com/sgielen/rufs/client/connectivity/udptransport/deadlinech"
 )
 
 const writeBufferSize = 16384
@@ -198,12 +199,12 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 func wrapSctpStream(stream *sctp.Stream, raddr net.Addr) net.Conn {
 	stream.SetBufferedAmountLowThreshold(writeBufferSize)
 	ret := &sctpStreamWrapper{
-		stream:               stream,
-		remoteAddr:           raddr,
-		readerResult:         make(chan error, 1),
-		newReadDeadline:      make(chan time.Time, 1),
-		pushbackCh:           make(chan struct{}, 1),
-		writeDeadlineChanged: make(chan struct{}, 1),
+		stream:        stream,
+		remoteAddr:    raddr,
+		readerResult:  make(chan error, 1),
+		readDeadline:  deadlinech.New(),
+		pushbackCh:    make(chan struct{}, 1),
+		writeDeadline: deadlinech.New(),
 	}
 	ret.readerResult <- nil
 	stream.OnBufferedAmountLow(ret.bufferedAmountLow)
@@ -214,18 +215,16 @@ type sctpStreamWrapper struct {
 	stream     *sctp.Stream
 	remoteAddr net.Addr
 
-	readMtx         sync.Mutex
-	readerResult    chan error
-	readBuf         [2048]byte // must be at least mtu-28
-	readable        []byte
-	newReadDeadline chan time.Time
-	readDeadline    time.Time
+	readMtx      sync.Mutex
+	readerResult chan error
+	readBuf      [2048]byte // must be at least mtu-28
+	readable     []byte
+	readDeadline *deadlinech.DeadlineChannel
 
-	writeMtx             sync.Mutex
-	pushbackMtx          sync.Mutex
-	pushbackCh           chan struct{}
-	writeDeadlineChanged chan struct{}
-	writeDeadline        time.Time
+	writeMtx      sync.Mutex
+	pushbackMtx   sync.Mutex
+	pushbackCh    chan struct{}
+	writeDeadline *deadlinech.DeadlineChannel
 }
 
 func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
@@ -254,19 +253,11 @@ func (w *sctpStreamWrapper) waitForBufferSpace() error {
 	// Callers must hold w.writeMtx.
 	w.pushbackMtx.Lock()
 	for w.stream.BufferedAmount() > writeBufferSize {
-		var deadline <-chan time.Time
-		if !w.writeDeadline.IsZero() {
-			t := time.NewTimer(time.Until(w.writeDeadline))
-			defer t.Stop()
-			deadline = t.C
-		}
 		w.pushbackMtx.Unlock()
 		select {
 		case <-w.pushbackCh:
-		case <-deadline:
+		case <-w.writeDeadline.Wait():
 			return deadlineExceeded{}
-		case <-w.writeDeadlineChanged:
-			// there is a new deadline, repeat our Write
 		}
 		w.pushbackMtx.Lock()
 	}
@@ -288,21 +279,11 @@ func (w *sctpStreamWrapper) Read(p []byte) (int, error) {
 	// w.readerResult is used as a mutex. If you can read from it, you own it. You need to own it to use w.readable and w.readBuf. After returning, there should either be a value in the channel or there should be a goroutine running that will eventually write a value.
 	w.readMtx.Lock()
 	defer w.readMtx.Unlock()
-loop:
 	for {
-		var deadline <-chan time.Time
-		if !w.readDeadline.IsZero() {
-			t := time.NewTimer(time.Until(w.readDeadline))
-			defer t.Stop()
-			deadline = t.C
-		}
 		var err error
 		select {
-		case <-deadline:
+		case <-w.readDeadline.Wait():
 			return 0, deadlineExceeded{}
-		case dl := <-w.newReadDeadline:
-			w.readDeadline = dl
-			continue loop
 		case err = <-w.readerResult: // This should only block if there is a goroutine reading from w.stream active.
 		}
 		// We've read from w.readerResult, so we hold that "lock".
@@ -354,24 +335,11 @@ func (w *sctpStreamWrapper) SetDeadline(ts time.Time) error {
 }
 
 func (w *sctpStreamWrapper) SetReadDeadline(ts time.Time) error {
-	for {
-		select {
-		case w.newReadDeadline <- ts:
-			return nil
-		case <-w.newReadDeadline:
-			// Discard old value and we'll try to replace it with our own.
-		}
-	}
+	w.readDeadline.Set(ts)
+	return nil
 }
 
 func (w *sctpStreamWrapper) SetWriteDeadline(ts time.Time) error {
-	w.pushbackMtx.Lock()
-	defer w.pushbackMtx.Unlock()
-	w.writeDeadline = ts
-	select {
-	case w.writeDeadlineChanged <- struct{}{}:
-	default:
-		// Channel is full, drop this
-	}
+	w.writeDeadline.Set(ts)
 	return nil
 }
