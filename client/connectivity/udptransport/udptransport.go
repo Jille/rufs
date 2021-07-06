@@ -179,6 +179,10 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 	a, ok := s.associations[raddr.String()]
 	if ok {
 		a.nextStreamId += 2
+		if a.nextStreamId <= 1 {
+			// Skip stream 0 (unusable) and 1 (negotiation channel).
+			a.nextStreamId += 2
+		}
 	}
 	s.mtx.Unlock()
 	if !ok {
