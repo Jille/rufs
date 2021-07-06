@@ -14,7 +14,8 @@ const mtu = 1400
 
 var pool = sync.Pool{
 	New: func() interface{} {
-		return make([]byte, mtu+1)
+		buf := make([]byte, mtu+1)
+		return &buf
 	},
 }
 
@@ -73,8 +74,8 @@ func (m *udpMultiplexer) get(addr *net.UDPAddr, newPeerCallback func(net.Conn)) 
 
 func (m *udpMultiplexer) reader() {
 	for {
-		buf := pool.Get().([]byte)
-		n, addr, err := m.sock.ReadFromUDP(buf[:])
+		buf := pool.Get().(*[]byte)
+		n, addr, err := m.sock.ReadFromUDP((*buf)[:])
 		if err != nil {
 			panic(err)
 		}
@@ -83,7 +84,7 @@ func (m *udpMultiplexer) reader() {
 			continue
 		}
 		msg := message{
-			data:  buf[:n],
+			data:  (*buf)[:n],
 			peer:  addr,
 			alloc: buf,
 		}
@@ -99,7 +100,7 @@ func (m *udpMultiplexer) reader() {
 type message struct {
 	peer  *net.UDPAddr
 	data  []byte
-	alloc []byte
+	alloc *[]byte
 }
 
 type semiConnectedUDP struct {
