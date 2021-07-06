@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ory/go-convenience/stringslice"
 	"github.com/pion/logging"
 	"github.com/pion/sctp"
 	"github.com/sgielen/rufs/client/connectivity/udptransport/deadlinech"
@@ -28,6 +29,7 @@ type Socket struct {
 
 	mtx          sync.Mutex
 	associations map[string]*association
+	stunAddrs    []string
 }
 
 type association struct {
@@ -82,9 +84,16 @@ func (s *Socket) GetEndpointStunlite(ctx context.Context, addr string) (string, 
 	if err != nil {
 		return "", err
 	}
+	ret := string(res[:n])
+	s.mtx.Lock()
+	if len(s.stunAddrs) > 2 {
+		s.stunAddrs = s.stunAddrs[:2]
+	}
+	s.stunAddrs = append(s.stunAddrs, ret)
+	s.mtx.Unlock()
 	log.Printf("gRPC-over-UDP public endpoint = %s", res[:n])
 	sock.SetReadDeadline(time.Time{})
-	return string(res[:n]), nil
+	return ret, nil
 }
 
 func (s *Socket) LocalAddr() net.Addr {
@@ -174,9 +183,24 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 	if err != nil {
 		return nil, err
 	}
-	// GetBlocking blocks until handleNewConnection() returns.
-	s.multiplexer.GetBlocking(raddr)
 	s.mtx.Lock()
+	if stringslice.Has(s.stunAddrs, addr) {
+		_, ok := s.associations[raddr.String()]
+		if !ok {
+			s.mtx.Unlock()
+			c, err := net.Dial("udp", addr)
+			if err != nil {
+				return nil, err
+			}
+			s.handleNewConnection(c)
+			s.mtx.Lock()
+		}
+	} else {
+		s.mtx.Unlock()
+		// GetBlocking blocks until handleNewConnection() returns.
+		s.multiplexer.GetBlocking(raddr)
+		s.mtx.Lock()
+	}
 	a, ok := s.associations[raddr.String()]
 	if ok {
 		a.nextStreamId += 2
