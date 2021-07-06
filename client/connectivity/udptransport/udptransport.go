@@ -266,7 +266,7 @@ func (w *sctpStreamWrapper) waitForBufferSpace() error {
 		case <-deadline:
 			return deadlineExceeded{}
 		case <-w.writeDeadlineChanged:
-			// there is a new deadline, repeat our Read
+			// there is a new deadline, repeat our Write
 		}
 		w.pushbackMtx.Lock()
 	}
