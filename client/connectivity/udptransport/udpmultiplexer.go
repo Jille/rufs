@@ -104,11 +104,12 @@ type semiConnectedUDP struct {
 	udpConn    *net.UDPConn
 	remoteAddr *net.UDPAddr
 
-	msgs         chan message
-	quit         chan struct{}
-	initialized  chan struct{}
-	newDeadline  chan struct{}
-	readDeadline time.Time
+	msgs            chan message
+	quit            chan struct{}
+	initialized     chan struct{}
+	newDeadline     chan struct{}
+	readDeadlineMtx sync.Mutex
+	readDeadline    time.Time
 }
 
 func (t *semiConnectedUDP) Write(p []byte) (int, error) {
@@ -123,11 +124,13 @@ func (t *semiConnectedUDP) Write(p []byte) (int, error) {
 func (t *semiConnectedUDP) Read(p []byte) (int, error) {
 	for {
 		var deadline <-chan time.Time
+		t.readDeadlineMtx.Lock()
 		if !t.readDeadline.IsZero() {
 			t := time.NewTimer(time.Until(t.readDeadline))
 			defer t.Stop()
 			deadline = t.C
 		}
+		t.readDeadlineMtx.Unlock()
 
 		select {
 		case m := <-t.msgs:
@@ -168,7 +171,9 @@ func (t *semiConnectedUDP) SetDeadline(ts time.Time) error {
 }
 
 func (t *semiConnectedUDP) SetReadDeadline(ts time.Time) error {
+	t.readDeadlineMtx.Lock()
 	t.readDeadline = ts
+	t.readDeadlineMtx.Unlock()
 	select {
 	case t.newDeadline <- struct{}{}:
 	default:
