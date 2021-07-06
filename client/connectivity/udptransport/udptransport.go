@@ -183,22 +183,25 @@ func (s *Socket) DialContext(ctx context.Context, addr string) (net.Conn, error)
 func wrapSctpStream(stream *sctp.Stream, raddr net.Addr) net.Conn {
 	stream.SetBufferedAmountLowThreshold(writeBufferSize)
 	ret := &sctpStreamWrapper{
-		stream:     stream,
-		remoteAddr: raddr,
-		reader:     bufio.NewReaderSize(stream, 2048), // must be > mtu-28
+		stream:               stream,
+		remoteAddr:           raddr,
+		reader:               bufio.NewReaderSize(stream, 2048), // must be > mtu-28
+		pushbackCh:           make(chan struct{}, 1),
+		writeDeadlineChanged: make(chan struct{}, 1),
 	}
-	ret.pushbackCond = sync.NewCond(&ret.pushbackMtx)
 	stream.OnBufferedAmountLow(ret.bufferedAmountLow)
 	return ret
 }
 
 type sctpStreamWrapper struct {
-	stream       *sctp.Stream
-	remoteAddr   net.Addr
-	reader       io.Reader
-	writeMtx     sync.Mutex
-	pushbackMtx  sync.Mutex
-	pushbackCond *sync.Cond
+	stream               *sctp.Stream
+	remoteAddr           net.Addr
+	reader               io.Reader
+	writeMtx             sync.Mutex
+	pushbackMtx          sync.Mutex
+	pushbackCh           chan struct{}
+	writeDeadlineChanged chan struct{}
+	writeDeadline        time.Time
 }
 
 func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
@@ -211,7 +214,9 @@ func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
 			f = p[:mtu-28]
 		}
 		p = p[len(f):]
-		w.waitForBufferSpace()
+		if err := w.waitForBufferSpace(); err != nil {
+			return sent, err
+		}
 		n, err := w.stream.Write(f)
 		sent += n
 		if err != nil {
@@ -221,18 +226,35 @@ func (w *sctpStreamWrapper) Write(p []byte) (int, error) {
 	return sent, nil
 }
 
-func (w *sctpStreamWrapper) waitForBufferSpace() {
+func (w *sctpStreamWrapper) waitForBufferSpace() error {
+	// Callers must hold w.writeMtx.
 	w.pushbackMtx.Lock()
-	defer w.pushbackMtx.Unlock()
 	for w.stream.BufferedAmount() > writeBufferSize {
-		w.pushbackCond.Wait()
+		var deadline <-chan time.Time
+		if !w.writeDeadline.IsZero() {
+			deadline = time.After(time.Until(w.writeDeadline))
+		}
+		w.pushbackMtx.Unlock()
+		select {
+		case <-w.pushbackCh:
+		case <-deadline:
+			return deadlineExceeded{}
+		case <-w.writeDeadlineChanged:
+			// there is a new deadline, repeat our Read
+		}
+		w.pushbackMtx.Lock()
 	}
+	w.pushbackMtx.Unlock()
+	return nil
 }
 
 func (w *sctpStreamWrapper) bufferedAmountLow() {
 	w.pushbackMtx.Lock()
 	defer w.pushbackMtx.Unlock()
-	w.pushbackCond.Signal()
+	select {
+	case w.pushbackCh <- struct{}{}:
+	default:
+	}
 }
 
 func (w *sctpStreamWrapper) Read(p []byte) (int, error) {
@@ -257,7 +279,8 @@ func (w *sctpStreamWrapper) RemoteAddr() net.Addr {
 }
 
 func (w *sctpStreamWrapper) SetDeadline(ts time.Time) error {
-	log.Printf("Ignoring SetDeadline(%s) call", ts)
+	w.SetWriteDeadline(ts)
+	log.Printf("Partially ignoring SetDeadline(%s) call", ts)
 	return nil
 }
 
@@ -267,6 +290,13 @@ func (w *sctpStreamWrapper) SetReadDeadline(ts time.Time) error {
 }
 
 func (w *sctpStreamWrapper) SetWriteDeadline(ts time.Time) error {
-	log.Printf("Ignoring SetWriteDeadline(%s) call", ts)
+	w.pushbackMtx.Lock()
+	defer w.pushbackMtx.Unlock()
+	w.writeDeadline = ts
+	select {
+	case w.writeDeadlineChanged <- struct{}{}:
+	default:
+		// Channel is full, drop this
+	}
 	return nil
 }
