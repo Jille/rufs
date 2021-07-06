@@ -1,7 +1,6 @@
 package udptransport
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/binary"
@@ -201,18 +200,27 @@ func wrapSctpStream(stream *sctp.Stream, raddr net.Addr) net.Conn {
 	ret := &sctpStreamWrapper{
 		stream:               stream,
 		remoteAddr:           raddr,
-		reader:               bufio.NewReaderSize(stream, 2048), // must be > mtu-28
+		readerResult:         make(chan error, 1),
+		newReadDeadline:      make(chan time.Time, 1),
 		pushbackCh:           make(chan struct{}, 1),
 		writeDeadlineChanged: make(chan struct{}, 1),
 	}
+	ret.readerResult <- nil
 	stream.OnBufferedAmountLow(ret.bufferedAmountLow)
 	return ret
 }
 
 type sctpStreamWrapper struct {
-	stream               *sctp.Stream
-	remoteAddr           net.Addr
-	reader               io.Reader
+	stream     *sctp.Stream
+	remoteAddr net.Addr
+
+	readMtx         sync.Mutex
+	readerResult    chan error
+	readBuf         [2048]byte // must be at least mtu-28
+	readable        []byte
+	newReadDeadline chan time.Time
+	readDeadline    time.Time
+
 	writeMtx             sync.Mutex
 	pushbackMtx          sync.Mutex
 	pushbackCh           chan struct{}
@@ -276,7 +284,50 @@ func (w *sctpStreamWrapper) bufferedAmountLow() {
 }
 
 func (w *sctpStreamWrapper) Read(p []byte) (int, error) {
-	return w.reader.Read(p)
+	// We need to read the entire SCTP packet in a single read. But our callers might pass a buffer that's smaller than one packet. We also need to handle the read readline.
+	// w.readerResult is used as a mutex. If you can read from it, you own it. You need to own it to use w.readable and w.readBuf. After returning, there should either be a value in the channel or there should be a goroutine running that will eventually write a value.
+	w.readMtx.Lock()
+	defer w.readMtx.Unlock()
+loop:
+	for {
+		var deadline <-chan time.Time
+		if !w.readDeadline.IsZero() {
+			t := time.NewTimer(time.Until(w.readDeadline))
+			defer t.Stop()
+			deadline = t.C
+		}
+		var err error
+		select {
+		case <-deadline:
+			return 0, deadlineExceeded{}
+		case dl := <-w.newReadDeadline:
+			w.readDeadline = dl
+			continue loop
+		case err = <-w.readerResult: // This should only block if there is a goroutine reading from w.stream active.
+		}
+		// We've read from w.readerResult, so we hold that "lock".
+		if len(w.readable) > 0 {
+			n := copy(p, w.readable)
+			w.readable = w.readable[n:]
+			if err != nil && len(w.readable) > 0 {
+				// Defer the error to the next read.
+				w.readerResult <- err
+				return n, nil
+			}
+			w.readerResult <- nil
+			return n, err
+		}
+		if err != nil {
+			w.readerResult <- nil
+			return 0, err
+		}
+		go func() {
+			// Note that guarantee that we pass in a large enough buffer to read the entire SCTP packet here.
+			n, err := w.stream.Read(w.readBuf[:])
+			w.readable = w.readBuf[:n]
+			w.readerResult <- err
+		}()
+	}
 }
 
 func (w *sctpStreamWrapper) Close() error {
@@ -298,13 +349,19 @@ func (w *sctpStreamWrapper) RemoteAddr() net.Addr {
 
 func (w *sctpStreamWrapper) SetDeadline(ts time.Time) error {
 	w.SetWriteDeadline(ts)
-	log.Printf("Partially ignoring SetDeadline(%s) call", ts)
+	w.SetReadDeadline(ts)
 	return nil
 }
 
 func (w *sctpStreamWrapper) SetReadDeadline(ts time.Time) error {
-	log.Printf("Ignoring SetReadDeadline(%s) call", ts)
-	return nil
+	for {
+		select {
+		case w.newReadDeadline <- ts:
+			return nil
+		case <-w.newReadDeadline:
+			// Discard old value and we'll try to replace it with our own.
+		}
+	}
 }
 
 func (w *sctpStreamWrapper) SetWriteDeadline(ts time.Time) error {
