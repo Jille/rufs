@@ -4,10 +4,13 @@ package orchestream
 import (
 	"context"
 	"io"
+	"log"
 	"sync"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/sgielen/rufs/client/connectivity"
 	pb "github.com/sgielen/rufs/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type StreamClient interface {
@@ -41,13 +44,16 @@ func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartO
 	}
 	s := &Stream{
 		DownloadId:     msg.GetWelcome().GetDownloadId(),
+		circle:         circle,
 		stream:         stream,
 		callbacks:      callbacks,
 		cancel:         cancel,
 		haveHandles:    false,
 		setHaveHandles: true,
+		reconnectStart: proto.Clone(start).(*pb.OrchestrateRequest_StartOrchestrationRequest),
 	}
 	callbacks.Welcome(s.DownloadId)
+	s.reconnectStart.DownloadId = s.DownloadId
 	s.cond = sync.NewCond(&s.mtx)
 	go s.reader(ctx)
 	go s.writer(ctx)
@@ -56,12 +62,14 @@ func New(ctx context.Context, circle string, start *pb.OrchestrateRequest_StartO
 
 type Stream struct {
 	DownloadId int64
-	stream     pb.DiscoveryService_OrchestrateClient
+	circle     string
 	callbacks  StreamClient
 	cancel     func()
 
 	mtx                  sync.Mutex
 	cond                 *sync.Cond
+	stream               pb.DiscoveryService_OrchestrateClient
+	reconnecting         bool
 	setHash              string
 	updateByteRanges     bool
 	ranges               *pb.OrchestrateRequest_UpdateByteRanges
@@ -70,6 +78,7 @@ type Stream struct {
 	failedUploads        []string
 	haveHandles          bool
 	setHaveHandles       bool
+	reconnectStart       *pb.OrchestrateRequest_StartOrchestrationRequest
 }
 
 func (s *Stream) reader(ctx context.Context) {
@@ -81,8 +90,16 @@ func (s *Stream) reader(ctx context.Context) {
 			return
 		}
 		if err != nil {
-			// TODO: reconnect
-			panic(err)
+			if ctx.Err() != nil {
+				return
+			}
+			log.Printf("Lost connection to orchestrator. Reconnecting...")
+			if err2 := backoff.Retry(func() error {
+				return s.reconnect(ctx)
+			}, backoff.WithContext(backoff.NewExponentialBackOff(), ctx)); err2 != nil {
+				log.Printf("Failed to reconnect to orchestrator: %v", err2)
+			}
+			continue
 		}
 		if msg.GetPeerList() != nil {
 			s.callbacks.SetPeers(ctx, msg.GetPeerList().GetPeers())
@@ -97,7 +114,7 @@ func (s *Stream) writer(ctx context.Context) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	for {
-		for s.updateByteRanges || s.updateConnectedPeers || s.setHash != "" || len(s.failedUploads) > 0 || s.setHaveHandles {
+		for !s.reconnecting && (s.updateByteRanges || s.updateConnectedPeers || s.setHash != "" || len(s.failedUploads) > 0 || s.setHaveHandles) {
 			msg := &pb.OrchestrateRequest{}
 			if s.updateByteRanges {
 				msg.Msg = &pb.OrchestrateRequest_UpdateByteRanges_{
@@ -133,20 +150,60 @@ func (s *Stream) writer(ctx context.Context) {
 				}
 				s.failedUploads = nil
 			}
+			stream := s.stream
 			s.mtx.Unlock()
-			if err := s.stream.Send(msg); err != nil {
+			err := stream.Send(msg)
+			s.mtx.Lock()
+			if err != nil {
 				if err == io.EOF {
 					// ignore, reader will find it soon
+					return
 				} else {
-					s.mtx.Lock()
-					// TODO: reconnect?
-					panic(err)
+					s.reconnecting = true
 				}
 			}
-			s.mtx.Lock()
 		}
 		s.cond.Wait()
+		if ctx.Err() != nil {
+			return
+		}
 	}
+}
+
+func (s *Stream) reconnect(ctx context.Context) error {
+	s.mtx.Lock()
+	// Prevent the writer thread from touching the stream.
+	s.reconnecting = true
+	reconnectStart := proto.Clone(s.reconnectStart).(*pb.OrchestrateRequest_StartOrchestrationRequest)
+	s.mtx.Unlock()
+
+	stream, err := connectivity.DiscoveryClient(s.circle).Orchestrate(ctx)
+	if err != nil {
+		return err
+	}
+	if err := stream.Send(&pb.OrchestrateRequest{
+		Msg: &pb.OrchestrateRequest_StartOrchestration{
+			StartOrchestration: reconnectStart,
+		},
+	}); err != nil {
+		stream.CloseSend()
+		return err
+	}
+	if _, err := stream.Recv(); err != nil {
+		stream.CloseSend()
+		return err
+	}
+
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.stream = stream
+	s.updateByteRanges = true
+	s.updateConnectedPeers = true
+	s.failedUploads = nil
+	s.setHaveHandles = true
+	s.reconnecting = false
+	s.cond.Broadcast()
+	return nil
 }
 
 func (s *Stream) SetByteRanges(ranges *pb.OrchestrateRequest_UpdateByteRanges) {
@@ -176,6 +233,7 @@ func (s *Stream) SetHash(hash string) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	s.setHash = hash
+	s.reconnectStart.Hash = hash
 	s.cond.Broadcast()
 }
 
@@ -190,6 +248,9 @@ func (s *Stream) SetHaveHandles(h bool) {
 }
 
 func (s *Stream) Close() error {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
 	s.cancel()
+	s.cond.Broadcast()
 	return nil
 }
