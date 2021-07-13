@@ -30,7 +30,7 @@ jobs:
       with:
         go-version: 1.16
     - name: Install libfuse-dev
-      run: apt install libfuse-dev
+      run: sudo apt-get install libfuse-dev
 
     - name: Build
       run: go generate version/ && go build -tags withversion,cgofuse -o test/bin/ ./...
