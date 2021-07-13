@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	osUser "os/user"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -59,7 +60,10 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 	host.SetCapCaseInsensitive(false)
 	host.SetCapReaddirPlus(true)
 	// TODO: small readahead, allow others if len(f.allowedUsers) != 0
-	options := []string{"-o", "ro", "-o", "volname=RUFS", "-o", "uid=-1", "-o", "gid=-1"}
+	options := []string{"-o", "ro", "-o", "uid=-1", "-o", "gid=-1"}
+	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
+		options = append(options, "-o", "volname=RUFS")
+	}
 	if *enableFuseDebug {
 		options = append(options, "-o", "debug")
 	}
