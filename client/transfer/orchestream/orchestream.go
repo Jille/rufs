@@ -85,8 +85,8 @@ func (s *Stream) reader(ctx context.Context) {
 	for {
 		msg, err := s.stream.Recv()
 		if err == io.EOF {
-			s.stream.CloseSend()
 			s.callbacks.OrchestrationClosed()
+			s.Close()
 			return
 		}
 		if err != nil {
