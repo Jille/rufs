@@ -97,8 +97,8 @@ func (s *Stream) writer(ctx context.Context) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 	for {
-		msg := &pb.OrchestrateRequest{}
 		for s.updateByteRanges || s.updateConnectedPeers || s.setHash != "" || len(s.failedUploads) > 0 || s.setHaveHandles {
+			msg := &pb.OrchestrateRequest{}
 			if s.updateByteRanges {
 				msg.Msg = &pb.OrchestrateRequest_UpdateByteRanges_{
 					UpdateByteRanges: s.ranges,
