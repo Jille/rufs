@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	allowHosts   = flag.String("http_allow_hosts", "127.0.0.1/8", "Comma separated list of CIDRs to allow access to the web interface")
+	allowHosts   = flag.String("http_allow_hosts", "127.0.0.1/8, ::1/128", "Comma separated list of CIDRs to allow access to the web interface")
 	passwordFile = flag.String("http_password_file", "", "File with the password for the web interface")
 
 	acls     []*net.IPNet
