@@ -67,7 +67,6 @@ func (s *Socket) keepaliver() {
 }
 
 func (s *Socket) PerformStunlite(ctx context.Context) (string, error) {
-	log.Printf("gRPC-over-UDP transport local port = %d", s.sock.LocalAddr().(*net.UDPAddr).Port)
 	raddr, err := net.ResolveUDPAddr("udp4", s.stunliteServer)
 	if err != nil {
 		return "", err
@@ -104,7 +103,6 @@ func (s *Socket) PerformStunlite(ctx context.Context) (string, error) {
 	}
 	s.stunAddrs = append(s.stunAddrs, ret)
 	s.mtx.Unlock()
-	log.Printf("gRPC-over-UDP public endpoint = %s", res[:n])
 	sock.SetReadDeadline(time.Time{})
 	return ret, nil
 }
