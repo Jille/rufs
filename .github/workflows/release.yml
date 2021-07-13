@@ -1,0 +1,53 @@
+name: Automatic release
+
+on:
+  push:
+    tags:
+      - 'v*.*'
+
+jobs:
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+
+    - name: Versioning
+      run: go generate ./version/
+
+    - name: Build for testing
+      run: go build -tags withversion -o test/bin/ ./...
+
+    - name: Test
+      run: go test -v ./...
+
+    - name: Create empty _publish directory
+      run: mkdir _publish
+
+    - name: Stage linux/amd64
+      run: cp test/bin/client _publish/rufs-linux-amd64
+
+    - name: Build for linux/arm64
+      run: GOARCH=arm64 go build -tags withversion -o _publish/rufs-linux-arm64 ./client/
+
+    - name: Install NSIS
+      run: sudo apt-get install -y nsis nsis-pluginapi
+
+    - name: Build for windows
+      run: bash publish/windows/make-release.sh
+
+    - name: Stage rufs-setup.exe
+      run: cp publish/windows/rufs-setup.exe _publish/rufs-setup.exe
+
+    - name: Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: _publish/*
+        draft: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

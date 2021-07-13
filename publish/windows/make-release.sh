@@ -2,6 +2,8 @@
 
 set -e
 
+cd "$(dirname "$0")"
+
 # Clean up
 rm -f rufs.exe rufs-setup.exe
 
