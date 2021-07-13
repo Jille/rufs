@@ -196,9 +196,18 @@ func AddCircleAndStore(name string) error {
 	if err != nil {
 		return err
 	}
-	newCfg.Circles = append(newCfg.Circles, Circle{
-		Name: name,
-	})
+	replaced := false
+	for i, c := range newCfg.Circles {
+		if c.Name == name {
+			newCfg.Circles[i].Shares = nil
+			replaced = true
+		}
+	}
+	if !replaced {
+		newCfg.Circles = append(newCfg.Circles, Circle{
+			Name: name,
+		})
+	}
 	return writeNewConfig(newCfg)
 }
 
@@ -212,10 +221,19 @@ func AddShareAndStore(circle, share, local string) error {
 	}
 	for i, c := range newCfg.Circles {
 		if c.Name == circle {
-			newCfg.Circles[i].Shares = append(newCfg.Circles[i].Shares, Share{
-				Remote: share,
-				Local:  local,
-			})
+			replaced := false
+			for j, s := range c.Shares {
+				if s.Remote == share {
+					newCfg.Circles[i].Shares[j].Local = local
+					replaced = true
+				}
+			}
+			if !replaced {
+				newCfg.Circles[i].Shares = append(newCfg.Circles[i].Shares, Share{
+					Remote: share,
+					Local:  local,
+				})
+			}
 			return writeNewConfig(newCfg)
 		}
 	}
