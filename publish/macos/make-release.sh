@@ -42,7 +42,6 @@ rm -rf rufs.iconset
 mkdir -p rufs.app/Contents/MacOS
 go generate ../../version
 GOOS=darwin GOARCH=amd64 go build -tags withversion -o rufs.app/Contents/MacOS ../../client
-cp rufs.sh rufs.app/Contents/MacOS
 
 cat <<EOF >rufs.app/Contents/Info.plist
 <?xml version="1.0" encoding="UTF-8"?>
@@ -52,7 +51,7 @@ cat <<EOF >rufs.app/Contents/Info.plist
   <key>CFBundleGetInfoString</key>
   <string>RUFS</string>
   <key>CFBundleExecutable</key>
-  <string>rufs.sh</string>
+  <string>client</string>
   <key>CFBundleIdentifier</key>
   <string>com.github.sgielen.rufs</string>
   <key>CFBundleName</key>
