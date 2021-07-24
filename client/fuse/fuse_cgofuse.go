@@ -67,13 +67,13 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 	if *enableFuseDebug {
 		options = append(options, "-o", "debug")
 	}
-	if !host.Mount(f.mountpoint, options) {
-		return errors.New("failed to initialize cgofuse mount")
-	}
 	go func() {
 		<-ctx.Done()
 		host.Unmount()
 	}()
+	if !host.Mount(f.mountpoint, options) {
+		return errors.New("failed to initialize cgofuse mount")
+	}
 	return nil
 }
 

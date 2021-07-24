@@ -92,7 +92,13 @@ func main() {
 		}()
 	})
 
-	systray.Run(onOpen, onSettings, func() {})
+	systray.Run(onOpen, onSettings, func() {
+		unmountFuse()
+		// Wait a second to allow fuse to unmount
+		time.Sleep(1 * time.Second)
+	})
+
+	// Code here will not run. Instead, put it in the onQuit lambda above.
 }
 
 func onOpen() {
