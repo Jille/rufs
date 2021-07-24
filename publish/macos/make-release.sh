@@ -93,6 +93,7 @@ pkgbuild \
 	--version "${RUFS_VERSION}" \
 	--scripts pkg-scripts \
 	--root tempdir/root \
+	--component-plist components.plist \
 	--install-location / \
 	tempdir/packages/rufs-client.pkg
 productbuild --distribution Distribution --resources pkg-resources --package-path tempdir/packages rufs-setup.pkg
