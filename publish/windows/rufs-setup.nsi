@@ -1,7 +1,7 @@
 !include LogicLib.nsh
 !include Sections.nsh
 
-Name "RUFS"
+Name "RUFS ${RUFS_VERSION}"
 
 OutFile rufs-setup.exe
 InstallDir "$ProgramFiles64\RUFS"
@@ -50,7 +50,7 @@ WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RUFS" \
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RUFS" \
                  "Publisher" "RUFS"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RUFS" \
-                 "DisplayVersion" "1.0"
+                 "DisplayVersion" "${RUFS_VERSION}"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RUFS" \
                  "InstallLocation" "$INSTDIR"
 WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RUFS" \

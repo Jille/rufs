@@ -4,6 +4,11 @@ set -e
 
 cd "$(dirname "$0")"
 
+RUFS_VERSION="$1"
+if [ -z "$RUFS_VERSION" ]; then
+	RUFS_VERSION=$(git describe --tags --dirty --always | awk -F- '{print $1}' | cut -b 2- -)
+fi
+
 # Clean up
 if [ -d "rufs.app" ]; then
 	rm -rf rufs.app
@@ -55,7 +60,7 @@ cat <<EOF >rufs.app/Contents/Info.plist
   <key>CFBundleIconFile</key>
   <string>rufs.icns</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.01</string>
+  <string>${RUFS_VERSION}</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundlePackageType</key>
@@ -86,7 +91,7 @@ pkgutil --flatten tempdir/macfuse/Core.pkg tempdir/packages/MacfuseCore.pkg
 pkgutil --flatten tempdir/macfuse/PreferencePane.pkg tempdir/packages/MacfusePreferencePane.pkg
 pkgbuild \
 	--identifier sg.sjor.rufs \
-	--version 1.0 \
+	--version "${RUFS_VERSION}" \
 	--scripts pkg-scripts \
 	--root tempdir/root \
 	--install-location / \
