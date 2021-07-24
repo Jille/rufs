@@ -80,7 +80,7 @@ EOF
 
 mkdir -p rufs.app/Contents/Resources
 cp rufs.icns rufs.app/Contents/Resources
-cp sg.sjor.rufs.plist rufs.app/Contents/Resources
+cp com.github.sgielen.rufs.plist rufs.app/Contents/Resources
 
 # Create pkg
 mkdir -p tempdir/root/Applications tempdir/packages
@@ -89,7 +89,7 @@ pkgutil --expand 'macFUSE 4.1.2.pkg' tempdir/macfuse
 pkgutil --flatten tempdir/macfuse/Core.pkg tempdir/packages/MacfuseCore.pkg
 pkgutil --flatten tempdir/macfuse/PreferencePane.pkg tempdir/packages/MacfusePreferencePane.pkg
 pkgbuild \
-	--identifier sg.sjor.rufs \
+	--identifier com.github.sgielen.rufs \
 	--version "${RUFS_VERSION}" \
 	--scripts pkg-scripts \
 	--root tempdir/root \

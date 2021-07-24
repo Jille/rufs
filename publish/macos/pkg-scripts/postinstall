@@ -1,7 +1,7 @@
 #!/bin/bash
 
-LAUNCH_AGENT_SRC="/Applications/rufs.app/Contents/Resources/sg.sjor.rufs.plist"
-LAUNCH_AGENT_DEST="$HOME/Library/LaunchAgents/sg.sjor.rufs.plist"
+LAUNCH_AGENT_SRC="/Applications/rufs.app/Contents/Resources/com.github.sgielen.rufs.plist"
+LAUNCH_AGENT_DEST="$HOME/Library/LaunchAgents/com.github.sgielen.rufs.plist"
 
 USER_UID="$(id -u $USER)"
 

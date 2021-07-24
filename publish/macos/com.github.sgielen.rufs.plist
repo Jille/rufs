@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
  <key>Label</key>
- <string>sg.sjor.rufs</string>
+ <string>com.github.sgielen.rufs</string>
  <key>ProgramArguments</key>
  <array>
   <string>/usr/bin/open</string>
