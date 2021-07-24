@@ -27,7 +27,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: macos_pkg
-        path: publish/macos/rufs.pkg
+        path: publish/macos/rufs-setup.pkg
         if-no-files-found: error
         retention-days: 1
 

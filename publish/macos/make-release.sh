@@ -8,8 +8,8 @@ cd "$(dirname "$0")"
 if [ -d "rufs.app" ]; then
 	rm -rf rufs.app
 fi
-if [ -f "rufs.pkg" ]; then
-	rm rufs.pkg
+if [ -f "rufs-setup.pkg" ]; then
+	rm rufs-setup.pkg
 fi
 if [ -d "rufs.iconset" ]; then
 	rm -rf rufs.iconset
@@ -91,5 +91,5 @@ pkgbuild \
 	--root tempdir/root \
 	--install-location / \
 	tempdir/packages/rufs-client.pkg
-productbuild --distribution Distribution --resources pkg-resources --package-path tempdir/packages rufs.pkg
+productbuild --distribution Distribution --resources pkg-resources --package-path tempdir/packages rufs-setup.pkg
 rm -rf tempdir
