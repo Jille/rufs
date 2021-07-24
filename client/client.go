@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/pkg/browser"
@@ -81,12 +82,21 @@ func main() {
 		ctx, cancel := context.WithCancel(ctx)
 		unmountFuse = cancel
 		go func() {
+			isCreated, err := maybeCreateMountpoint(mp)
+			if err != nil {
+				log.Printf("failed to create mountpoint: %v", err)
+			}
 			f, err := fuse.NewMount(mp, *allowUsers)
 			if err != nil {
 				log.Fatalf("failed to mount fuse: %v", err)
 			}
 			if err := f.Run(ctx); err != nil {
 				log.Fatalf("failed to run fuse: %v", err)
+			}
+			if isCreated {
+				if err := os.Remove(mp); err != nil {
+					log.Fatalf("failed to clean up mointpoint: %v", err)
+				}
 			}
 			os.Exit(0)
 		}()
@@ -99,6 +109,19 @@ func main() {
 	})
 
 	// Code here will not run. Instead, put it in the onQuit lambda above.
+}
+
+func maybeCreateMountpoint(mp string) (bool, error) {
+	// On Windows, never create the mountpoint
+	if runtime.GOOS == "windows" {
+		return false, nil
+	}
+	// On Unix, create the mountpoint if it does not exist yet
+	_, err := os.Stat(mp)
+	if os.IsNotExist(err) {
+		return true, os.MkdirAll(mp, 0)
+	}
+	return false, err
 }
 
 func onOpen() {
