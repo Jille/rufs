@@ -198,8 +198,14 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 }
 
 func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
+	isMe := p.GetName() == c.myName()
+
 	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s", p.GetName()))
-	r.InitialState(peerToResolverState(p))
+	if isMe {
+		r.InitialState(c.localResolverState())
+	} else {
+		r.InitialState(peerToResolverState(p))
+	}
 
 	// If we enable keepalive on a peer that does not allow it, they will
 	// close the connection with a GOAWAY / ENHANCE_YOUR_CALM error.
@@ -236,9 +242,23 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 	}
 	return &Peer{
 		Name:     p.GetName(),
+		isMe:     isMe,
 		conn:     conn,
 		resolver: r,
 	}
+}
+
+func (c *circle) myName() string {
+	return c.keyPair.CommonName()
+}
+
+func (c *circle) localResolverState() resolver.State {
+	var s resolver.State
+	s.Addresses = append(s.Addresses, resolver.Address{
+		Addr:       fmt.Sprintf("%s:127.0.0.1:%d", pb.Endpoint_TCP.String(), c.myPort),
+		ServerName: c.myName(),
+	})
+	return s
 }
 
 func (c *circle) dialPeer(ctx context.Context, addr string) (net.Conn, error) {
@@ -282,12 +302,16 @@ func peerToResolverState(p *pb.Peer) resolver.State {
 
 type Peer struct {
 	Name     string
+	isMe     bool
 	conn     *grpc.ClientConn
 	resolver *manual.Resolver
 }
 
 func (p *Peer) update(pe *pb.Peer) {
-	p.resolver.UpdateState(peerToResolverState(pe))
+	// Never update our own resolver state.
+	if !p.isMe {
+		p.resolver.UpdateState(peerToResolverState(pe))
+	}
 }
 
 func (p *Peer) ContentServiceClient() pb.ContentServiceClient {

@@ -313,6 +313,10 @@ type KeyPair struct {
 	crt tls.Certificate
 }
 
+func (p *KeyPair) CommonName() string {
+	return p.crt.Leaf.Subject.CommonName
+}
+
 func (p *KeyPair) TLSConfigForMasterClient() *tls.Config {
 	return getTlsConfig(tlsConfigMasterClient, p.ca, &p.crt, p.ca.Subject.CommonName)
 }
