@@ -6,12 +6,12 @@ import (
 	"google.golang.org/grpc/balancer/base"
 )
 
-const BalancerName string = "rufs"
+const BalancerName string = "rufs-peer"
 
 func init() {
 	// Use the base implementation of the balancer. It attempts to create a subconn (channel) for each
 	// address, allowing us to pick the address to use.
-	balancer.Register(base.NewBalancerBuilder(BalancerName, &rufsPickerBuilder{}, base.Config{HealthCheck: true}))
+	balancer.Register(base.NewBalancerBuilder(BalancerName, &rufsPickerBuilder{}, base.Config{}))
 }
 
 type rufsPickerBuilder struct{}
