@@ -236,7 +236,8 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 		// and this method of communication is preferred, the client should still
 		// also connect using UDP; if not, the other client may not be able to
 		// connect to the first client at all.
-		grpc.WithBalancerName(BalancerName),
+		grpc.WithDisableServiceConfig(),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [ { "`+BalancerName+`": {} } ]}`),
 	)
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
