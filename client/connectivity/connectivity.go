@@ -230,6 +230,14 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 		grpc.WithContextDialer(c.dialPeer),
 		grpc.WithTransportCredentials(credentials.NewTLS(c.keyPair.TLSConfigForServerClient(p.GetName()))),
 		keepaliveOption,
+		// gRPC should keep a channel open to all endpoints, since UDP hole-punching
+		// between two clients may only work if they are trying to connect to each
+		// other via UDP. Hence, even if one client can connect to the other via TCP,
+		// and this method of communication is preferred, the client should still
+		// also connect using UDP; if not, the other client may not be able to
+		// connect to the first client at all.
+		grpc.WithDisableServiceConfig(),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [ { "`+BalancerName+`": {} } ]}`),
 	)
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
@@ -247,17 +255,28 @@ func (c *circle) myName() string {
 }
 
 func (c *circle) dialPeer(ctx context.Context, addr string) (net.Conn, error) {
-	sp := strings.SplitN(addr, ":", 2)
-	addr = sp[1]
-	switch pb.Endpoint_Type(pb.Endpoint_Type_value[sp[0]]) {
+	endpointType, addr := splitGrpcAddress(addr)
+	switch endpointType {
 	case pb.Endpoint_SCTP_OVER_UDP:
 		return c.udpSocket.DialContext(ctx, addr)
 	case pb.Endpoint_TCP:
 		var d net.Dialer
 		return d.DialContext(ctx, "tcp", addr)
 	default:
-		return nil, fmt.Errorf("internal error: unknown endpoint type: %v", sp[0])
+		return nil, fmt.Errorf("internal error: unknown endpoint type in address: %s", addr)
 	}
+}
+
+func joinGrpcAddress(t pb.Endpoint_Type, addr string) string {
+	return t.String() + ":" + addr
+}
+
+func splitGrpcAddress(addr string) (pb.Endpoint_Type, string) {
+	sp := strings.SplitN(addr, ":", 2)
+	if v, ok := pb.Endpoint_Type_value[sp[0]]; ok {
+		return pb.Endpoint_Type(v), sp[1]
+	}
+	return pb.Endpoint_UNKNOWN_TYPE, sp[1]
 }
 
 func (c *circle) peerToResolverState(p *pb.Peer) resolver.State {
@@ -277,7 +296,7 @@ func (c *circle) peerToResolverState(p *pb.Peer) resolver.State {
 			continue
 		}
 		s.Addresses = append(s.Addresses, resolver.Address{
-			Addr:       e.Type.String() + ":" + e.GetAddress(),
+			Addr:       joinGrpcAddress(e.Type, e.GetAddress()),
 			ServerName: p.GetName(),
 		})
 	}
