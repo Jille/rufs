@@ -6,17 +6,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	osUser "os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
+	billybazilfuse "github.com/Jille/billy-bazilfuse"
 	"github.com/sgielen/rufs/client/vfs"
 )
 
@@ -90,162 +88,19 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 			retErr = err
 		}
 	}()
-	if err := fs.Serve(conn, f); err != nil {
+	if err := fs.Serve(conn, billybazilfuse.New(vfs.GetFilesystem(), f.callHook)); err != nil {
 		return err
 	}
 	<-conn.Ready
 	return conn.MountError
 }
 
-func (fs *Mount) Root() (fs.Node, error) {
-	return &dir{node{fs, ""}}, nil
-}
-
-type node struct {
-	fs   *Mount
-	path string
-}
-
-func (n *node) checkAccess(uid uint32) error {
-	if n.fs.allowedUsers == nil {
+func (f *Mount) callHook(ctx context.Context, req fuse.Request) error {
+	if f.allowedUsers == nil {
 		return nil
 	}
-	if !n.fs.allowedUsers[uid] {
+	if !f.allowedUsers[req.Hdr().Uid] {
 		return fuse.EPERM
 	}
-	return nil
-}
-
-func (n *node) Access(ctx context.Context, req *fuse.AccessRequest) (retErr error) {
-	return n.checkAccess(req.Header.Uid)
-}
-
-func (n *node) Attr(ctx context.Context, attr *fuse.Attr) (retErr error) {
-	if n.path == "" {
-		attr.Mode = 0755 | os.ModeDir
-		return nil
-	}
-	f, found := vfs.Stat(ctx, n.path)
-	if !found {
-		return fuse.ENOENT
-	}
-	attr.Size = uint64(f.Size)
-	if f.IsDirectory {
-		attr.Mode = 0755 | os.ModeDir
-	} else {
-		attr.Mode = 0644
-	}
-	attr.Mtime = f.Mtime
-	return nil
-}
-
-func (n *node) Setattr(ctx context.Context, request *fuse.SetattrRequest, response *fuse.SetattrResponse) (retErr error) {
-	return fuse.ENOSYS
-}
-
-func (n *node) Getxattr(ctx context.Context, req *fuse.GetxattrRequest, resp *fuse.GetxattrResponse) (retErr error) {
-	return fuse.ENOSYS
-}
-
-func (n *node) Setxattr(ctx context.Context, req *fuse.SetxattrRequest) (retErr error) {
-	return fuse.ENOSYS
-}
-
-type dir struct {
-	node
-}
-
-func (d *dir) Create(ctx context.Context, request *fuse.CreateRequest, response *fuse.CreateResponse) (_ fs.Node, _ fs.Handle, retErr error) {
-	return nil, nil, fuse.ENOSYS
-}
-
-func (d *dir) Lookup(ctx context.Context, name string) (_ fs.Node, retErr error) {
-	path := filepath.Join(d.path, name)
-	f, found := vfs.Stat(ctx, path)
-	if !found {
-		return nil, fuse.ENOENT
-	}
-	if f.IsDirectory {
-		return &dir{node{d.fs, path}}, nil
-	} else {
-		return &file{node{d.fs, path}}, nil
-	}
-}
-
-func (d *dir) Mkdir(ctx context.Context, request *fuse.MkdirRequest) (_ fs.Node, retErr error) {
-	return nil, fuse.ENOSYS
-}
-
-func (d *dir) ReadDirAll(ctx context.Context) (_ []fuse.Dirent, retErr error) {
-	ret := vfs.Readdir(ctx, d.path)
-
-	dirents := make([]fuse.Dirent, 0, len(ret.Files))
-	for fn, file := range ret.Files {
-		var t fuse.DirentType
-		if file.IsDirectory {
-			t = fuse.DT_Dir
-		} else {
-			t = fuse.DT_File
-		}
-		dirents = append(dirents, fuse.Dirent{
-			Name: fn,
-			Type: t,
-		})
-	}
-	return dirents, nil
-}
-
-func (d *dir) Remove(ctx context.Context, request *fuse.RemoveRequest) error {
-	return fuse.ENOSYS
-}
-
-type file struct {
-	node
-}
-
-func (f *file) Open(ctx context.Context, request *fuse.OpenRequest, response *fuse.OpenResponse) (_ fs.Handle, retErr error) {
-	if err := f.checkAccess(request.Header.Uid); err != nil {
-		return nil, err
-	}
-	ret, err := vfs.Open(ctx, f.path)
-	if err != nil {
-		if err.Error() == "ENOENT" {
-			return nil, fuse.ENOENT
-		}
-		return nil, err
-	}
-	return &handle{f.node, ret}, nil
-}
-
-type handle struct {
-	node
-	vh vfs.Handle
-}
-
-func (h *handle) Read(ctx context.Context, request *fuse.ReadRequest, response *fuse.ReadResponse) (retErr error) {
-	response.Data = make([]byte, request.Size)
-	n, retErr := h.vh.Read(ctx, request.Offset, response.Data)
-	if retErr == io.EOF {
-		// Golang's io.Reader contract allows n>0 with io.EOF to indicate a short read.
-		// Fuse however treats any returned error as fatal.
-		retErr = nil
-	}
-	if retErr != nil {
-		log.Printf("VFS read failed for {%s}: %v", h.path, retErr)
-	}
-	response.Data = response.Data[0:n]
-	return retErr
-}
-
-func (h *handle) Write(ctx context.Context, request *fuse.WriteRequest, response *fuse.WriteResponse) (retErr error) {
-	return fuse.ENOSYS
-}
-
-func (h *handle) Fsync(ctx context.Context, request *fuse.FsyncRequest) error {
-	return fuse.ENOSYS
-}
-
-func (h *handle) Release(ctx context.Context, request *fuse.ReleaseRequest) error {
-	h.vh.Close()
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -15,39 +16,76 @@ import (
 	// Windows. Calls into the VFS layer are assumed to follow this standard.
 	"path"
 
+	"github.com/Jille/billy-router/emptyfs"
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfers"
+	"github.com/sgielen/rufs/client/vfs/readonlyhandle"
 	"github.com/sgielen/rufs/common"
 	pb "github.com/sgielen/rufs/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+func GetFilesystem() billy.Filesystem {
+	return polyfill.New(mergeFS{})
+}
+
+type mergeFS struct{}
+
+var _ billy.Basic = mergeFS{}
+var _ billy.Dir = mergeFS{}
+
 type Directory struct {
 	Files map[string]*File
 }
 
 type File struct {
-	FullPath     string
-	IsDirectory  bool
-	Mtime        time.Time
-	Size         int64
-	Hash         string
-	Peers        []*connectivity.Peer
-	FixedContent []byte
+	fullPath     string
+	isDirectory  bool
+	mtime        time.Time
+	size         int64
+	hash         string
+	peers        []*connectivity.Peer
+	fixedContent []byte
 }
 
-type Handle interface {
-	Read(ctx context.Context, offset int64, buf []byte) (int, error)
-	Close() error
+var _ os.FileInfo = &File{}
+
+func (f *File) Name() string {
+	return path.Base(f.fullPath)
+}
+
+func (f *File) IsDir() bool {
+	return f.isDirectory
+}
+
+func (f *File) Mode() os.FileMode {
+	if f.isDirectory {
+		return 0555 | os.ModeDir
+	}
+	return 0444
+}
+
+func (f *File) ModTime() time.Time {
+	return f.mtime
+}
+
+func (f *File) Size() int64 {
+	return f.size
+}
+
+func (f *File) Sys() interface{} {
+	return nil
 }
 
 type fixedContentHandle struct {
 	content []byte
 }
 
-func (handle *fixedContentHandle) Read(ctx context.Context, offset int64, buf []byte) (int, error) {
+func (handle *fixedContentHandle) ReadAt(buf []byte, offset int64) (int, error) {
 	length := int64(len(handle.content))
 	if offset >= length {
 		return 0, io.EOF
@@ -64,7 +102,8 @@ func (*fixedContentHandle) Close() error {
 	return nil
 }
 
-func Open(ctx context.Context, p string) (Handle, error) {
+func (mergeFS) Open(p string) (billy.File, error) {
+	ctx := context.Background()
 	basename := path.Base(p)
 	dirname := path.Dir(p)
 	dir := readdirImpl(ctx, dirname, true)
@@ -72,30 +111,42 @@ func Open(ctx context.Context, p string) (Handle, error) {
 	if file == nil {
 		return nil, errors.New("ENOENT")
 	}
-	if file.IsDirectory {
+	if file.isDirectory {
 		return nil, errors.New("EISDIR")
 	}
-	if len(file.FixedContent) > 0 {
+	if len(file.fixedContent) > 0 {
 		metrics.AddVfsFixedContentOpens(connectivity.CirclesFromPeers(connectivity.AllPeers()), basename, 1)
-		return &fixedContentHandle{
-			content: file.FixedContent,
-		}, nil
+		return readonlyhandle.New(&fixedContentHandle{
+			content: file.fixedContent,
+		}, p), nil
 	}
-	t, err := transfers.GetTransferForFile(ctx, p, file.Hash, file.Size, file.Peers)
+	t, err := transfers.GetTransferForFile(ctx, p, file.hash, file.size, file.peers)
 	if err != nil {
 		return nil, err
 	}
-	return t.GetHandle(), err
+	return readonlyhandle.New(t.GetHandle(), p), nil
 }
 
-func Stat(ctx context.Context, p string) (*File, bool) {
+func (mergeFS) Stat(p string) (os.FileInfo, error) {
+	if p == "" || p == "/" || p == "." {
+		return emptyfs.New().Stat(p)
+	}
 	dn, fn := path.Split(p)
-	ret := readdirImpl(ctx, dn, true)
+	ret := readdirImpl(context.Background(), dn, true)
 	f, found := ret.Files[fn]
 	if !found {
-		return nil, false
+		return nil, os.ErrNotExist
 	}
-	return f, true
+	return f, nil
+}
+
+func (mergeFS) ReadDir(p string) ([]os.FileInfo, error) {
+	d := Readdir(context.Background(), p)
+	ret := make([]os.FileInfo, 0, len(d.Files))
+	for _, f := range d.Files {
+		ret = append(ret, f)
+	}
+	return ret, nil
 }
 
 func Readdir(ctx context.Context, p string) *Directory {
@@ -216,12 +267,12 @@ func readdirImpl(ctx context.Context, p string, preferCache bool) *Directory {
 			}
 		}
 		res.Files[filename] = &File{
-			FullPath:    path.Join(p, filename),
-			IsDirectory: file.instances[0].file.GetIsDirectory(),
-			Mtime:       time.Unix(highestMtime, 0),
-			Size:        file.instances[0].file.GetSize(),
-			Hash:        file.instances[0].file.GetHash(),
-			Peers:       peers,
+			fullPath:    path.Join(p, filename),
+			isDirectory: file.instances[0].file.GetIsDirectory(),
+			mtime:       time.Unix(highestMtime, 0),
+			size:        file.instances[0].file.GetSize(),
+			hash:        file.instances[0].file.GetHash(),
+			peers:       peers,
 		}
 	}
 	if len(warnings) >= 1 {
@@ -229,11 +280,11 @@ func readdirImpl(ctx context.Context, p string, preferCache bool) *Directory {
 		sort.Strings(warnings)
 		warning += strings.Join(warnings, "\n") + "\n"
 		res.Files["rufs-warnings.txt"] = &File{
-			FullPath:     p + "/rufs-warnings.txt",
-			IsDirectory:  false,
-			Mtime:        time.Now(),
-			Size:         int64(len(warning)),
-			FixedContent: []byte(warning),
+			fullPath:     p + "/rufs-warnings.txt",
+			isDirectory:  false,
+			mtime:        time.Now(),
+			size:         int64(len(warning)),
+			fixedContent: []byte(warning),
 		}
 	}
 
@@ -314,4 +365,31 @@ func triggerResolveConflict(ctx context.Context, filename string, peers []string
 			log.Printf("Failed to start conflict resolution for %q: %v", filename, err)
 		}
 	}
+}
+
+func (mergeFS) Create(string) (billy.File, error) {
+	return nil, os.ErrPermission
+}
+
+func (m mergeFS) OpenFile(fn string, flag int, perm os.FileMode) (billy.File, error) {
+	if flag&(os.O_RDWR|os.O_WRONLY|os.O_CREATE) > 0 {
+		return nil, os.ErrPermission
+	}
+	return m.Open(fn)
+}
+
+func (mergeFS) Join(elem ...string) string {
+	return path.Join(elem...)
+}
+
+func (mergeFS) Remove(string) error {
+	return os.ErrPermission
+}
+
+func (mergeFS) Rename(string, string) error {
+	return os.ErrPermission
+}
+
+func (mergeFS) MkdirAll(string, os.FileMode) error {
+	return os.ErrPermission
 }

@@ -216,7 +216,7 @@ func (h *TransferHandle) Close() error {
 	return nil
 }
 
-func (h *TransferHandle) Read(ctx context.Context, offset int64, buf []byte) (n int, retErr error) {
+func (h *TransferHandle) ReadAt(buf []byte, offset int64) (n int, retErr error) {
 	const MIN_READAHEAD_SIZE = 1024 * 32
 	t := h.transfer
 	if t == nil {

@@ -3,13 +3,17 @@ module github.com/sgielen/rufs
 go 1.16
 
 require (
-	bazil.org/fuse v0.0.0-20200407214033-5883e5a4b512
+	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
+	github.com/Jille/billy-bazilfuse v0.0.3
+	github.com/Jille/billy-cgofuse v0.0.1
+	github.com/Jille/billy-router v0.0.1
 	github.com/Jille/convreq v1.1.0
 	github.com/Jille/dfr v1.0.0
 	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
 	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/getlantern/systray v1.1.0
+	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.5
 	github.com/gorilla/mux v1.8.0 // indirect
