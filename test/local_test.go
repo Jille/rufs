@@ -207,7 +207,7 @@ func TestBasic(t *testing.T) {
 	mustRunCommand(t, "chmod", "755", filepath.Join(baseDir, "path", "xdg-open"))
 	os.Setenv("PATH", fmt.Sprintf("%s:%s", filepath.Join(baseDir, "path"), os.Getenv("PATH")))
 
-	mustRunCommand(t, getRUFSBinary("create_ca_pair"), "--circle=" + circleName, "--certdir="+filepath.Join(baseDir, "discovery"))
+	mustRunCommand(t, getRUFSBinary("create_ca_pair"), "--circle="+circleName, "--certdir="+filepath.Join(baseDir, "discovery"))
 	caFingerprint := strings.TrimSpace(mustRunCommand_GetStdout(t, getRUFSBinary("ca_fingerprint"), "--certdir="+filepath.Join(baseDir, "discovery")))
 	client1Token := strings.TrimSpace(mustRunCommand_GetStdout(t, getRUFSBinary("create_auth_token"), "--certdir="+filepath.Join(baseDir, "discovery"), "client-1"))
 	client2Token := strings.TrimSpace(mustRunCommand_GetStdout(t, getRUFSBinary("create_auth_token"), "--certdir="+filepath.Join(baseDir, "discovery"), "client-2"))
