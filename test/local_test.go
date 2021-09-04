@@ -243,19 +243,19 @@ func TestBasic(t *testing.T) {
 	}
 	mustApiRequest(t, 11021, "add_share", map[string]string{"circle": circleName, "share": "shareA", "local": filepath.Join(baseDir, "client-2", "shareA")})
 
-	mustRunCommand(t, "md5sum", filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-0.dat"))
-	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 1024)
-	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 512)
-	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-1024.dat"), 0, 511)
-	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-8191.dat"), 0, 8191)
-	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-8192.dat"), 0, 8192)
-	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-8192.dat"), 4095, 4097)
+	mustRunCommand(t, "md5sum", filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-0.dat"))
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-1024.dat"), 0, 1024)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-1024.dat"), 0, 512)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-1024.dat"), 0, 511)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-8191.dat"), 0, 8191)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-8192.dat"), 0, 8192)
+	verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-8192.dat"), 4095, 4097)
 	for i := 0; 1000 > i; i++ {
 		off := rand.Intn(10 * 1024 * 1024)
 		siz := rand.Intn(1024 * 1024)
 		if off+siz > 10*1024*1024 {
 			siz = 10*1024*1024 - off
 		}
-		verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "shareA", "file-10M.dat"), off, siz)
+		verifyReads(t, filepath.Join(baseDir, "client-2", "mnt", "all", "shareA", "file-10M.dat"), off, siz)
 	}
 }

@@ -16,9 +16,9 @@ import (
 	// Windows. Calls into the VFS layer are assumed to follow this standard.
 	"path"
 
+	"github.com/Jille/billy-router"
 	"github.com/Jille/billy-router/emptyfs"
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/helper/polyfill"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfers"
@@ -30,7 +30,9 @@ import (
 )
 
 func GetFilesystem() billy.Filesystem {
-	return polyfill.New(mergeFS{})
+	fs := router.New(emptyfs.New())
+	fs.Mount("/all", mergeFS{})
+	return fs
 }
 
 type mergeFS struct{}
