@@ -11,7 +11,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/getlantern/systray v1.1.0
 	github.com/golang/protobuf v1.5.2
-	github.com/google/go-cmp v0.5.5
+	github.com/google/go-cmp v0.5.6
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/jrick/logrotate v1.0.0
