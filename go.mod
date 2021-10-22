@@ -19,7 +19,7 @@ require (
 	github.com/pion/logging v0.2.2
 	github.com/pion/sctp v1.7.12
 	github.com/pkg/browser v0.0.0-20210115035449-ce105d075bb4
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
