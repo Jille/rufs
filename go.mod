@@ -23,7 +23,7 @@ require (
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/yookoala/realpath v1.0.0
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
-	google.golang.org/grpc v1.37.0
+	google.golang.org/grpc v1.41.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
 )
