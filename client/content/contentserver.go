@@ -256,7 +256,17 @@ func (f *fakeListener) Close() error {
 }
 
 func (f *fakeListener) Addr() net.Addr {
-	return nil
+	return fakeAddr{}
+}
+
+type fakeAddr struct{}
+
+func (fakeAddr) Network() string {
+	return "fake"
+}
+
+func (fakeAddr) String() string {
+	return "fake-address"
 }
 
 func RegisterIncomingContentConnectionsServer(l *fakeListener) {
