@@ -183,7 +183,7 @@ func sharesInCircle(ctx context.Context, req *http.Request, get sharesInCircleGe
 	// TODO(quis): Only readdir get.Circle.
 	dir := vfs.Readdir(ctx, "")
 	for fn, fi := range dir.Files {
-		if fi.IsDirectory {
+		if fi.IsDir() {
 			res.Shares = append(res.Shares, fn)
 		}
 	}

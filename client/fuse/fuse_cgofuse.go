@@ -6,15 +6,13 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"io"
-	"log"
 	osUser "os/user"
 	"runtime"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
+	billycgofuse "github.com/Jille/billy-cgofuse"
 	"github.com/billziss-gh/cgofuse/fuse"
 	"github.com/sgielen/rufs/client/vfs"
 )
@@ -41,7 +39,6 @@ func NewMount(mountpoint string, allowUsers string) (*Mount, error) {
 	res := &Mount{
 		mountpoint:   strings.TrimRight(mountpoint, `/\`),
 		allowedUsers: allowedUsers,
-		handles:      map[uint64]vfs.Handle{},
 	}
 	return res, nil
 }
@@ -51,12 +48,10 @@ type Mount struct {
 	mtx          sync.Mutex
 	mountpoint   string
 	allowedUsers map[uint32]bool
-	handles      map[uint64]vfs.Handle
-	lastHandle   uint64
 }
 
 func (f *Mount) Run(ctx context.Context) (retErr error) {
-	host := fuse.NewFileSystemHost(f)
+	host := fuse.NewFileSystemHost(billycgofuse.New(vfs.GetFilesystem()))
 	host.SetCapCaseInsensitive(false)
 	host.SetCapReaddirPlus(true)
 	// TODO: small readahead, allow others if len(f.allowedUsers) != 0
@@ -75,127 +70,4 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 		return errors.New("failed to initialize cgofuse mount")
 	}
 	return nil
-}
-
-func (f *Mount) checkAccess() int {
-	if f.allowedUsers == nil {
-		return 0
-	}
-	uid, _, _ := fuse.Getcontext()
-	if f.allowedUsers[uid] {
-		return -fuse.EPERM
-	}
-	return 0
-}
-
-func stripPath(path string) string {
-	return strings.TrimPrefix(path, "/")
-}
-
-func (f *Mount) Access(_ string, mask uint32) int {
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
-	return f.checkAccess()
-}
-
-func (f *Mount) Getattr(path string, attr *fuse.Stat_t, fh uint64) int {
-	path = stripPath(path)
-	if path == "" || path == "/" {
-		attr.Mode = 0555 | fuse.S_IFDIR
-		return 0
-	}
-	file, found := vfs.Stat(context.Background(), path)
-	if !found {
-		return -fuse.ENOENT
-	}
-	attr.Size = file.Size
-	if file.IsDirectory {
-		attr.Mode = 0755 | fuse.S_IFDIR
-	} else {
-		attr.Mode = 0644 | fuse.S_IFREG
-	}
-	attr.Mtim = fuse.NewTimespec(file.Mtime)
-	return 0
-}
-
-func (f *Mount) Readdir(path string, fill func(name string, stat *fuse.Stat_t, ofst int64) bool, ofst int64, fh uint64) int {
-	path = stripPath(path)
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
-	ret := vfs.Readdir(context.Background(), path)
-
-	var files []string
-	for fn, _ := range ret.Files {
-		files = append(files, fn)
-	}
-
-	// TODO(sjors): This sort.Strings is a workaround for an issue
-	// reproducible in at least two implementations of FUSE on macOS.
-	// Perhaps there is an issue in macFUSE somewhere. See e.g.
-	// https://github.com/billziss-gh/cgofuse/issues/57
-	sort.Strings(files)
-
-	for _, fn := range files {
-		f := ret.Files[fn]
-		attr := fuse.Stat_t{}
-		attr.Size = f.Size
-		if f.IsDirectory {
-			attr.Mode = 0755 | fuse.S_IFDIR
-		} else {
-			attr.Mode = 0644
-		}
-		attr.Mtim = fuse.NewTimespec(f.Mtime)
-		if !fill(fn, &attr, 0) {
-			break
-		}
-	}
-	return 0
-}
-
-func (f *Mount) Open(path string, flags int) (int, uint64) {
-	path = stripPath(path)
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
-	if access := f.checkAccess(); access != 0 {
-		return access, 0
-	}
-	handle, err := vfs.Open(context.Background(), path)
-	if err != nil {
-		if err.Error() == "ENOENT" {
-			return -fuse.ENOENT, 0
-		}
-		return -fuse.EIO, 0
-	}
-	f.lastHandle += 1
-	fh := f.lastHandle
-	f.handles[fh] = handle
-	return 0, fh
-}
-
-func (f *Mount) Read(path string, buff []byte, offset int64, fh uint64) int {
-	path = stripPath(path)
-	f.mtx.Lock()
-	handle, ok := f.handles[fh]
-	f.mtx.Unlock()
-	if !ok {
-		return -fuse.EIO
-	}
-	n, err := handle.Read(context.Background(), offset, buff)
-	if err != nil && err != io.EOF {
-		log.Printf("VFS read failed for {%s}: %v", path, err)
-		return -fuse.EIO
-	}
-	return n
-}
-
-func (f *Mount) Release(_ string, fh uint64) int {
-	f.mtx.Lock()
-	defer f.mtx.Unlock()
-	handle, ok := f.handles[fh]
-	if !ok {
-		return -fuse.EIO
-	}
-	handle.Close()
-	delete(f.handles, fh)
-	return 0
 }
