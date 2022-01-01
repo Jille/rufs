@@ -7,7 +7,7 @@ require (
 	github.com/Jille/billy-bazilfuse v0.0.4
 	github.com/Jille/billy-cgofuse v0.0.4
 	github.com/Jille/billy-router v0.0.2
-	github.com/Jille/convreq v1.1.0
+	github.com/Jille/convreq v1.2.0
 	github.com/Jille/dfr v1.0.0
 	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
 	github.com/billziss-gh/cgofuse v1.5.0
@@ -16,8 +16,6 @@ require (
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.6
-	github.com/gorilla/mux v1.8.0 // indirect
-	github.com/gorilla/schema v1.2.0 // indirect
 	github.com/jrick/logrotate v1.0.0
 	github.com/ory/go-convenience v0.1.0
 	github.com/pion/logging v0.2.2
