@@ -42,7 +42,7 @@ func Serve(addr string, kps []*security.KeyPair) error {
 	s := grpc.NewServer(
 		grpc.Creds(swappableCredentials),
 		grpc.ChainUnaryInterceptor(unaryInterceptor, rpcz.UnaryServerInterceptor),
-		grpc.ChainStreamInterceptor(streamInterceptor),
+		grpc.ChainStreamInterceptor(streamInterceptor, rpcz.StreamServerInterceptor),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             60 * time.Second,
 			PermitWithoutStream: true,

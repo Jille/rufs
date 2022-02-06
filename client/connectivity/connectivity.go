@@ -62,7 +62,11 @@ func ConnectToCircle(ctx context.Context, name string, myEndpoints []string, myP
 		port = "12000"
 	}
 
-	conn, err := grpc.DialContext(ctx, net.JoinHostPort(addr, port), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithUnaryInterceptor(rpcz.UnaryClientInterceptor), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(addr, port),
+		grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())),
+		grpc.WithUnaryInterceptor(rpcz.UnaryClientInterceptor),
+		grpc.WithStreamInterceptor(rpcz.StreamClientInterceptor),
+		grpc.WithBlock())
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}
@@ -243,6 +247,7 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 		grpc.WithDisableServiceConfig(),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [ { "`+BalancerName+`": {} } ]}`),
 		grpc.WithUnaryInterceptor(rpcz.UnaryClientInterceptor),
+		grpc.WithStreamInterceptor(rpcz.StreamClientInterceptor),
 	)
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)
