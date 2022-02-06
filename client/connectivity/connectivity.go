@@ -372,10 +372,14 @@ func AllPeers() []*Peer {
 }
 
 func AllPeersInCircle(name string) []*Peer {
+	cmtx.Lock()
+	defer cmtx.Unlock()
 	return circles[name].AllPeers()
 }
 
 func DiscoveryClient(circle string) pb.DiscoveryServiceClient {
+	cmtx.Lock()
+	defer cmtx.Unlock()
 	return circles[circle].client
 }
 
