@@ -16,9 +16,11 @@ import (
 	// Windows. Calls into the VFS layer are assumed to follow this standard.
 	"path"
 
-	"github.com/Jille/billy-router"
+	"github.com/Jille/billy-grpc/fsclient"
+	router "github.com/Jille/billy-router"
 	"github.com/Jille/billy-router/emptyfs"
 	"github.com/go-git/go-billy/v5"
+	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/transfers"
@@ -30,8 +32,23 @@ import (
 )
 
 func GetFilesystem() billy.Filesystem {
+	first := true
 	fs := router.New(emptyfs.New())
 	fs.Mount("/all", mergeFS{})
+	for _, c := range config.GetCircles() {
+		for _, p := range c.DirectIOPeers {
+			if first {
+				fs.Mount("/directio", emptyfs.New())
+				first = false
+			}
+			go func() {
+				ctx := context.Background()
+				pc := connectivity.AcquirePeerBlocking(ctx, p).Connection()
+				dio := fsclient.New(ctx, pc)
+				fs.Mount("/directio/"+p, dio)
+			}()
+		}
+	}
 	return fs
 }
 

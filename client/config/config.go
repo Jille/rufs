@@ -133,13 +133,15 @@ func readFile(fn string) ([]byte, error) {
 }
 
 type Share struct {
-	Local  string
-	Remote string
+	Local   string
+	Remote  string
+	Writers []string
 }
 
 type Circle struct {
-	Name   string
-	Shares []Share
+	Name          string
+	Shares        []Share
+	DirectIOPeers []string `yaml:"directio_peers"`
 }
 
 type Config struct {
@@ -265,4 +267,13 @@ func writeNewConfig(c Config) error {
 	}
 	cfg = &c
 	return nil
+}
+
+func HasDirectIOPeers() bool {
+	for _, c := range GetCircles() {
+		if len(c.DirectIOPeers) > 0 {
+			return true
+		}
+	}
+	return false
 }

@@ -15,6 +15,7 @@ import (
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	billybazilfuse "github.com/Jille/billy-bazilfuse"
+	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/vfs"
 )
 
@@ -57,8 +58,10 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 		fuse.FSName("rufs"),
 		fuse.Subtype("rufs"),
 		fuse.VolumeName("rufs"),
-		fuse.ReadOnly(),
 		fuse.MaxReadahead(1024 * 1024),
+	}
+	if !config.HasDirectIOPeers() {
+		options = append(options, fuse.ReadOnly())
 	}
 	if len(f.allowedUsers) != 0 || *allowAllUsers {
 		options = append(options, fuse.AllowOther())

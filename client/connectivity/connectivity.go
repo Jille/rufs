@@ -190,6 +190,9 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 		}
 	}
 	for name, cp := range c.peers {
+		if cp.externallyReferenced {
+			continue
+		}
 		found := false
 		for _, pe := range peers {
 			if pe.GetName() == name {
@@ -329,6 +332,9 @@ type Peer struct {
 	circle   *circle
 	conn     *grpc.ClientConn
 	resolver *manual.Resolver
+
+	// Whether this peer was fetched by AcquirePeer and may not be garbage collected.
+	externallyReferenced bool
 }
 
 func (p *Peer) update(pe *pb.Peer) {
@@ -337,6 +343,10 @@ func (p *Peer) update(pe *pb.Peer) {
 
 func (p *Peer) ContentServiceClient() pb.ContentServiceClient {
 	return pb.NewContentServiceClient(p.conn)
+}
+
+func (p *Peer) Connection() grpc.ClientConnInterface {
+	return p.conn
 }
 
 func (c *circle) GetPeer(name string) *Peer {
@@ -439,4 +449,32 @@ func (c *circle) WaitForPeers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// AcquirePeerBlocking will block until the circle of the peer is available.
+// AcquirePeerBlocking never fails (except it might block forever).
+func AcquirePeerBlocking(ctx context.Context, name string) *Peer {
+	var c *circle
+	var found bool
+	for {
+		cmtx.Lock()
+		c, found = circles[common.CircleFromPeer(name)]
+		cmtx.Unlock()
+		if found {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	po, existing := c.peers[name]
+	if !existing {
+		po = c.newPeer(context.Background(), &pb.Peer{
+			Name: name,
+		})
+		c.peers[name] = po
+	}
+	po.externallyReferenced = true
+	return po
 }

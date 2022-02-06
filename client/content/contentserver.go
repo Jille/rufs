@@ -10,8 +10,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jille/billy-grpc/fsserver"
+	router "github.com/Jille/billy-router"
+	"github.com/Jille/billy-router/emptyfs"
 	"github.com/Jille/dfr"
 	"github.com/Jille/rpcz"
+	"github.com/go-git/go-billy/v5"
 	"github.com/sgielen/rufs/client/connectivity"
 	"github.com/sgielen/rufs/client/metrics"
 	"github.com/sgielen/rufs/client/shares"
@@ -57,6 +61,11 @@ func Serve(addr string, kps []*security.KeyPair) error {
 	)
 	pb.RegisterContentServiceServer(s, content{})
 	reflection.Register(s)
+	if shares.HasAnyDirectIOShares() {
+		fsserver.RegisterService(s, &directIO{
+			cache: map[string]billy.Filesystem{},
+		})
+	}
 	sock, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("content server failed to listen on %s: %v", addr, err)
@@ -274,4 +283,28 @@ func RegisterIncomingContentConnectionsServer(l *fakeListener) {
 	connectivity.HandleIncomingContentConnection = func(conn net.Conn) {
 		l.ch <- conn
 	}
+}
+
+type directIO struct {
+	mtx   sync.Mutex
+	cache map[string]billy.Filesystem
+}
+
+func (d *directIO) FilesystemForPeer(ctx context.Context) (billy.Filesystem, codes.Code, error) {
+	peer, _, err := security.PeerFromContext(ctx)
+	if err != nil {
+		return nil, status.Code(err), err
+	}
+	d.mtx.Lock()
+	defer d.mtx.Unlock()
+	if fs, found := d.cache[peer]; found {
+		return fs, codes.OK, nil
+	}
+	granted := shares.SharesForPeer(peer)
+	fs := router.New(emptyfs.New())
+	for name, subfs := range granted {
+		fs.Mount("/"+name, subfs)
+	}
+	d.cache[peer] = fs
+	return fs, codes.OK, nil
 }
