@@ -31,6 +31,8 @@ var (
 	HandleResolveConflictRequest    = func(ctx context.Context, req *pb.ResolveConflictRequest, circle string) {}
 	HandleActiveDownloadList        = func(ctx context.Context, req *pb.ConnectResponse_ActiveDownloadList, circle string) {}
 	HandleIncomingContentConnection = func(net.Conn) {}
+
+	nextManualResolverScheme int
 )
 
 type circle struct {
@@ -198,7 +200,8 @@ func (c *circle) processPeers(ctx context.Context, peers []*pb.Peer) {
 }
 
 func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
-	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%s", p.GetName()))
+	nextManualResolverScheme++
+	r := manual.NewBuilderWithScheme(fmt.Sprintf("rufs-%d", nextManualResolverScheme))
 	r.InitialState(c.peerToResolverState(p))
 
 	// If we enable keepalive on a peer that does not allow it, they will
