@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jille/rpcz"
 	"github.com/sgielen/rufs/client/connectivity/udptransport"
 	"github.com/sgielen/rufs/client/remotelogging"
 	"github.com/sgielen/rufs/common"
@@ -61,7 +62,7 @@ func ConnectToCircle(ctx context.Context, name string, myEndpoints []string, myP
 		port = "12000"
 	}
 
-	conn, err := grpc.DialContext(ctx, net.JoinHostPort(addr, port), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, net.JoinHostPort(addr, port), grpc.WithTransportCredentials(credentials.NewTLS(kp.TLSConfigForMasterClient())), grpc.WithUnaryInterceptor(rpcz.UnaryClientInterceptor), grpc.WithBlock())
 	if err != nil {
 		return fmt.Errorf("failed to connect to discovery server: %v", err)
 	}
@@ -241,6 +242,7 @@ func (c *circle) newPeer(ctx context.Context, p *pb.Peer) *Peer {
 		// connect to the first client at all.
 		grpc.WithDisableServiceConfig(),
 		grpc.WithDefaultServiceConfig(`{"loadBalancingConfig": [ { "`+BalancerName+`": {} } ]}`),
+		grpc.WithUnaryInterceptor(rpcz.UnaryClientInterceptor),
 	)
 	if err != nil {
 		log.Fatalf("Failed to dial peer %q: %v", r.Scheme(), err)

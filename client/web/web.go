@@ -15,6 +15,7 @@ import (
 
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
+	"github.com/Jille/rpcz"
 	"github.com/pkg/browser"
 	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/connectivity"
@@ -58,6 +59,7 @@ func Init(addr string) {
 	http.Handle("/api/add_share", convreq.Wrap(addShare, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/set_mountpoint", convreq.Wrap(setMountpoint, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/open_explorer", convreq.Wrap(openExplorer, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/rpcz", rpcz.Handler)
 	http.Handle("/", convreq.Wrap(renderStatic))
 	log.Printf("web server listening on addr %s.", addr)
 	if err := http.ListenAndServe(addr, authMiddleWare(http.DefaultServeMux)); err != nil {

@@ -9,7 +9,7 @@ require (
 	github.com/Jille/billy-router v0.0.2
 	github.com/Jille/convreq v1.2.0
 	github.com/Jille/dfr v1.0.0
-	github.com/Jille/errchain v0.0.0-20160829115253-c62feead6f25 // indirect
+	github.com/Jille/rpcz v0.1.5
 	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/getlantern/systray v1.1.0
