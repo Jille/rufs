@@ -15,7 +15,7 @@ require (
 	github.com/getlantern/systray v1.1.0
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/golang/protobuf v1.5.2
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.5.7
 	github.com/jrick/logrotate v1.0.0
 	github.com/ory/go-convenience v0.1.0
 	github.com/pion/logging v0.2.2
