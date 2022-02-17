@@ -59,6 +59,7 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 		fuse.Subtype("rufs"),
 		fuse.VolumeName("rufs"),
 		fuse.MaxReadahead(1024 * 1024),
+		fuse.AsyncRead(),
 	}
 	if !config.HasDirectIOPeers() {
 		options = append(options, fuse.ReadOnly())
