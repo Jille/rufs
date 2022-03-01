@@ -13,7 +13,7 @@ require (
 	github.com/Jille/rpcz v0.2.1
 	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/cenkalti/backoff/v4 v4.1.2
-	github.com/getlantern/systray v1.1.0
+	github.com/getlantern/systray v1.2.0
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.7
