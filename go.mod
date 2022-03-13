@@ -10,7 +10,7 @@ require (
 	github.com/Jille/billy-router v0.0.2
 	github.com/Jille/convreq v1.2.0
 	github.com/Jille/dfr v1.0.0
-	github.com/Jille/rpcz v0.2.1
+	github.com/Jille/rpcz v0.2.3
 	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/getlantern/systray v1.1.0
@@ -25,9 +25,11 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/stoewer/go-strcase v1.2.0
 	github.com/yookoala/realpath v1.0.0
+	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
-	golang.org/x/sys v0.0.0-20210903071746-97244b99971b // indirect
-	google.golang.org/grpc v1.44.0
+	golang.org/x/sys v0.0.0-20220310020820-b874c991c1a5 // indirect
+	google.golang.org/genproto v0.0.0-20220310185008-1973136f34c6 // indirect
+	google.golang.org/grpc v1.45.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v2 v2.4.0
 )
