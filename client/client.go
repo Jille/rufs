@@ -119,7 +119,7 @@ func maybeCreateMountpoint(mp string) (bool, error) {
 	// On Unix, create the mountpoint if it does not exist yet
 	_, err := os.Stat(mp)
 	if os.IsNotExist(err) {
-		return true, os.MkdirAll(mp, 0)
+		return true, os.MkdirAll(mp, 0777)
 	}
 	return false, err
 }
