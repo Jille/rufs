@@ -7,8 +7,8 @@ github.com/Jille/billy-bazilfuse v0.0.5 h1:3TEjKEHo9QHxW4qs3hNMh1d1IOJx9OhGhDiUX
 github.com/Jille/billy-bazilfuse v0.0.5/go.mod h1:mXdPEVqlnvFzKzIE1q0YADBbDzqjbvr1VW1SyXIviDM=
 github.com/Jille/billy-cgofuse v0.0.4 h1:JUZ1oS7qHej1azItsYYeO5kvhHi7BbOhmxptWgixjB8=
 github.com/Jille/billy-cgofuse v0.0.4/go.mod h1:yeK5uQlSkHNwE3jXe8sCTSkQhwiBpkuxdAT6WxnDNk0=
-github.com/Jille/billy-grpc v0.0.4 h1:I22rgB4VyVQesk3TSYjr33+JhCl1K0sY6SwbHgYziZ0=
-github.com/Jille/billy-grpc v0.0.4/go.mod h1:vcjtTdibJVFlmQKMUA4/sBrJFKsD4xEQmOAaLmj4tDA=
+github.com/Jille/billy-grpc v0.0.5 h1:iWAvA8pbKV6QF0TLE9BRlTAQLwuAUTrW8OBt8YpNQqE=
+github.com/Jille/billy-grpc v0.0.5/go.mod h1:vcjtTdibJVFlmQKMUA4/sBrJFKsD4xEQmOAaLmj4tDA=
 github.com/Jille/billy-router v0.0.2 h1:KMv0/eLNP7GstCRaMAnPkrFyhuKfFlBYz773RlFfPo8=
 github.com/Jille/billy-router v0.0.2/go.mod h1:V+n8kfD4OqI2uiBGIll80uQNGXVrW93UGyOrRbDQEqM=
 github.com/Jille/convreq v1.2.0 h1:wi9zBL8rXTc6144+TMtdXoRUDAHyUjFKtdppf78bMYQ=
