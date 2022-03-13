@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
-	github.com/Jille/billy-bazilfuse v0.0.5
+	github.com/Jille/billy-bazilfuse v0.0.6
 	github.com/Jille/billy-cgofuse v0.0.4
 	github.com/Jille/billy-grpc v0.0.6
 	github.com/Jille/billy-router v0.0.2

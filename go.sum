@@ -35,8 +35,8 @@ cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/Jille/billy-bazilfuse v0.0.5 h1:3TEjKEHo9QHxW4qs3hNMh1d1IOJx9OhGhDiUXpYEGPI=
-github.com/Jille/billy-bazilfuse v0.0.5/go.mod h1:mXdPEVqlnvFzKzIE1q0YADBbDzqjbvr1VW1SyXIviDM=
+github.com/Jille/billy-bazilfuse v0.0.6 h1:h9Ya5u97Dnsl2aX6SYSSwe7U0iPsF20Qcu0ruaRdZ4k=
+github.com/Jille/billy-bazilfuse v0.0.6/go.mod h1:mXdPEVqlnvFzKzIE1q0YADBbDzqjbvr1VW1SyXIviDM=
 github.com/Jille/billy-cgofuse v0.0.4 h1:JUZ1oS7qHej1azItsYYeO5kvhHi7BbOhmxptWgixjB8=
 github.com/Jille/billy-cgofuse v0.0.4/go.mod h1:yeK5uQlSkHNwE3jXe8sCTSkQhwiBpkuxdAT6WxnDNk0=
 github.com/Jille/billy-grpc v0.0.6 h1:io0c1LBSSRjhqXHEnQvYl9mE+KTOqfL8VpfAymZLhvY=
