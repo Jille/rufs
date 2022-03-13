@@ -6,7 +6,7 @@ require (
 	bazil.org/fuse v0.0.0-20200524192727-fb710f7dfd05
 	github.com/Jille/billy-bazilfuse v0.0.5
 	github.com/Jille/billy-cgofuse v0.0.4
-	github.com/Jille/billy-grpc v0.0.5
+	github.com/Jille/billy-grpc v0.0.6
 	github.com/Jille/billy-router v0.0.2
 	github.com/Jille/convreq v1.2.0
 	github.com/Jille/dfr v1.0.0
