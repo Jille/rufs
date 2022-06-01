@@ -43,8 +43,9 @@ github.com/Jille/billy-grpc v0.0.6 h1:io0c1LBSSRjhqXHEnQvYl9mE+KTOqfL8VpfAymZLhv
 github.com/Jille/billy-grpc v0.0.6/go.mod h1:vcjtTdibJVFlmQKMUA4/sBrJFKsD4xEQmOAaLmj4tDA=
 github.com/Jille/billy-router v0.0.2 h1:KMv0/eLNP7GstCRaMAnPkrFyhuKfFlBYz773RlFfPo8=
 github.com/Jille/billy-router v0.0.2/go.mod h1:V+n8kfD4OqI2uiBGIll80uQNGXVrW93UGyOrRbDQEqM=
-github.com/Jille/convreq v1.2.0 h1:wi9zBL8rXTc6144+TMtdXoRUDAHyUjFKtdppf78bMYQ=
 github.com/Jille/convreq v1.2.0/go.mod h1:rxovZlmUBweW9y/t9z+sfRrrPbSojkDG7Sb80ylLvrs=
+github.com/Jille/convreq v1.3.0 h1:I4I46S/clhPVIBM4h2bR/JZiVKTCIyAQw9R4WR4K46s=
+github.com/Jille/convreq v1.3.0/go.mod h1:rxovZlmUBweW9y/t9z+sfRrrPbSojkDG7Sb80ylLvrs=
 github.com/Jille/dfr v1.0.0 h1:hKZ5Ui4sVJ47ocwIBaYg0my4GLuZs5/7pietSOYpub0=
 github.com/Jille/dfr v1.0.0/go.mod h1:P2H4sBdbgPVuq7pvi6IBwig1wxFnlnS/MHj0BSLivR8=
 github.com/Jille/errchain v1.0.0 h1:S1YDbLdKAADkE1Rbj7A6d0QeoWZIvMzTBeoKjEkw9LA=
