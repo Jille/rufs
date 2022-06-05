@@ -85,7 +85,7 @@ cp com.github.sgielen.rufs.plist rufs.app/Contents/Resources
 # Create pkg
 mkdir -p tempdir/root/Applications tempdir/packages
 cp -R rufs.app tempdir/root/Applications
-pkgutil --expand 'macFUSE 4.1.2.pkg' tempdir/macfuse
+pkgutil --expand 'macFUSE 4.2.5.pkg' tempdir/macfuse
 pkgutil --flatten tempdir/macfuse/Core.pkg tempdir/packages/MacfuseCore.pkg
 pkgutil --flatten tempdir/macfuse/PreferencePane.pkg tempdir/packages/MacfusePreferencePane.pkg
 pkgbuild \
