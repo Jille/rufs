@@ -30,6 +30,7 @@ var (
 	httpPort           = flag.Int("http_port", -1, "HTTP server listen port (default: port+1; default 12011)")
 	allowUsers         = flag.String("allow_users", "", "Which local users to allow access to the fuse mount, comma separated")
 	readdirCacheTarget = flag.Int("readdir_cache_target", 1000, "readdir cache size target. Affects memory usage. Set to 0 to disable cache")
+	versionFlag        = flag.Bool("version", false, "Print the version and exit")
 
 	unmountFuse = func() {}
 )
@@ -38,6 +39,11 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lshortfile | log.Lmicroseconds)
 	flag.Parse()
 	ctx := context.Background()
+
+	if *versionFlag {
+		log.Printf("RUFS client version %s", version.GetVersion())
+		return
+	}
 
 	log.Printf("starting rufs client %s", version.GetVersion())
 
