@@ -8,7 +8,7 @@ require (
 	github.com/Jille/billy-cgofuse v0.0.4
 	github.com/Jille/billy-grpc v0.0.6
 	github.com/Jille/billy-router v0.0.2
-	github.com/Jille/convreq v1.3.0
+	github.com/Jille/convreq v1.5.0
 	github.com/Jille/dfr v1.0.0
 	github.com/Jille/rpcz v0.2.4
 	github.com/billziss-gh/cgofuse v1.5.0
