@@ -96,6 +96,9 @@ func handleEchoConnection(t *testing.T, c net.Conn) {
 	if err != nil {
 		t.Errorf("Fatal error occurred in echo server: %v", err)
 	}
+	if err := c.Close(); err != nil {
+		t.Errorf("Echo server failed to close: %v", err)
+	}
 }
 
 func sender(c net.Conn, buf []byte) error {
