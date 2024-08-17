@@ -1,4 +1,4 @@
-// +build !windows,!darwin,!systray
+//go:build !windows && !darwin && !systray
 
 package systray
 

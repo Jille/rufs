@@ -1,4 +1,4 @@
-// +build windows darwin cgofuse
+//go:build windows || darwin || cgofuse
 
 package fuse
 
