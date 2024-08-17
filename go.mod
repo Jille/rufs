@@ -20,8 +20,8 @@ require (
 	github.com/getlantern/systray v1.2.1
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-stack/stack v1.8.1 // indirect
-	github.com/golang/protobuf v1.5.2
-	github.com/google/go-cmp v0.5.8
+	github.com/golang/protobuf v1.5.4
+	github.com/google/go-cmp v0.6.0
 	github.com/jrick/logrotate v1.0.0
 	github.com/ory/go-convenience v0.1.0
 	github.com/pion/logging v0.2.2
@@ -29,16 +29,13 @@ require (
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.34.0 // indirect
-	github.com/stoewer/go-strcase v1.2.0
+	github.com/stoewer/go-strcase v1.3.0
 	github.com/yookoala/realpath v1.0.0
-	go.opentelemetry.io/otel v1.7.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/net v0.0.0-20220531201128-c960675eff93 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/genproto v0.0.0-20220602131408-e326c6e8e9c8 // indirect
-	google.golang.org/grpc v1.47.0
-	google.golang.org/protobuf v1.28.0
+	golang.org/x/sync v0.7.0
+	google.golang.org/grpc v1.65.0
+	google.golang.org/protobuf v1.34.1
 	gopkg.in/yaml.v2 v2.4.0
 )
