@@ -10,10 +10,10 @@ jobs:
   prep_macos_pkg:
     runs-on: macOS-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: 1.22
 
@@ -24,7 +24,7 @@ jobs:
       run: bash publish/macos/make-release.sh
 
     - name: Upload darwin binary for release creation
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: macos_pkg
         path: publish/macos/rufs-setup.pkg
@@ -35,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: prep_macos_pkg
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: 1.22
 
@@ -58,7 +58,7 @@ jobs:
       run: cp test/bin/client _publish/rufs-linux-amd64
 
     - name: Download macos pkg
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v4
       with:
         name: macos_pkg
         path: _publish/
