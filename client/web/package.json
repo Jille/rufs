@@ -13,7 +13,7 @@
   "scripts": {
     "start": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "generate": "[ -d node_modules ] || npm ci; npm run build && ./generate-dist-go.sh >dist.go"
+    "generate": "[ -d node_modules ] || npm ci; npm run build"
   },
   "dependencies": {
     "bootstrap": "^5.0.1",

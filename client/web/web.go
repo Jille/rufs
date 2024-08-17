@@ -2,9 +2,11 @@ package web
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -36,6 +38,9 @@ var (
 	password string
 
 	ReloadConfigCallback func()
+
+	//go:embed dist
+	staticFiles embed.FS
 )
 
 func Init(addr string) {
@@ -236,8 +241,8 @@ func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
 		path = "/index.html"
 	}
 
-	body, ok := staticFiles[path]
-	if !ok {
+	fh, err := staticFiles.Open(path)
+	if err != nil {
 		return respond.NotFound("File not found")
 	}
 
@@ -251,5 +256,5 @@ func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
 	} else if strings.HasSuffix(path, ".svg") {
 		t = "image/svg+xml"
 	}
-	return respond.WithHeader(respond.String(body), "Content-Type", t)
+	return respond.WithHeader(respond.ServeContent(path, time.Time{}, fh.(io.ReadSeeker)), "Content-Type", t)
 }
