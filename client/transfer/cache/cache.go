@@ -3,6 +3,7 @@ package cache
 import (
 	"io/ioutil"
 	"os"
+	"runtime"
 )
 
 func New(size int64) (*Cache, error) {
@@ -11,6 +12,12 @@ func New(size int64) (*Cache, error) {
 		return nil, err
 	}
 	fn := f.Name()
+	if runtime.GOOS != "windows" {
+		// Unlink the file so it isn't left behind if we crash
+		if err := os.Remove(fn); err != nil {
+			return nil, err
+		}
+	}
 	if err := f.Truncate(size); err != nil {
 		f.Close()
 		os.Remove(fn)
@@ -24,6 +31,8 @@ type Cache struct {
 }
 
 func (c *Cache) Close() error {
-	os.Remove(c.Name())
+	if runtime.GOOS == "windows" {
+		os.Remove(c.Name())
+	}
 	return c.File.Close()
 }
