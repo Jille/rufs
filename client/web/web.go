@@ -241,7 +241,7 @@ func renderStatic(ctx context.Context, req *http.Request) convreq.HttpResponse {
 		path = "/index.html"
 	}
 
-	fh, err := staticFiles.Open(path)
+	fh, err := staticFiles.Open("dist" + path)
 	if err != nil {
 		return respond.NotFound("File not found")
 	}
