@@ -5,8 +5,8 @@ package systray
 import (
 	"runtime"
 
+	"github.com/Jille/rufs/client/icon"
 	"github.com/getlantern/systray"
-	"github.com/sgielen/rufs/client/icon"
 )
 
 func Run(onOpen func(), onSettings func(), onQuit func()) {

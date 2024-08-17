@@ -4,8 +4,8 @@ import (
 	"log"
 	"math"
 
-	"github.com/sgielen/rufs/intervals"
-	pb "github.com/sgielen/rufs/proto"
+	"github.com/Jille/rufs/intervals"
+	pb "github.com/Jille/rufs/proto"
 )
 
 const MAX_TRANSFERS_FOR_READAHEAD = 2

@@ -7,13 +7,13 @@ import (
 	"log"
 	"sync"
 
-	"github.com/sgielen/rufs/client/connectivity"
-	"github.com/sgielen/rufs/client/metrics"
-	"github.com/sgielen/rufs/client/shares"
-	"github.com/sgielen/rufs/client/transfer"
-	"github.com/sgielen/rufs/common"
-	pb "github.com/sgielen/rufs/proto"
-	"github.com/sgielen/rufs/security"
+	"github.com/Jille/rufs/client/connectivity"
+	"github.com/Jille/rufs/client/metrics"
+	"github.com/Jille/rufs/client/shares"
+	"github.com/Jille/rufs/client/transfer"
+	"github.com/Jille/rufs/common"
+	pb "github.com/Jille/rufs/proto"
+	"github.com/Jille/rufs/security"
 )
 
 var (

@@ -1,2 +1,2 @@
-//go:generate go run github.com/sgielen/rufs/metricgen --server generated.go
+//go:generate go run github.com/Jille/rufs/metricgen --server generated.go
 package metrics

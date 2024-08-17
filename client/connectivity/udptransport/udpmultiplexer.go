@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sgielen/rufs/client/connectivity/udptransport/deadlinech"
+	"github.com/Jille/rufs/client/connectivity/udptransport/deadlinech"
 )
 
 const mtu = 1400

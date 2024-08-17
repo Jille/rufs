@@ -1,11 +1,11 @@
 package shares
 
 import (
+	"github.com/Jille/rufs/client/config"
+	"github.com/Jille/rufs/common"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/osfs"
 	"github.com/ory/go-convenience/stringslice"
-	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/common"
 )
 
 func SharesForPeer(name string) map[string]billy.Filesystem {

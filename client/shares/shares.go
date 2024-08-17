@@ -10,9 +10,9 @@ import (
 	// works with local paths.
 	"path/filepath"
 
-	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/client/connectivity"
-	pb "github.com/sgielen/rufs/proto"
+	"github.com/Jille/rufs/client/config"
+	"github.com/Jille/rufs/client/connectivity"
+	pb "github.com/Jille/rufs/proto"
 	"github.com/yookoala/realpath"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

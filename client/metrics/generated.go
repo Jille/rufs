@@ -4,7 +4,7 @@ package metrics
 import (
 	"time"
 
-	pb "github.com/sgielen/rufs/proto"
+	pb "github.com/Jille/rufs/proto"
 )
 
 func SetClientStartTimeSeconds(circles []string, v time.Time) {

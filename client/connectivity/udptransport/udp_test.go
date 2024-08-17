@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sgielen/rufs/client/connectivity/udptransport"
+	"github.com/Jille/rufs/client/connectivity/udptransport"
 	"golang.org/x/sync/errgroup"
 )
 

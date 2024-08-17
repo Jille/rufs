@@ -7,9 +7,9 @@ import (
 	"log"
 	"sync"
 
+	"github.com/Jille/rufs/client/connectivity"
+	pb "github.com/Jille/rufs/proto"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/sgielen/rufs/client/connectivity"
-	pb "github.com/sgielen/rufs/proto"
 	"google.golang.org/protobuf/proto"
 )
 

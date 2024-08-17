@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/sgielen/rufs/client/metrics"
-	pb "github.com/sgielen/rufs/proto"
+	"github.com/Jille/rufs/client/metrics"
+	pb "github.com/Jille/rufs/proto"
 )
 
 func runConnectivityMetrics(ctx context.Context, circle string, client pb.DiscoveryServiceClient) {

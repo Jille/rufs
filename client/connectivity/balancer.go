@@ -1,7 +1,7 @@
 package connectivity
 
 import (
-	pb "github.com/sgielen/rufs/proto"
+	pb "github.com/Jille/rufs/proto"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/base"
 )

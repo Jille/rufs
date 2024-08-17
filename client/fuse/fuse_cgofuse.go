@@ -13,8 +13,8 @@ import (
 	"sync"
 
 	billycgofuse "github.com/Jille/billy-cgofuse"
+	"github.com/Jille/rufs/client/vfs"
 	"github.com/billziss-gh/cgofuse/fuse"
-	"github.com/sgielen/rufs/client/vfs"
 )
 
 var (

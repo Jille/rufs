@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sgielen/rufs/security"
-	"github.com/sgielen/rufs/version"
+	"github.com/Jille/rufs/security"
+	"github.com/Jille/rufs/version"
 )
 
 var (

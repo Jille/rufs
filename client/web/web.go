@@ -16,16 +16,16 @@ import (
 	"github.com/Jille/convreq"
 	"github.com/Jille/convreq/respond"
 	"github.com/Jille/rpcz"
+	"github.com/Jille/rufs/client/config"
+	"github.com/Jille/rufs/client/connectivity"
+	"github.com/Jille/rufs/client/register"
+	"github.com/Jille/rufs/client/shares"
+	"github.com/Jille/rufs/client/vfs"
+	"github.com/Jille/rufs/version"
 	"github.com/pkg/browser"
-	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/client/connectivity"
-	"github.com/sgielen/rufs/client/register"
-	"github.com/sgielen/rufs/client/shares"
-	"github.com/sgielen/rufs/client/vfs"
-	"github.com/sgielen/rufs/version"
 
 	// Register /debug/ HTTP handlers.
-	_ "github.com/sgielen/rufs/debugging"
+	_ "github.com/Jille/rufs/debugging"
 )
 
 var (

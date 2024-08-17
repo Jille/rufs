@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sgielen/rufs/client/connectivity"
-	pb "github.com/sgielen/rufs/proto"
+	"github.com/Jille/rufs/client/connectivity"
+	pb "github.com/Jille/rufs/proto"
 )
 
 var (

@@ -5,9 +5,9 @@ import (
 	"flag"
 	"log"
 
-	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/client/register"
-	"github.com/sgielen/rufs/version"
+	"github.com/Jille/rufs/client/config"
+	"github.com/Jille/rufs/client/register"
+	"github.com/Jille/rufs/version"
 )
 
 var (

@@ -1,4 +1,4 @@
-module github.com/sgielen/rufs
+module github.com/Jille/rufs
 
 go 1.21
 

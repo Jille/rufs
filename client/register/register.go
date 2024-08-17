@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/sgielen/rufs/client/config"
-	pb "github.com/sgielen/rufs/proto"
-	"github.com/sgielen/rufs/security"
-	"github.com/sgielen/rufs/version"
+	"github.com/Jille/rufs/client/config"
+	pb "github.com/Jille/rufs/proto"
+	"github.com/Jille/rufs/security"
+	"github.com/Jille/rufs/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sgielen/rufs/client/metrics"
+	"github.com/Jille/rufs/client/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

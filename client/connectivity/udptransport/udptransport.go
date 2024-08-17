@@ -12,11 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jille/rufs/client/connectivity/udptransport/deadlinech"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ory/go-convenience/stringslice"
 	"github.com/pion/logging"
 	"github.com/pion/sctp"
-	"github.com/sgielen/rufs/client/connectivity/udptransport/deadlinech"
 )
 
 const writeBufferSize = 16384

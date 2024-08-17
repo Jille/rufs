@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jille/rufs/discovery/metrics"
+	"github.com/Jille/rufs/discovery/orchestrate"
+	pb "github.com/Jille/rufs/proto"
+	"github.com/Jille/rufs/security"
 	"github.com/golang/protobuf/proto"
 	"github.com/ory/go-convenience/stringslice"
-	"github.com/sgielen/rufs/discovery/metrics"
-	"github.com/sgielen/rufs/discovery/orchestrate"
-	pb "github.com/sgielen/rufs/proto"
-	"github.com/sgielen/rufs/security"
 )
 
 var (

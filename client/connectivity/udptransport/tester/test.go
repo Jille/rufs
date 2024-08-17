@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sgielen/rufs/client/connectivity/udptransport"
+	"github.com/Jille/rufs/client/connectivity/udptransport"
 )
 
 var (

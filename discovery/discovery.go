@@ -13,13 +13,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Jille/rufs/discovery/metrics"
+	"github.com/Jille/rufs/discovery/visualize"
+	pb "github.com/Jille/rufs/proto"
+	"github.com/Jille/rufs/security"
+	"github.com/Jille/rufs/version"
 	"github.com/golang/protobuf/proto"
 	"github.com/jrick/logrotate/rotator"
-	"github.com/sgielen/rufs/discovery/metrics"
-	"github.com/sgielen/rufs/discovery/visualize"
-	pb "github.com/sgielen/rufs/proto"
-	"github.com/sgielen/rufs/security"
-	"github.com/sgielen/rufs/version"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -28,7 +28,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	// Register /debug/ HTTP handlers.
-	_ "github.com/sgielen/rufs/debugging"
+	_ "github.com/Jille/rufs/debugging"
 )
 
 var (

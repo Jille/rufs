@@ -9,9 +9,9 @@ import (
 	"log"
 	"strings"
 
+	pb "github.com/Jille/rufs/proto"
 	"github.com/golang/protobuf/proto"
 	dpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	pb "github.com/sgielen/rufs/proto"
 	strcase "github.com/stoewer/go-strcase"
 )
 
@@ -82,7 +82,7 @@ func listMetrics() []metric {
 func serverMetrics(out *bytes.Buffer) {
 	out.WriteString("import (\n")
 	out.WriteString("	\"github.com/prometheus/client_golang/prometheus\"\n")
-	out.WriteString("	pb \"github.com/sgielen/rufs/proto\"\n")
+	out.WriteString("	pb \"github.com/Jille/rufs/proto\"\n")
 	out.WriteString(")\n")
 	out.WriteString("\n")
 	out.WriteString("var (\n")
@@ -123,7 +123,7 @@ func clientMetrics(out *bytes.Buffer) {
 	out.WriteString("import (\n")
 	out.WriteString("	\"time\"\n")
 	out.WriteString("\n")
-	out.WriteString("	pb \"github.com/sgielen/rufs/proto\"\n")
+	out.WriteString("	pb \"github.com/Jille/rufs/proto\"\n")
 	out.WriteString(")\n")
 
 	var counterMetrics, distributionMetrics []string

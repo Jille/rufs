@@ -14,14 +14,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sgielen/rufs/client/connectivity"
-	"github.com/sgielen/rufs/client/metrics"
-	"github.com/sgielen/rufs/client/transfer/cache"
-	"github.com/sgielen/rufs/client/transfer/orchestream"
-	"github.com/sgielen/rufs/client/transfer/passive"
-	"github.com/sgielen/rufs/common"
-	"github.com/sgielen/rufs/intervals"
-	pb "github.com/sgielen/rufs/proto"
+	"github.com/Jille/rufs/client/connectivity"
+	"github.com/Jille/rufs/client/metrics"
+	"github.com/Jille/rufs/client/transfer/cache"
+	"github.com/Jille/rufs/client/transfer/orchestream"
+	"github.com/Jille/rufs/client/transfer/passive"
+	"github.com/Jille/rufs/common"
+	"github.com/Jille/rufs/intervals"
+	pb "github.com/Jille/rufs/proto"
 	"google.golang.org/grpc/status"
 )
 

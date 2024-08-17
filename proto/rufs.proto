@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/sgielen/rufs/proto";
+option go_package = "github.com/Jille/rufs/proto";
 
 service DiscoveryService {
 	// Register signs your TLS client certificate.

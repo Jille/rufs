@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sgielen/rufs/client/connectivity"
-	"github.com/sgielen/rufs/client/metrics"
-	"github.com/sgielen/rufs/common"
-	pb "github.com/sgielen/rufs/proto"
-	"github.com/sgielen/rufs/security"
+	"github.com/Jille/rufs/client/connectivity"
+	"github.com/Jille/rufs/client/metrics"
+	"github.com/Jille/rufs/common"
+	pb "github.com/Jille/rufs/proto"
+	"github.com/Jille/rufs/security"
 	"google.golang.org/grpc"
 )
 

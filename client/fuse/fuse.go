@@ -14,8 +14,8 @@ import (
 	"bazil.org/fuse/fs"
 	billybazilfuse "github.com/Jille/billy-bazilfuse"
 	"github.com/Jille/dfr"
-	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/client/vfs"
+	"github.com/Jille/rufs/client/config"
+	"github.com/Jille/rufs/client/vfs"
 )
 
 var (

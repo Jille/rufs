@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	pb "github.com/sgielen/rufs/proto"
+	pb "github.com/Jille/rufs/proto"
 )
 
 var (

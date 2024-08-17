@@ -4,9 +4,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sgielen/rufs/client/config"
-	"github.com/sgielen/rufs/common"
-	pb "github.com/sgielen/rufs/proto"
+	"github.com/Jille/rufs/client/config"
+	"github.com/Jille/rufs/common"
+	pb "github.com/Jille/rufs/proto"
 )
 
 var (

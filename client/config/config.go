@@ -11,7 +11,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sgielen/rufs/security"
+	"github.com/Jille/rufs/security"
 	yaml "gopkg.in/yaml.v2"
 )
 

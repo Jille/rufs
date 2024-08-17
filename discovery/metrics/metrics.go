@@ -3,10 +3,10 @@ package metrics
 import (
 	"net/http"
 
+	pb "github.com/Jille/rufs/proto"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	pb "github.com/sgielen/rufs/proto"
 )
 
 var (
