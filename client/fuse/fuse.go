@@ -6,15 +6,14 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	osUser "os/user"
 	"strconv"
 	"strings"
-	"time"
 
 	"bazil.org/fuse"
 	"bazil.org/fuse/fs"
 	billybazilfuse "github.com/Jille/billy-bazilfuse"
+	"github.com/Jille/dfr"
 	"github.com/sgielen/rufs/client/config"
 	"github.com/sgielen/rufs/client/vfs"
 )
@@ -57,7 +56,6 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 	options := []fuse.MountOption{
 		fuse.FSName("rufs"),
 		fuse.Subtype("rufs"),
-		fuse.VolumeName("rufs"),
 		fuse.MaxReadahead(1024 * 1024),
 		fuse.AsyncRead(),
 	}
@@ -71,32 +69,16 @@ func (f *Mount) Run(ctx context.Context) (retErr error) {
 	if err != nil {
 		return err
 	}
-	go func() {
-		<-ctx.Done()
-		select {
-		case <-conn.Ready:
-			if conn.MountError != nil {
-				return
-			}
-			if err := fuse.Unmount(f.mountpoint); err != nil {
-				log.Printf("Failed to unmount %q: %v", f.mountpoint, err)
-			}
-		case <-time.After(5 * time.Second):
-			conn.Close()
-		}
-	}()
-	fsDone := make(chan struct{})
-	defer close(fsDone)
-	defer func() {
-		if err := conn.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-	}()
+	var d dfr.D
+	defer d.Run(&retErr)
+	d.AddErr(conn.Close)
+	d.AddErr(func() error {
+		return fuse.Unmount(f.mountpoint)
+	})
 	if err := fs.Serve(conn, billybazilfuse.New(vfs.GetFilesystem(), f.callHook)); err != nil {
 		return err
 	}
-	<-conn.Ready
-	return conn.MountError
+	return nil
 }
 
 func (f *Mount) callHook(ctx context.Context, req fuse.Request) error {
