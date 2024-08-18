@@ -15,6 +15,7 @@ require (
 	github.com/Jille/rpcz v0.3.0
 	github.com/billziss-gh/cgofuse v1.5.0
 	github.com/cenkalti/backoff/v4 v4.3.0
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/getlantern/systray v1.2.2
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/golang/protobuf v1.5.4
@@ -27,6 +28,7 @@ require (
 	github.com/prometheus/client_golang v1.12.2
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/yookoala/realpath v1.0.0
+	golang.org/x/oauth2 v0.21.0
 	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
@@ -44,6 +46,7 @@ require (
 	github.com/getlantern/hex v0.0.0-20220104173244-ad7e4b9194dc // indirect
 	github.com/getlantern/hidden v0.0.0-20220104173330-f221c5a24770 // indirect
 	github.com/getlantern/ops v0.0.0-20231025133620-f368ab734534 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.2 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
@@ -60,6 +63,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.28.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/crypto v0.26.0 // indirect
 	golang.org/x/net v0.28.0 // indirect
 	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
