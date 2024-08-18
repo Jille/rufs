@@ -42,6 +42,15 @@ export class RufsService {
     return body.Version;
   }
 
+  public static async getHostname(): Promise<string> {
+    const rq = await fetch('/api/hostname');
+    if (!rq.ok) {
+      throw new Error('Failed retrieving config: ' + await rqToError(rq));
+    }
+    const body = await rq.json();
+    return body.Hostname;
+  }
+
   public static async getConfig(): Promise<RufsConfig> {
     const rq = await fetch('/api/config');
     if (!rq.ok) {

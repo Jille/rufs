@@ -22,6 +22,10 @@
           </tr>
         </tbody>
       </table>
+      <div>
+        <p>Or use OIDC if your provider is listed here:</p>
+        <a :href="hashruIDM"><img src="https://idm.hashru.nl/pkg/img/logo-square.svg" width="60" /></a>
+      </div>
       <div class="buttons">
         <p>rufs {{version }}</p>
         <button type="button" class="btn btn-primary" v-on:click="addCircle" v-bind:disabled="!canAddCircle()">
@@ -133,11 +137,23 @@ export default class AddCircleWizard extends Vue {
   private token = "";
   private ca = "";
 
+  private hostname = "";
+
   private stage = 0;
   private error = "";
   private shares: ShareLocalPath[] = [];
 
   private closeFailed = false;
+
+  private async beforeMount() {
+    const urlParams = new URLSearchParams(window.location.search);
+    this.circle = urlParams.get('circle') || '';
+    this.user = urlParams.get('username') || '';
+    this.token = urlParams.get('token') || '';
+    this.ca = urlParams.get('fingerprint') || '';
+
+    RufsService.getHostname().then((h) => { this.hostname = h}).catch(() => {});
+  }
 
   public canAddCircle(): boolean {
     return !!this.circle && !!this.user && !!this.token && !!this.ca;
@@ -209,6 +225,10 @@ export default class AddCircleWizard extends Vue {
       this.closeFailed = true;
       window.close();
     }, 2000);
+  }
+
+  get hashruIDM() {
+    return 'https://rufs.hashru.nl/?hostname=' + encodeURIComponent(this.hostname) +'&return_url=' + encodeURIComponent(location.href);
   }
 }
 </script>

@@ -11,6 +11,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -58,6 +59,7 @@ func Init(addr string) {
 	}
 
 	http.Handle("/api/version", convreq.Wrap(renderVersion, convreq.WithErrorHandler(errorHandler)))
+	http.Handle("/api/hostname", convreq.Wrap(renderHostname, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/config", convreq.Wrap(renderConfig, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/register", convreq.Wrap(registerCircle, convreq.WithErrorHandler(errorHandler)))
 	http.Handle("/api/shares_in_circle", convreq.Wrap(sharesInCircle, convreq.WithErrorHandler(errorHandler)))
@@ -148,6 +150,15 @@ func renderVersion(ctx context.Context, req *http.Request) convreq.HttpResponse 
 		Version string
 	}
 	return respondJSON(Res{true, version.GetVersion()})
+}
+
+func renderHostname(ctx context.Context, req *http.Request) convreq.HttpResponse {
+	type Res struct {
+		Ok       bool
+		Hostname string
+	}
+	h, err := os.Hostname()
+	return respondJSON(Res{err == nil, h})
 }
 
 func renderConfig(ctx context.Context, req *http.Request) convreq.HttpResponse {
