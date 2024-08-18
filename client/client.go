@@ -77,7 +77,9 @@ func main() {
 
 	if len(circles) == 0 {
 		address := fmt.Sprintf("http://127.0.0.1:%d/", *httpPort)
-		go browser.OpenURL(address)
+		if runtime.GOOS == "windows" || os.Getenv("DISPLAY") != "" {
+			go browser.OpenURL(address)
+		}
 		log.Printf("no circles configured - visit %s to start rufs configuration.", address)
 	}
 
